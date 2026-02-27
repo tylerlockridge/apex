@@ -16,11 +16,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import com.healthplatform.sync.ui.theme.ApexOnSurfaceVariant
 import com.healthplatform.sync.ui.theme.ApexOutline
 import com.healthplatform.sync.ui.theme.ApexPrimary
 import com.healthplatform.sync.ui.theme.ApexSecondary
+import com.healthplatform.sync.ui.theme.ApexSleepLight
 import com.healthplatform.sync.ui.theme.ApexSurfaceVariant
 
 data class SleepBar(
@@ -33,7 +33,7 @@ data class SleepBar(
 
 private val ColorDeep = ApexPrimary           // teal
 private val ColorRem = ApexSecondary          // blue
-private val ColorLight = Color(0xFF3D4451)    // mid-grey — distinct from card background
+private val ColorLight = ApexSleepLight        // blue-tinted mid-tone for light sleep
 private val ColorAwake = ApexOutline          // outline grey
 
 /**

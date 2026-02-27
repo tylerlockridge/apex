@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.healthplatform.sync.ui.charts.SparklineChart
 import com.healthplatform.sync.ui.theme.*
+import com.healthplatform.sync.ui.util.rememberApexHaptic
 import java.util.concurrent.TimeUnit
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,7 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val haptic = rememberApexHaptic()
     var isRefreshing by remember { mutableStateOf(false) }
 
     // Load prefs each time the screen becomes active
@@ -78,11 +80,11 @@ fun DashboardScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = ApexBackground,
+        containerColor = Color.Transparent,
         floatingActionButton = {
             SyncFab(
                 isSyncing = state.isSyncing,
-                onSync = { viewModel.triggerSync(context) }
+                onSync = { haptic.confirm(); viewModel.triggerSync(context) }
             )
         }
     ) { innerPadding ->
@@ -96,7 +98,6 @@ fun DashboardScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(ApexBackground)
                     .verticalScroll(rememberScrollState())
                     .statusBarsPadding()
                     .padding(horizontal = 16.dp)
@@ -106,7 +107,7 @@ fun DashboardScreen(
                 DashboardHeader()
                 SyncStatusCard(
                     state = state,
-                    onSyncNow = { viewModel.triggerSync(context) }
+                    onSyncNow = { haptic.click(); viewModel.triggerSync(context) }
                 )
 
                 Text(
@@ -179,11 +180,11 @@ fun DashboardScreen(
 
                 HealthConnectStatusCard(
                     state = state,
-                    onRequestPermissions = onRequestPermissions
+                    onRequestPermissions = { haptic.click(); onRequestPermissions() }
                 )
                 QuickActionsRow(
-                    onSyncBp = { viewModel.triggerBpSync(context) },
-                    onSyncSleep = { viewModel.triggerSleepSync(context) }
+                    onSyncBp = { haptic.click(); viewModel.triggerBpSync(context) },
+                    onSyncSleep = { haptic.click(); viewModel.triggerSleepSync(context) }
                 )
             }
         }

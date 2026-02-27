@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.healthplatform.sync.ui.theme.*
+import com.healthplatform.sync.ui.util.rememberApexHaptic
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -39,6 +40,7 @@ fun ActivityScreen(
     viewModel: ActivityViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val haptic = rememberApexHaptic()
     var isRefreshing by remember { mutableStateOf(false) }
 
     PullToRefreshBox(
@@ -48,9 +50,7 @@ fun ActivityScreen(
             viewModel.refresh()
             isRefreshing = false
         },
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ApexBackground)
+        modifier = Modifier.fillMaxSize()
     ) {
         Column(
             modifier = Modifier
@@ -86,7 +86,7 @@ fun ActivityScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedButton(
-                            onClick = { viewModel.refresh() },
+                            onClick = { haptic.reject(); viewModel.refresh() },
                             border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
                         ) {
@@ -230,11 +230,12 @@ private fun SummaryStatItem(
 @Composable
 private fun WorkoutCard(workout: WorkoutSession) {
     var expanded by remember { mutableStateOf(false) }
+    val haptic = rememberApexHaptic()
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded },
+            .clickable { haptic.click(); expanded = !expanded },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = ApexSurfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

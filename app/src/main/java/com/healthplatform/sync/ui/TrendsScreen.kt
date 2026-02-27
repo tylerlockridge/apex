@@ -1,5 +1,10 @@
 package com.healthplatform.sync.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,6 +16,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,6 +26,8 @@ import com.healthplatform.sync.ui.charts.LineChart
 import com.healthplatform.sync.ui.charts.SleepBar
 import com.healthplatform.sync.ui.charts.StackedBarChart
 import com.healthplatform.sync.ui.theme.*
+import com.healthplatform.sync.ui.util.rememberApexHaptic
+import com.healthplatform.sync.ui.util.shimmer
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -33,11 +41,11 @@ fun TrendsScreen(
     viewModel: TrendsViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val haptic = rememberApexHaptic()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ApexBackground)
             .statusBarsPadding()
             .padding(horizontal = 16.dp)
             .padding(top = 16.dp, bottom = 24.dp)
@@ -66,7 +74,7 @@ fun TrendsScreen(
             tabLabels.forEachIndexed { index, label ->
                 Tab(
                     selected = state.selectedTab == index,
-                    onClick = { viewModel.selectTab(index) },
+                    onClick = { haptic.tick(); viewModel.selectTab(index) },
                     text = {
                         Text(
                             text = label,
@@ -83,10 +91,23 @@ fun TrendsScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             when {
                 state.isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = ApexPrimary
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .shimmer()
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
                 state.error != null -> {
                     ErrorCard(
@@ -102,10 +123,21 @@ fun TrendsScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        when (state.selectedTab) {
-                            0 -> BpTabContent(state, viewModel)
-                            1 -> SleepTabContent(state, viewModel)
-                            2 -> BodyTabContent(state, viewModel)
+                        AnimatedContent(
+                            targetState = state.selectedTab,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(200)) togetherWith
+                                    fadeOut(animationSpec = tween(150))
+                            },
+                            label = "tab_content"
+                        ) { tab ->
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                when (tab) {
+                                    0 -> BpTabContent(state, viewModel)
+                                    1 -> SleepTabContent(state, viewModel)
+                                    2 -> BodyTabContent(state, viewModel)
+                                }
+                            }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -124,12 +156,13 @@ private fun RangeSelector(
     selectedDays: Int,
     onSelect: (Int) -> Unit
 ) {
+    val haptic = rememberApexHaptic()
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(7, 30, 90).forEach { days ->
             val selected = selectedDays == days
             FilterChip(
                 selected = selected,
-                onClick = { onSelect(days) },
+                onClick = { haptic.tick(); onSelect(days) },
                 label = { Text(if (days == 90) "90d" else "${days}d") },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = ApexPrimary.copy(alpha = 0.2f),
@@ -284,7 +317,7 @@ private fun SleepTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             LegendDot("Deep", ApexPrimary)
             LegendDot("REM", ApexSecondary)
-            LegendDot("Light", Color(0xFF3D4451))
+            LegendDot("Light", ApexSleepLight)
             LegendDot("Awake", ApexOutline)
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -470,6 +503,7 @@ private fun EmptyState(message: String) {
 
 @Composable
 private fun ErrorCard(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    val haptic = rememberApexHaptic()
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -484,7 +518,7 @@ private fun ErrorCard(message: String, onRetry: () -> Unit, modifier: Modifier =
             Text(text = message, style = MaterialTheme.typography.bodyMedium, color = ApexStatusRed)
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedButton(
-                onClick = onRetry,
+                onClick = { haptic.click(); onRetry() },
                 border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
             ) {

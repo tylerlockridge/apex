@@ -2,6 +2,7 @@ package com.healthplatform.sync.ui
 
 import android.content.Context
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +30,7 @@ import com.healthplatform.sync.data.HealthConnectReader
 import com.healthplatform.sync.security.BiometricLockManager
 import com.healthplatform.sync.service.SyncWorker
 import com.healthplatform.sync.ui.theme.*
+import com.healthplatform.sync.ui.util.rememberApexHaptic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -48,6 +50,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    val haptic = rememberApexHaptic()
     val prefs = remember { context.getSharedPreferences("health_sync", Context.MODE_PRIVATE) }
     val biometricManager = remember { BiometricLockManager(context) }
 
@@ -106,7 +109,7 @@ fun SettingsScreen(
                 }
             )
         },
-        containerColor = ApexBackground
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -140,6 +143,7 @@ fun SettingsScreen(
                     Switch(
                         checked = autoSyncEnabled,
                         onCheckedChange = { enabled ->
+                            haptic.tick()
                             autoSyncEnabled = enabled
                             prefs.edit().putBoolean("auto_sync", enabled).apply()
                             if (enabled) SyncWorker.schedule(context) else SyncWorker.cancel(context)
@@ -183,6 +187,7 @@ fun SettingsScreen(
 
                 Button(
                     onClick = {
+                        haptic.confirm()
                         SyncWorker.runOnce(context)
                         lastSyncMs = System.currentTimeMillis()
                         scope.launch { snackbarHostState.showSnackbar("Sync started") }
@@ -216,6 +221,7 @@ fun SettingsScreen(
                     Switch(
                         checked = biometricEnabled,
                         onCheckedChange = { enabled ->
+                            haptic.tick()
                             biometricEnabled = enabled
                             biometricManager.setEnabled(enabled)
                             scope.launch {
@@ -236,7 +242,7 @@ fun SettingsScreen(
                 if (biometricEnabled && onLock != null) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
                     OutlinedButton(
-                        onClick = { onLock() },
+                        onClick = { haptic.click(); onLock() },
                         modifier = Modifier.fillMaxWidth(),
                         border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
@@ -333,13 +339,14 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = {
+                        haptic.click()
                         prefs.edit().putString("api_key", apiKey).apply()
                         scope.launch { snackbarHostState.showSnackbar("API key saved — restart app to apply") }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = ApexPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = ApexPrimary, contentColor = ApexOnPrimary)
                 ) {
-                    Text("Save API Key", color = ApexBackground)
+                    Text("Save API Key")
                 }
             }
 

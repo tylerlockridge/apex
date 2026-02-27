@@ -5,6 +5,7 @@ import android.os.SystemClock
 import androidx.activity.compose.setContent
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -15,10 +16,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.healthplatform.sync.ui.util.rememberApexHaptic
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.health.connect.client.PermissionController
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -220,67 +223,79 @@ private fun LockScreen(onAuthenticate: () -> Unit) {
 @Composable
 private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
     val navController = rememberNavController()
+    val haptic = rememberApexHaptic()
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = ApexBackground,
-        bottomBar = {
-            NavigationBar(
-                containerColor = ApexSurface,
-                contentColor = ApexOnSurface,
-                tonalElevation = 0.dp
-            ) {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ApexBackground)
+    ) {
+        ApexWatermarkCanvas(modifier = Modifier.fillMaxSize())
 
-                destinations.forEach { dest ->
-                    val selected = currentDestination?.hierarchy?.any { it.route == dest.route } == true
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            navController.navigate(dest.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            bottomBar = {
+                NavigationBar(
+                    containerColor = ApexSurface,
+                    contentColor = ApexOnSurface,
+                    tonalElevation = 0.dp
+                ) {
+                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentDestination = navBackStackEntry?.destination
+
+                    destinations.forEach { dest ->
+                        val selected = currentDestination?.hierarchy?.any { it.route == dest.route } == true
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                haptic.tick()
+                                navController.navigate(dest.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = dest.icon,
-                                contentDescription = dest.label
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = dest.icon,
+                                    contentDescription = dest.label
+                                )
+                            },
+                            label = { Text(dest.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = ApexPrimary,
+                                selectedTextColor = ApexPrimary,
+                                unselectedIconColor = ApexOnSurfaceVariant,
+                                unselectedTextColor = ApexOnSurfaceVariant,
+                                indicatorColor = ApexSurfaceVariant
                             )
-                        },
-                        label = { Text(dest.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = ApexPrimary,
-                            selectedTextColor = ApexPrimary,
-                            unselectedIconColor = ApexOnSurfaceVariant,
-                            unselectedTextColor = ApexOnSurfaceVariant,
-                            indicatorColor = ApexSurfaceVariant
                         )
-                    )
+                    }
                 }
             }
-        }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Destination.Dashboard.route,
-            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
-        ) {
-            composable(Destination.Dashboard.route) {
-                DashboardScreen(onRequestPermissions = onRequestPermissions)
-            }
-            composable(Destination.Trends.route) {
-                TrendsScreen()
-            }
-            composable(Destination.Activity.route) {
-                ActivityScreen()
-            }
-            composable(Destination.Settings.route) {
-                SettingsScreen(onRequestPermissions = onRequestPermissions, onLock = onLock)
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = Destination.Dashboard.route,
+                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
+                enterTransition = { fadeIn(animationSpec = tween(200)) },
+                exitTransition = { fadeOut(animationSpec = tween(150)) }
+            ) {
+                composable(Destination.Dashboard.route) {
+                    DashboardScreen(onRequestPermissions = onRequestPermissions)
+                }
+                composable(Destination.Trends.route) {
+                    TrendsScreen()
+                }
+                composable(Destination.Activity.route) {
+                    ActivityScreen()
+                }
+                composable(Destination.Settings.route) {
+                    SettingsScreen(onRequestPermissions = onRequestPermissions, onLock = onLock)
+                }
             }
         }
     }

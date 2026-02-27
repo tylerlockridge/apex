@@ -4,6 +4,9 @@
 
     <!-- Internet for API sync -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Haptic feedback — required for VibrationEffect.Composition (sync events) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Biometric authentication -->
