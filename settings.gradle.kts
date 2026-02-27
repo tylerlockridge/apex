@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "HealthPlatformSync"
+rootProject.name = "Apex"
 include(":app")

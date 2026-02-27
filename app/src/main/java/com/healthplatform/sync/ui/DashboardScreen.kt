@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -97,8 +98,9 @@ fun DashboardScreen(
                     .fillMaxSize()
                     .background(ApexBackground)
                     .verticalScroll(rememberScrollState())
+                    .statusBarsPadding()
                     .padding(horizontal = 16.dp)
-                    .padding(top = 56.dp, bottom = 24.dp),
+                    .padding(top = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 DashboardHeader()

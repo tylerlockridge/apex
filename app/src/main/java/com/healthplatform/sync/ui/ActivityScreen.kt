@@ -9,9 +9,11 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -39,21 +41,24 @@ fun ActivityScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var isRefreshing by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isRefreshing) {
-        if (isRefreshing) {
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            isRefreshing = true
             viewModel.refresh()
-            kotlinx.coroutines.delay(1000)
             isRefreshing = false
-        }
-    }
-
-    Column(
+        },
         modifier = Modifier
             .fillMaxSize()
             .background(ApexBackground)
-            .padding(horizontal = 16.dp)
-            .padding(top = 56.dp, bottom = 24.dp)
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp)
+                .padding(top = 16.dp, bottom = 24.dp)
+        ) {
         Text(
             text = "Activity",
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
@@ -139,7 +144,8 @@ fun ActivityScreen(
                 }
             }
         }
-    }
+        } // Column
+    } // PullToRefreshBox
 }
 
 // ---------------------------------------------------------------------------

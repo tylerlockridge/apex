@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -37,8 +38,9 @@ fun TrendsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(ApexBackground)
+            .statusBarsPadding()
             .padding(horizontal = 16.dp)
-            .padding(top = 56.dp, bottom = 24.dp)
+            .padding(top = 16.dp, bottom = 24.dp)
     ) {
         Text(
             text = "Trends",
@@ -47,8 +49,8 @@ fun TrendsScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Sub-tab row: BP | Sleep | Body | Activity
-        val tabLabels = listOf("BP", "Sleep", "Body", "Activity")
+        // Sub-tab row: BP | Sleep | Body
+        val tabLabels = listOf("BP", "Sleep", "Body")
         ScrollableTabRow(
             selectedTabIndex = state.selectedTab,
             containerColor = ApexSurface,
@@ -104,7 +106,6 @@ fun TrendsScreen(
                             0 -> BpTabContent(state, viewModel)
                             1 -> SleepTabContent(state, viewModel)
                             2 -> BodyTabContent(state, viewModel)
-                            3 -> ActivityTabHint()
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -390,24 +391,6 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
             "Rate/wk" to if (ratePerWeek != null) "%+.2f kg".format(ratePerWeek) else "—"
         )
     )
-}
-
-// ---------------------------------------------------------------------------
-// Activity Tab hint (workouts shown on Activity screen)
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun ActivityTabHint() {
-    Box(
-        modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Switch to the Activity tab below to view workouts",
-            style = MaterialTheme.typography.bodyMedium,
-            color = ApexOnSurfaceVariant
-        )
-    }
 }
 
 // ---------------------------------------------------------------------------

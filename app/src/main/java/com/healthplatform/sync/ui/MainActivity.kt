@@ -116,7 +116,10 @@ class MainActivity : FragmentActivity() {
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
-                    ApexApp(onRequestPermissions = { requestHealthConnectPermissions() })
+                    ApexApp(
+                        onRequestPermissions = { requestHealthConnectPermissions() },
+                        onLock = { isAuthenticated = false }
+                    )
                 }
             }
         }
@@ -215,7 +218,7 @@ private fun LockScreen(onAuthenticate: () -> Unit) {
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun ApexApp(onRequestPermissions: () -> Unit) {
+private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
     val navController = rememberNavController()
 
     Scaffold(
@@ -277,7 +280,7 @@ private fun ApexApp(onRequestPermissions: () -> Unit) {
                 ActivityScreen()
             }
             composable(Destination.Settings.route) {
-                SettingsScreen(onRequestPermissions = onRequestPermissions)
+                SettingsScreen(onRequestPermissions = onRequestPermissions, onLock = onLock)
             }
         }
     }

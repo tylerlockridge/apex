@@ -28,6 +28,7 @@ import com.healthplatform.sync.ui.theme.ApexOnSurface
 import com.healthplatform.sync.ui.theme.ApexOnSurfaceVariant
 import com.healthplatform.sync.ui.theme.ApexOutline
 import com.healthplatform.sync.ui.theme.ApexPrimary
+import com.healthplatform.sync.ui.theme.ApexSurfaceVariant
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -246,7 +247,7 @@ fun LineChart(
                     val tooltipY = (y - tooltipH - 12f).coerceAtLeast(chartTop)
 
                     drawRoundRect(
-                        color = Color(0xFF1C2128),
+                        color = ApexSurfaceVariant,
                         topLeft = Offset(tooltipX, tooltipY),
                         size = Size(tooltipW, tooltipH),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f, 8f)

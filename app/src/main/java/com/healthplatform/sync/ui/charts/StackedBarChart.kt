@@ -31,10 +31,10 @@ data class SleepBar(
     val awakeMin: Int
 )
 
-private val ColorDeep = ApexPrimary        // teal
-private val ColorRem = ApexSecondary       // blue
-private val ColorLight = ApexSurfaceVariant // dark surface variant
-private val ColorAwake = ApexOutline       // outline grey
+private val ColorDeep = ApexPrimary           // teal
+private val ColorRem = ApexSecondary          // blue
+private val ColorLight = Color(0xFF3D4451)    // mid-grey — distinct from card background
+private val ColorAwake = ApexOutline          // outline grey
 
 /**
  * Stacked bar chart for sleep stages per night.

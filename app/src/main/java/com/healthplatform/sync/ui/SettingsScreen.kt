@@ -2,6 +2,7 @@ package com.healthplatform.sync.ui
 
 import android.content.Context
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,7 +29,9 @@ import com.healthplatform.sync.data.HealthConnectReader
 import com.healthplatform.sync.security.BiometricLockManager
 import com.healthplatform.sync.service.SyncWorker
 import com.healthplatform.sync.ui.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,6 +42,7 @@ import java.util.*
 @Composable
 fun SettingsScreen(
     onRequestPermissions: () -> Unit,
+    onLock: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -71,17 +75,20 @@ fun SettingsScreen(
         }
 
         // Ping server using stored API key
-        try {
-            val storedKey = prefs.getString("api_key", "") ?: ""
-            val url = java.net.URL("${com.healthplatform.sync.Config.SERVER_URL}/api/bp?days=1")
-            val conn = url.openConnection() as java.net.HttpURLConnection
-            conn.setRequestProperty("Authorization", "Bearer $storedKey")
-            conn.connectTimeout = 4000
-            conn.readTimeout = 4000
-            serverStatus = conn.responseCode in 200..299
-            conn.disconnect()
-        } catch (e: Exception) {
-            serverStatus = false
+        serverStatus = withContext(Dispatchers.IO) {
+            try {
+                val storedKey = prefs.getString("api_key", "") ?: ""
+                val url = java.net.URL("${com.healthplatform.sync.Config.SERVER_URL}/api/bp?days=1")
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.setRequestProperty("Authorization", "Bearer $storedKey")
+                conn.connectTimeout = 4000
+                conn.readTimeout = 4000
+                val ok = conn.responseCode in 200..299
+                conn.disconnect()
+                ok
+            } catch (e: Exception) {
+                false
+            }
         }
     }
 
@@ -106,8 +113,9 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp)
-                .padding(top = 56.dp, bottom = 24.dp),
+                .padding(top = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
@@ -225,26 +233,13 @@ fun SettingsScreen(
                     )
                 }
 
-                if (biometricEnabled) {
+                if (biometricEnabled && onLock != null) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
                     OutlinedButton(
-                        onClick = {
-                            val activity = context as? FragmentActivity
-                            if (activity != null) {
-                                biometricManager.authenticate(
-                                    activity = activity,
-                                    onSuccess = {
-                                        scope.launch { snackbarHostState.showSnackbar("Authenticated successfully") }
-                                    },
-                                    onError = { msg ->
-                                        scope.launch { snackbarHostState.showSnackbar(msg) }
-                                    }
-                                )
-                            }
-                        },
+                        onClick = { onLock() },
                         modifier = Modifier.fillMaxWidth(),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, ApexOutline),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexOnSurface)
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
                     ) {
                         Icon(imageVector = Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))

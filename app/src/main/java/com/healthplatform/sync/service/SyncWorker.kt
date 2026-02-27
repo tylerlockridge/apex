@@ -21,7 +21,8 @@ class SyncWorker(
             val prefs = applicationContext.getSharedPreferences("health_sync", Context.MODE_PRIVATE)
 
             val reader = HealthConnectReader(applicationContext)
-            val api = ApiService(Config.SERVER_URL, Config.DEVICE_SECRET, "")
+            val apiKey = prefs.getString("api_key", "") ?: ""
+            val api = ApiService(Config.SERVER_URL, Config.DEVICE_SECRET, apiKey)
 
             // Read data from the last 30 days to ensure recent values are always shown
             val since = Instant.now().minus(30, ChronoUnit.DAYS)
