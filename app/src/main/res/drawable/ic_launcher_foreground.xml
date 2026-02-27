@@ -1,13 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Apex icon — mountain peak that reads as the letter A.
+    Safe zone: 21–87 on both axes. All paths within bounds.
+    Glow layers (40% white, 2× stroke width) sit beneath the solid white strokes
+    to give the mark a soft luminous quality against the dark gradient background.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Glow: chevron arms (A outer strokes) -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,30 L54,54 L70,54 L70,58 L50,58 L50,30 Z"/>
+        android:pathData="M34,76 L54,30 L74,76"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#40FFFFFF"
+        android:strokeWidth="16"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Glow: crossbar (A crossbar) -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,24 C37.4,24 24,37.4 24,54 C24,70.6 37.4,84 54,84 C70.6,84 84,70.6 84,54 C84,37.4 70.6,24 54,24 Z M54,78 C40.7,78 30,67.3 30,54 C30,40.7 40.7,30 54,30 C67.3,30 78,40.7 78,54 C78,67.3 67.3,78 54,78 Z"/>
+        android:pathData="M42,58 L66,58"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#40FFFFFF"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
+
+    <!-- Main: chevron arms -->
+    <path
+        android:pathData="M34,76 L54,30 L74,76"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Main: crossbar -->
+    <path
+        android:pathData="M42,58 L66,58"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round" />
+
 </vector>
