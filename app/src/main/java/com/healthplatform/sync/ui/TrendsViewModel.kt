@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 // ---------------------------------------------------------------------------
 // Domain models
@@ -41,7 +42,7 @@ data class BodyMeasurement(
 // ---------------------------------------------------------------------------
 
 data class TrendsState(
-    val selectedTab: Int = 0,          // 0=BP, 1=Sleep, 2=Body, 3=Activity
+    val selectedTab: Int = 0,          // 0=BP, 1=Sleep, 2=Body
     val selectedRange: Int = 7,        // 7, 30, or 90 days
     val bpReadings: List<BpReading> = emptyList(),
     val sleepSessions: List<SleepSession> = emptyList(),
@@ -85,7 +86,6 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
             0 -> loadBp(days)
             1 -> loadSleep(days)
             2 -> loadBody(days)
-            // Tab 3 (Activity) is handled by ActivityViewModel
         }
     }
 
@@ -102,10 +102,7 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
                 },
                 onFailure = { e ->
                     _state.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Could not load BP data: ${e.message}"
-                        )
+                        it.copy(isLoading = false, error = e.toFriendlyMessage())
                     }
                 }
             )
@@ -134,10 +131,7 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
                 },
                 onFailure = { e ->
                     _state.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Could not load sleep data: ${e.message}"
-                        )
+                        it.copy(isLoading = false, error = e.toFriendlyMessage())
                     }
                 }
             )
@@ -163,10 +157,7 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
                 },
                 onFailure = { e ->
                     _state.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Could not load body data: ${e.message}"
-                        )
+                        it.copy(isLoading = false, error = e.toFriendlyMessage())
                     }
                 }
             )
@@ -176,4 +167,14 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
     init {
         loadBp()
     }
+}
+
+// Shared across ViewModels in this package
+internal fun Throwable.toFriendlyMessage(): String = when {
+    this is java.net.SocketTimeoutException -> "Server unreachable — check your connection"
+    this is java.net.ConnectException -> "Cannot connect to server"
+    this is java.net.UnknownHostException -> "No network connection"
+    this is HttpException && code() == 401 -> "Not authorized — check your API key"
+    this is HttpException -> "Server error (${code()})"
+    else -> "Server unreachable — try again"
 }

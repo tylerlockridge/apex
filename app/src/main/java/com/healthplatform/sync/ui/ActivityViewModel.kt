@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 // ---------------------------------------------------------------------------
 // Domain models
@@ -91,10 +92,7 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
                 },
                 onFailure = { e ->
                     _state.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Could not load workouts: ${e.message}"
-                        )
+                        it.copy(isLoading = false, error = e.toFriendlyMessage())
                     }
                 }
             )
