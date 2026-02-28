@@ -1,0 +1,32 @@
+{
+  "date": "2026-02-28",
+  "provider": "combined",
+  "providers": {
+    "codex": {
+      "overall": 4,
+      "scores": { "architecture": 5, "codeQuality": 6, "testing": 1, "security": 3, "performance": 5, "documentation": 4 },
+      "findingCount": { "critical": 1, "high": 3, "medium": 5, "low": 4 }
+    },
+    "gemini": {
+      "overall": 3,
+      "scores": { "architecture": 4, "codeQuality": 5, "testing": 1, "security": 2, "performance": 5, "documentation": 3 },
+      "findingCount": { "critical": 4, "high": 2, "medium": 2, "low": 1 }
+    },
+    "monica": {
+      "overall": 4,
+      "scores": { "architecture": 6, "codeQuality": 5, "testing": 1, "security": 2, "performance": 6, "documentation": 3 },
+      "findingCount": { "critical": 3, "high": 4, "medium": 5, "low": 4 }
+    }
+  },
+  "scores": {
+    "architecture": 5.0,
+    "codeQuality": 5.4,
+    "testing": 1.0,
+    "security": 2.4,
+    "performance": 5.3,
+    "documentation": 3.4
+  },
+  "overall": 3.8,
+  "weightedOverall": 3.8,
+  "notes": "Codex weight 1.5x (full repo access). Gemini/Monica 1.0x each. Codex corrected two browser-provider errors: logging level is BASIC (not BODY), and SyncWorker already has Result.retry() + exponential backoff configured."
+}

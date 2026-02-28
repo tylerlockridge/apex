@@ -60,7 +60,7 @@ class ApiService(baseUrl: String, private val deviceSecret: String, private val 
             )
             val response = api.syncData(request)
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                Result.success(response.body() ?: throw Exception("Empty sync response body"))
             } else {
                 Result.failure(Exception("Sync failed: ${response.code()}"))
             }
@@ -78,7 +78,7 @@ class ApiService(baseUrl: String, private val deviceSecret: String, private val 
             )
             val response = api.syncData(request)
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                Result.success(response.body() ?: throw Exception("Empty sync response body"))
             } else {
                 Result.failure(Exception("Sync failed: ${response.code()}"))
             }
@@ -96,7 +96,7 @@ class ApiService(baseUrl: String, private val deviceSecret: String, private val 
             )
             val response = api.syncData(request)
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                Result.success(response.body() ?: throw Exception("Empty sync response body"))
             } else {
                 Result.failure(Exception("Sync failed: ${response.code()}"))
             }

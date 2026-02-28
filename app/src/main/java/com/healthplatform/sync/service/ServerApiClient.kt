@@ -1,5 +1,6 @@
 package com.healthplatform.sync.service
 
+import com.healthplatform.sync.BuildConfig
 import com.healthplatform.sync.Config
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -104,10 +105,6 @@ class ServerApiClient(private val apiKey: String) {
     private val api: ServerReadApi
 
     init {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
-        }
-
         val client = OkHttpClient.Builder()
             .addInterceptor(Interceptor { chain ->
                 val request = chain.request().newBuilder()
@@ -115,7 +112,13 @@ class ServerApiClient(private val apiKey: String) {
                     .build()
                 chain.proceed(request)
             })
-            .addInterceptor(loggingInterceptor)
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    addInterceptor(HttpLoggingInterceptor().apply {
+                        level = HttpLoggingInterceptor.Level.BASIC
+                    })
+                }
+            }
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
             .build()

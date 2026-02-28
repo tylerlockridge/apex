@@ -1,6 +1,7 @@
 package com.healthplatform.sync.security
 
 import android.content.Context
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -47,6 +48,7 @@ class BiometricLockManager(private val context: Context) {
             .setTitle("Apex Health")
             .setSubtitle("Authenticate to access your health data")
             .setNegativeButtonText("Cancel")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
             .build()
 
         biometricPrompt.authenticate(promptInfo)
