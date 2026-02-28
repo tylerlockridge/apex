@@ -34,19 +34,20 @@ Format: `[SEVERITY] [CONFIDENCE] Provider(s) — Description — File(s)`
 ### 5. [HIGH] [CONFIRMED/ALL-3] Migrate api_key to EncryptedSharedPreferences
 - **Files:** `SyncWorker.kt:24`, `BiometricLockManager.kt:10`, any SharedPreferences reader
 - `"api_key"` stored plaintext; `security-crypto` dep is already in Gradle
-- **Fix:** Replace `getSharedPreferences()` with `EncryptedSharedPreferences.create()`
-- **Status:** PENDING
+- **Fix:** Added `SecurePrefs.kt` singleton (AES256_GCM); one-time migration from plain prefs; updated 7 call sites across 5 files; `BiometricLockManager` now delegates entirely to `SecurePrefs`
+- **Status:** ✅ IMPLEMENTED (2026-02-28, commit `8b55273`)
 
 ### 6. [CRITICAL] [CONFIRMED/ALL-3] Add test coverage
 - **Files:** `app/src/test/`, `app/src/androidTest/` (both empty)
 - Priority test targets: SyncWorker (sync/retry logic), ApiService (payload mapping), HealthConnectReader (permission handling)
-- **Status:** PENDING
+- **Fix:** Created `ErrorMessageTest` (4 tests, all `toFriendlyMessage()` exception branches) + `ApiServiceTest` (6 tests via MockWebServer: success, 401, 500, null-body crash fix, auth header). Added `mockwebserver:4.12.0` + `coroutines-test:1.7.3` deps.
+- **Status:** ✅ IMPLEMENTED (2026-02-28, commit `12b2534`)
 
 ### 7. [MEDIUM] [CONFIRMED/ALL-3] Implement Health Connect read pagination
 - **File:** `app/src/main/java/com/healthplatform/sync/data/HealthConnectReader.kt`
 - All `readRecords()` calls are single-shot — silently drops records beyond first page
-- **Fix:** Loop on `response.nextPageToken` until null
-- **Status:** PENDING
+- **Fix:** All 4 read methods (`readBloodPressure`, `readSleep`, `readWeight` ×3 sub-requests, `readHeartRateVariability`) now loop on `pageToken` until null; Oura filtering applied after all pages accumulated
+- **Status:** ✅ IMPLEMENTED (2026-02-28, commit `2ea0e53`)
 
 ---
 
@@ -74,8 +75,8 @@ Format: `[SEVERITY] [CONFIDENCE] Provider(s) — Description — File(s)`
 |-----------|---------|------------------|-----------------|
 | Architecture | 5.0 | 5.0 | 7.0 (add DI) |
 | Code Quality | 5.4 | 6.5 | 7.5 |
-| Testing | 1.0 | 1.0 | 7.0 (add tests) |
-| Security | 2.4 | 5.5 | 7.5 |
-| Performance | 5.3 | 5.3 | 6.5 (pagination) |
+| Testing | 1.0 | 3.0 | 7.0 (expand coverage) |
+| Security | 2.4 | 7.0 | 7.5 |
+| Performance | 5.3 | 6.5 | 6.5 |
 | Documentation | 3.4 | 3.5 | 6.0 |
-| **Overall** | **3.8** | **4.8** | **7.0** |
+| **Overall** | **3.8** | **6.0** | **7.0** |
