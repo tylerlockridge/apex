@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.*
 import com.healthplatform.sync.Config
 import com.healthplatform.sync.data.HealthConnectReader
+import com.healthplatform.sync.security.SecurePrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -21,7 +22,7 @@ class SyncWorker(
             val prefs = applicationContext.getSharedPreferences("health_sync", Context.MODE_PRIVATE)
 
             val reader = HealthConnectReader(applicationContext)
-            val apiKey = prefs.getString("api_key", "") ?: ""
+            val apiKey = SecurePrefs.getApiKey(applicationContext)
             val api = ApiService(Config.SERVER_URL, Config.DEVICE_SECRET, apiKey)
 
             // Read data from the last 30 days to ensure recent values are always shown

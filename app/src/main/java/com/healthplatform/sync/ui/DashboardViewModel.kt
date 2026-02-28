@@ -3,6 +3,7 @@ package com.healthplatform.sync.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.service.ServerApiClient
 import com.healthplatform.sync.service.SyncWorker
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,7 +76,7 @@ class DashboardViewModel : ViewModel() {
             }
 
             // Build server client with stored API key
-            serverClient = ServerApiClient(prefs.getString("api_key", "") ?: "")
+            serverClient = ServerApiClient(SecurePrefs.getApiKey(context))
 
             _state.update { current ->
                 current.copy(

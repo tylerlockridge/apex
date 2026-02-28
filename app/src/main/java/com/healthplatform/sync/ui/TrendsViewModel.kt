@@ -1,9 +1,9 @@
 package com.healthplatform.sync.ui
 
 import android.app.Application
-import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.service.ServerApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,8 +61,7 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
     val state: StateFlow<TrendsState> = _state.asStateFlow()
 
     private val client: ServerApiClient by lazy {
-        val prefs = application.getSharedPreferences("health_sync", Context.MODE_PRIVATE)
-        ServerApiClient(prefs.getString("api_key", "") ?: "")
+        ServerApiClient(SecurePrefs.getApiKey(application))
     }
 
     fun selectTab(index: Int) {

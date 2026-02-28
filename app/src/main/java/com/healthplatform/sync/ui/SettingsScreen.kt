@@ -28,6 +28,7 @@ import androidx.fragment.app.FragmentActivity
 import com.healthplatform.sync.BuildConfig
 import com.healthplatform.sync.data.HealthConnectReader
 import com.healthplatform.sync.security.BiometricLockManager
+import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.service.SyncWorker
 import com.healthplatform.sync.ui.theme.*
 import com.healthplatform.sync.ui.util.rememberApexHaptic
@@ -57,7 +58,7 @@ fun SettingsScreen(
     var autoSyncEnabled by remember { mutableStateOf(prefs.getBoolean("auto_sync", false)) }
     var lastSyncMs by remember { mutableStateOf(prefs.getLong("last_sync", 0L)) }
     var biometricEnabled by remember { mutableStateOf(biometricManager.isEnabled()) }
-    var apiKey by remember { mutableStateOf(prefs.getString("api_key", "") ?: "") }
+    var apiKey by remember { mutableStateOf(SecurePrefs.getApiKey(context)) }
     var apiKeyVisible by remember { mutableStateOf(false) }
 
     var isHealthConnectAvailable by remember { mutableStateOf(false) }
@@ -80,7 +81,7 @@ fun SettingsScreen(
         // Ping server using stored API key
         serverStatus = withContext(Dispatchers.IO) {
             try {
-                val storedKey = prefs.getString("api_key", "") ?: ""
+                val storedKey = SecurePrefs.getApiKey(context)
                 val url = java.net.URL("${com.healthplatform.sync.Config.SERVER_URL}/api/bp?days=1")
                 val conn = url.openConnection() as java.net.HttpURLConnection
                 conn.setRequestProperty("Authorization", "Bearer $storedKey")
@@ -325,7 +326,7 @@ fun SettingsScreen(
                         imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(onDone = {
-                        prefs.edit().putString("api_key", apiKey).apply()
+                        SecurePrefs.setApiKey(context, apiKey)
                         scope.launch { snackbarHostState.showSnackbar("API key saved") }
                     }),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -340,7 +341,7 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         haptic.click()
-                        prefs.edit().putString("api_key", apiKey).apply()
+                        SecurePrefs.setApiKey(context, apiKey)
                         scope.launch { snackbarHostState.showSnackbar("API key saved — restart app to apply") }
                     },
                     modifier = Modifier.fillMaxWidth(),

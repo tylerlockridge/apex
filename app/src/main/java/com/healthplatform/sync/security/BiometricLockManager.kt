@@ -8,12 +8,10 @@ import androidx.fragment.app.FragmentActivity
 
 class BiometricLockManager(private val context: Context) {
 
-    private val prefs = context.getSharedPreferences("health_sync", Context.MODE_PRIVATE)
-
-    fun isEnabled(): Boolean = prefs.getBoolean("biometric_enabled", false)
+    fun isEnabled(): Boolean = SecurePrefs.getBiometricEnabled(context)
 
     fun setEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean("biometric_enabled", enabled).apply()
+        SecurePrefs.setBiometricEnabled(context, enabled)
     }
 
     fun authenticate(
