@@ -22,14 +22,23 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-02-27 -->
 ## Quick Resume
 **Last Active:** 2026-02-27
-**Current Phase:** Complete — all screens verified with live server data
-**Current Task:** Done. Server fixed, all 4 screens verified end-to-end with live data.
-**Blockers:** BP/sleep/body tables are empty on server (historical data lost in DB migration). Workouts (68 records) intact. New HC syncs will populate going forward.
-**Next Action:** None — app is fully deployed and functional. Sync fresh Health Connect data (BP readings, sleep) to populate Trends.
+**Current Phase:** UI Overhaul complete — steel blue design system, watermark, haptics, nav transitions
+**Current Task:** Done. Full frontend-design overhaul landed and CI confirmed green (build + tests).
+**Blockers:** None. BP/sleep/body tables are empty on server (historical data lost in DB migration). New HC syncs will populate going forward.
+**Next Action:** Install latest APK on device (`b0126fd`) and verify all polish changes look correct. Then sync fresh Health Connect data.
 
 ## Commits This Session (2026-02-27)
-- `ecfdea0` — fix: deep audit — UI polish, sync auth, and code quality (11 files)
-- `dc59532` — polish: replace raw exception messages with user-friendly error strings
+- `82197aa` — feat: new Apex icon — steel blue gradient + mountain-A lettermark
+- `b0126fd` — feat: comprehensive UI polish — steel blue palette, backdrop watermark, haptics, nav transitions
+
+## UI Overhaul Summary (b0126fd)
+- **Color system**: Teal → steel blue (#5B9BD5 primary). New ApexSleepLight (#3A5A80) token.
+- **Backdrop watermark**: `ApexWatermarkCanvas` draws chevron-A at 5% opacity. Box wraps all Scaffolds (transparent).
+- **Haptics**: `HapticManager` + `rememberApexHaptic()`. tick() on tabs/switches, click() on buttons, confirm() on sync, reject() on errors. VibrationEffect.Composition for sync complete/error.
+- **Nav transitions**: 200ms fade-in / 150ms fade-out between all NavHost destinations.
+- **TrendsScreen**: `AnimatedContent` crossfade between BP/Sleep/Body tabs. Shimmer skeleton replaces loading spinner.
+- **minSdk**: 28 → 34 (enables all VibrationEffect.Composition primitives).
+- **Bug fix**: `Text("Save API Key", color = ApexBackground)` → `color = ApexOnPrimary` (was invisible white text on white bg).
 
 ## What Was Fixed
 - **SyncWorker**: API key was empty string `""` — all syncs were 401. Now reads from SharedPrefs.
