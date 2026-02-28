@@ -37,12 +37,21 @@ class HealthConnectReader(private val context: Context) {
     }
 
     suspend fun readBloodPressure(since: Instant): List<BloodPressureData> {
-        val request = ReadRecordsRequest(
-            recordType = BloodPressureRecord::class,
-            timeRangeFilter = TimeRangeFilter.after(since)
-        )
-        val response = healthConnectClient.readRecords(request)
-        return response.records.map { record ->
+        val timeRange = TimeRangeFilter.after(since)
+        val allRecords = mutableListOf<BloodPressureRecord>()
+        var pageToken: String? = null
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = BloodPressureRecord::class,
+                    timeRangeFilter = timeRange,
+                    pageToken = pageToken
+                )
+            )
+            allRecords += response.records
+            pageToken = response.pageToken
+        } while (pageToken != null)
+        return allRecords.map { record ->
             BloodPressureData(
                 systolic = record.systolic.inMillimetersOfMercury.toInt(),
                 diastolic = record.diastolic.inMillimetersOfMercury.toInt(),
@@ -53,13 +62,21 @@ class HealthConnectReader(private val context: Context) {
     }
 
     suspend fun readSleep(since: Instant): List<SleepData> {
-        val request = ReadRecordsRequest(
-            recordType = SleepSessionRecord::class,
-            timeRangeFilter = TimeRangeFilter.after(since)
-        )
-        val response = healthConnectClient.readRecords(request)
+        val timeRange = TimeRangeFilter.after(since)
+        val allRecords = mutableListOf<SleepSessionRecord>()
+        var pageToken: String? = null
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = timeRange,
+                    pageToken = pageToken
+                )
+            )
+            allRecords += response.records
+            pageToken = response.pageToken
+        } while (pageToken != null)
         // Prefer Oura Ring data — better sleep staging than Pixel Watch
-        val allRecords = response.records
         val ouraRecords = allRecords.filter {
             it.metadata.dataOrigin.packageName == "com.ouraring.oura"
         }
@@ -86,30 +103,56 @@ class HealthConnectReader(private val context: Context) {
     }
 
     suspend fun readWeight(since: Instant): List<BodyMeasurementData> {
-        val weightRequest = ReadRecordsRequest(
-            recordType = WeightRecord::class,
-            timeRangeFilter = TimeRangeFilter.after(since)
-        )
-        val weightResponse = healthConnectClient.readRecords(weightRequest)
+        val timeRange = TimeRangeFilter.after(since)
 
-        val bodyFatRequest = ReadRecordsRequest(
-            recordType = BodyFatRecord::class,
-            timeRangeFilter = TimeRangeFilter.after(since)
-        )
-        val bodyFatResponse = healthConnectClient.readRecords(bodyFatRequest)
+        val weightRecords = mutableListOf<WeightRecord>()
+        var pageToken: String? = null
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = WeightRecord::class,
+                    timeRangeFilter = timeRange,
+                    pageToken = pageToken
+                )
+            )
+            weightRecords += response.records
+            pageToken = response.pageToken
+        } while (pageToken != null)
 
-        val leanMassRequest = ReadRecordsRequest(
-            recordType = LeanBodyMassRecord::class,
-            timeRangeFilter = TimeRangeFilter.after(since)
-        )
-        val leanMassResponse = healthConnectClient.readRecords(leanMassRequest)
+        val bodyFatRecords = mutableListOf<BodyFatRecord>()
+        pageToken = null
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = BodyFatRecord::class,
+                    timeRangeFilter = timeRange,
+                    pageToken = pageToken
+                )
+            )
+            bodyFatRecords += response.records
+            pageToken = response.pageToken
+        } while (pageToken != null)
+
+        val leanMassRecords = mutableListOf<LeanBodyMassRecord>()
+        pageToken = null
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = LeanBodyMassRecord::class,
+                    timeRangeFilter = timeRange,
+                    pageToken = pageToken
+                )
+            )
+            leanMassRecords += response.records
+            pageToken = response.pageToken
+        } while (pageToken != null)
 
         // Combine by matching timestamps (within 1 hour)
-        return weightResponse.records.map { weight ->
-            val bodyFat = bodyFatResponse.records.find {
+        return weightRecords.map { weight ->
+            val bodyFat = bodyFatRecords.find {
                 ChronoUnit.HOURS.between(it.time, weight.time).let { diff -> diff in -1..1 }
             }
-            val leanMass = leanMassResponse.records.find {
+            val leanMass = leanMassRecords.find {
                 ChronoUnit.HOURS.between(it.time, weight.time).let { diff -> diff in -1..1 }
             }
 
@@ -124,13 +167,21 @@ class HealthConnectReader(private val context: Context) {
     }
 
     suspend fun readHeartRateVariability(since: Instant): List<HrvData> {
-        val request = ReadRecordsRequest(
-            recordType = HeartRateVariabilityRmssdRecord::class,
-            timeRangeFilter = TimeRangeFilter.after(since)
-        )
-        val response = healthConnectClient.readRecords(request)
+        val timeRange = TimeRangeFilter.after(since)
+        val allRecords = mutableListOf<HeartRateVariabilityRmssdRecord>()
+        var pageToken: String? = null
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = HeartRateVariabilityRmssdRecord::class,
+                    timeRangeFilter = timeRange,
+                    pageToken = pageToken
+                )
+            )
+            allRecords += response.records
+            pageToken = response.pageToken
+        } while (pageToken != null)
         // Prefer Oura Ring HRV — overnight resting RMSSD is more meaningful than spot checks
-        val allRecords = response.records
         val ouraRecords = allRecords.filter {
             it.metadata.dataOrigin.packageName == "com.ouraring.oura"
         }
