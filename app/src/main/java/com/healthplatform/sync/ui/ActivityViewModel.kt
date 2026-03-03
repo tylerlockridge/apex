@@ -1,6 +1,7 @@
 package com.healthplatform.sync.ui
 
 import android.app.Application
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.healthplatform.sync.security.SecurePrefs
@@ -10,7 +11,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 
 // ---------------------------------------------------------------------------
 // Domain models
@@ -41,21 +41,29 @@ data class ActivityState(
     val workouts: List<WorkoutSession> = emptyList(),
     val stats: WorkoutStats? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isSyncing: Boolean = false,
+    val syncError: String? = null
 )
 
 // ---------------------------------------------------------------------------
 // ViewModel
 // ---------------------------------------------------------------------------
 
-class ActivityViewModel(application: Application) : AndroidViewModel(application) {
+class ActivityViewModel(
+    application: Application,
+    @VisibleForTesting
+    internal val clientProvider: () -> ServerApiClient
+) : AndroidViewModel(application) {
+
+    constructor(application: Application) : this(application, {
+        ServerApiClient(SecurePrefs.getApiKey(application))
+    })
 
     private val _state = MutableStateFlow(ActivityState())
     val state: StateFlow<ActivityState> = _state.asStateFlow()
 
-    private val client: ServerApiClient by lazy {
-        ServerApiClient(SecurePrefs.getApiKey(application))
-    }
+    private val client: ServerApiClient by lazy { clientProvider() }
 
     init {
         loadAll()
@@ -63,6 +71,22 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
 
     fun refresh() {
         loadAll()
+    }
+
+    fun triggerHevySync() {
+        if (_state.value.isSyncing) return
+        _state.update { it.copy(isSyncing = true, syncError = null) }
+        viewModelScope.launch {
+            client.triggerHevySync().fold(
+                onSuccess = {
+                    _state.update { it.copy(isSyncing = false) }
+                    loadAll()
+                },
+                onFailure = { e ->
+                    _state.update { it.copy(isSyncing = false, syncError = e.toFriendlyMessage()) }
+                }
+            )
+        }
     }
 
     private fun loadAll() {

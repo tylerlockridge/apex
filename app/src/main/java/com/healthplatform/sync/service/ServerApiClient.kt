@@ -6,9 +6,14 @@ import okhttp3.CertificatePinner
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Query
 
 // ---------------------------------------------------------------------------
@@ -65,6 +70,14 @@ data class WorkoutStatsSummaryResponse(
     val avg_sets_per_workout: Int?
 )
 
+data class HevySyncResult(
+    val success: Boolean,
+    val synced: Int,
+    val skipped: Int,
+    val total_fetched: Int,
+    val sync_id: String?
+)
+
 data class HrvReadingResponse(
     val id: String?,
     val measured_at: String,
@@ -110,6 +123,9 @@ interface ServerReadApi {
     suspend fun getHrv(
         @Query("days") days: Int = 30
     ): List<HrvReadingResponse>
+
+    @POST("api/sync/hevy/workouts")
+    suspend fun triggerHevySync(@Body body: RequestBody): HevySyncResult
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +213,15 @@ class ServerApiClient(private val apiKey: String) {
     suspend fun getHrv(days: Int = 30): Result<List<HrvReadingResponse>> {
         return try {
             Result.success(api.getHrv(days))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun triggerHevySync(): Result<HevySyncResult> {
+        return try {
+            val body = "{}".toRequestBody("application/json".toMediaType())
+            Result.success(api.triggerHevySync(body))
         } catch (e: Exception) {
             Result.failure(e)
         }

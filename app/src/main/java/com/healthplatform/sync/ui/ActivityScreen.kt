@@ -42,14 +42,11 @@ fun ActivityScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val haptic = rememberApexHaptic()
     var isRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(state.isLoading) { if (!state.isLoading) isRefreshing = false }
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.refresh()
-            isRefreshing = false
-        },
+        onRefresh = { isRefreshing = true; viewModel.refresh() },
         modifier = Modifier.fillMaxSize()
     ) {
         Column(
@@ -59,11 +56,42 @@ fun ActivityScreen(
                 .padding(horizontal = 16.dp)
                 .padding(top = 16.dp, bottom = 24.dp)
         ) {
-        Text(
-            text = "Activity",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-            color = ApexOnBackground
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Activity",
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                color = ApexOnBackground
+            )
+            if (state.isSyncing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = ApexPrimary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                IconButton(
+                    onClick = { haptic.confirm(); viewModel.triggerHevySync() }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Sync,
+                        contentDescription = "Sync Hevy workouts",
+                        tint = ApexPrimary
+                    )
+                }
+            }
+        }
+        if (state.syncError != null) {
+            Text(
+                text = state.syncError!!,
+                style = MaterialTheme.typography.labelSmall,
+                color = ApexStatusRed,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         Box(modifier = Modifier.fillMaxSize()) {

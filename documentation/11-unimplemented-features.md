@@ -24,7 +24,7 @@ Tracks all features that are called for in the PRD or referenced in code (stub b
 | ~~**Offline queue**~~ | ✅ **Implemented 2026-03-02.** Room DB (`ApexDatabase`, `SyncQueueEntity`, `SyncQueueDao`) added. `SyncWorker` now does two-phase sync: HC read → Room queue (IGNORE duplicates); Room queue → server (delete on success, keep on failure for retry). | Closed |
 | **Incremental sync (change tokens)** | Full 30-day fetch on every sync run. Health Connect change tokens would allow reading only new records since last sync. | `HealthConnectReader.kt`, `SyncWorker.kt` |
 | ~~**HRV sync to server**~~ | ✅ **Implemented 2026-03-02.** `ApiService.syncHrv()` added; `SyncWorker` calls it; `GET /api/hrv/recent` added to `ServerApiClient`; Trends HRV tab added. | Closed |
-| **Hevy gym data sync** | PRD calls for Hevy API integration to sync gym workouts. No Hevy API client, no endpoint, no data model. | Missing entirely |
+| ~~**Hevy gym data sync**~~ | ✅ **Implemented 2026-03-03.** `ActivityScreen` + `ActivityViewModel` display workouts from server. `ServerApiClient.triggerHevySync()` added; Activity screen has Sync icon button (header) that POSTs to `/api/sync/hevy/workouts`, then reloads the list. `ActivityViewModelTest` added. | Closed |
 
 ### UI & Onboarding
 
@@ -55,7 +55,7 @@ Tracks all features that are called for in the PRD or referenced in code (stub b
 | Severity | Count | Items |
 |----------|-------|-------|
 | High | 0 | — all closed |
-| Medium (feature completeness) | 3 | QR onboarding, Hevy sync, Server version validation |
+| Medium (feature completeness) | 2 | QR onboarding, Server version validation |
 | Low (polish) | 1 | Incremental sync |
 
 ---
@@ -71,7 +71,7 @@ Tracks all features that are called for in the PRD or referenced in code (stub b
 | Widget auto-update after sync | ✅ PASS | GlanceWidget.updateAll() called after each sync |
 | Offline queue (Room) | ✅ PASS | Two-phase sync: HC→queue, queue→server; delete on success |
 | QR code onboarding | ❌ FAIL | No CameraX; stub button |
-| Hevy gym data sync | ❌ FAIL | No Hevy API client |
+| Hevy gym data sync | ✅ PASS | ActivityScreen + triggerHevySync() implemented 2026-03-03 |
 | AI analysis on device | ❌ FAIL | Backend only; app links to web dashboard |
 | Incremental sync (change tokens) | ❌ FAIL | Full 30-day every run |
 | HMAC request signing | ✅ PASS | Client interceptor + server verifyHmac middleware |
