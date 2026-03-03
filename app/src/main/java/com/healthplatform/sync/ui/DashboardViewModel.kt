@@ -11,7 +11,9 @@ import com.healthplatform.sync.service.SyncWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import androidx.work.WorkInfo
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
@@ -134,13 +136,24 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
      * @param dataTypeFilter one of [SyncWorker.DATA_TYPE_BP], [SyncWorker.DATA_TYPE_SLEEP],
      *   [SyncWorker.DATA_TYPE_BODY], [SyncWorker.DATA_TYPE_HRV], or null to sync all.
      */
+    /**
+     * Triggers a WorkManager sync and observes it to completion, then refreshes
+     * SharedPreferences state. Debounced — no-ops if a sync is already in flight.
+     * Also skips if the periodic worker is currently running to prevent concurrent
+     * uploads of the same queued records.
+     */
     fun triggerSync(dataTypeFilter: String? = null) {
         if (_state.value.isSyncing) return
-        _state.update { it.copy(isSyncing = true, syncError = null) }
-
-        val workId = SyncWorker.runOnce(getApplication(), dataTypeFilter)
-
         viewModelScope.launch {
+            // Avoid double-upload if the 15-min periodic worker is already running.
+            val periodicRunning = workManager
+                .getWorkInfosForUniqueWorkFlow(SyncWorker.WORK_NAME)
+                .first()
+                .any { it.state == WorkInfo.State.RUNNING }
+            if (periodicRunning) return@launch
+
+            _state.update { it.copy(isSyncing = true, syncError = null) }
+            val workId = SyncWorker.runOnce(getApplication(), dataTypeFilter)
             workManager.getWorkInfoByIdFlow(workId)
                 .filter { info -> info?.state?.isFinished == true }
                 .take(1)

@@ -24,7 +24,14 @@ abstract class ApexDatabase : RoomDatabase() {
                     context.applicationContext,
                     ApexDatabase::class.java,
                     "apex.db"
-                ).build().also { instance = it }
+                )
+                // Destructive migration is acceptable: the sync queue is ephemeral retry
+                // data. Any records in the queue at upgrade time will be re-fetched from
+                // Health Connect on the next sync run.
+                // IMPORTANT: add explicit Migration objects before incrementing the version
+                // if the schema ever needs preserving.
+                .fallbackToDestructiveMigration()
+                .build().also { instance = it }
             }
     }
 }

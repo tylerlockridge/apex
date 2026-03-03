@@ -70,8 +70,15 @@ object SecurePrefs {
         get(context).edit().putBoolean(KEY_BIOMETRIC_ENABLED, enabled).apply()
     }
 
-    /** Wipes all secure preferences (API key, biometric flag). Used by "Clear all data". */
+    /**
+     * Wipes all secure preferences (API key, biometric flag). Used by "Clear all data".
+     *
+     * The cached [instance] is also nulled so the next [get] call re-creates the
+     * [EncryptedSharedPreferences] against the now-empty backing file, preventing
+     * stale in-memory state from surviving the clear.
+     */
     fun clearAll(context: Context) {
         get(context).edit().clear().commit()
+        synchronized(this) { instance = null }
     }
 }

@@ -1,5 +1,6 @@
 package com.healthplatform.sync.service
 
+import com.google.gson.Gson
 import com.healthplatform.sync.data.BloodPressureData
 import com.healthplatform.sync.data.BodyMeasurementData
 import com.healthplatform.sync.data.HrvData
@@ -20,13 +21,22 @@ import javax.crypto.spec.SecretKeySpec
 
 interface HealthPlatformApi {
     @POST("api/sync/health-connect")
-    suspend fun syncData(@Body request: SyncRequest): Response<SyncResponse>
+    suspend fun syncData(@Body request: SyncRequest<@JvmSuppressWildcards Any>): Response<SyncResponse>
 }
 
-data class SyncRequest(
-    val device_secret: String,
+/**
+ * Wire format for a Health Connect sync request.
+ *
+ * [T] is covariant so that SyncRequest<BloodPressureData> can be passed wherever
+ * SyncRequest<Any> is expected without an unchecked cast. Gson serialises using the
+ * actual runtime type, so type erasure does not affect the on-wire payload.
+ *
+ * device_secret is intentionally absent — the HMAC signature in X-Signature proves
+ * possession of the shared secret without transmitting it in the body.
+ */
+data class SyncRequest<out T>(
     val data_type: String,
-    val records: List<Any>
+    val records: List<T>
 )
 
 /** Wire format for HRV records — maps from [HrvData] to the server's expected field names. */
@@ -44,31 +54,47 @@ data class SyncResponse(
     val sync_id: String?
 )
 
-class ApiService(baseUrl: String, private val deviceSecret: String, private val apiKey: String) {
+/**
+ * Retrofit-based API client for the Health Platform server.
+ *
+ * The underlying [OkHttpClient] is created once (singleton via [get]) so the
+ * thread pool and connection pool are shared across all WorkManager runs. Only
+ * the API key is refreshed on each [get] call to reflect the latest stored value.
+ */
+class ApiService private constructor(
+    baseUrl: String,
+    deviceSecret: String,
+    initialApiKey: String,
+) {
+    /** Updated on each [get] call — read by the auth interceptor at request time. */
+    @Volatile private var _apiKey: String = initialApiKey
 
     private val api: HealthPlatformApi
 
     init {
         // Pin ISRG Root X1 and Root X2 — the two Let's Encrypt root CAs.
         // Pinning roots (not intermediates) gives multi-year stability without rotation risk.
-        // To verify: openssl s_client -connect tyler-health.duckdns.org:443 | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
         val certificatePinner = CertificatePinner.Builder()
             .add("tyler-health.duckdns.org", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
             .add("tyler-health.duckdns.org", "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
             .build()
 
         val client = OkHttpClient.Builder()
-            // 1. Auth header
+            // 1. Auth header — reads _apiKey at request time so key refreshes are picked up
+            //    without rebuilding the client.
             .addInterceptor(Interceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .addHeader("Authorization", "Bearer $apiKey")
-                    .build()
-                chain.proceed(request)
+                chain.proceed(
+                    chain.request().newBuilder()
+                        .addHeader("Authorization", "Bearer ${this._apiKey}")
+                        .build()
+                )
             })
-            // 2. HMAC-SHA256 request signing
-            //    Header: X-Signature: sha256=<lowercase hex>
-            //    Key: device_secret (shared secret injected at build time)
-            //    Covers: the serialised JSON request body
+            // 2. HMAC-SHA256 signing with replay protection.
+            //    X-Timestamp: Unix seconds (server rejects if > 5 min old).
+            //    X-Signature: sha256=HMAC(secret, "${timestamp}\n${body}").
+            //    Including the timestamp in the HMAC input binds the signature to
+            //    this specific request moment; a replayed body+sig with a new
+            //    timestamp would fail to verify.
             .addInterceptor(Interceptor { chain ->
                 val original = chain.request()
                 val body = original.body
@@ -76,13 +102,17 @@ class ApiService(baseUrl: String, private val deviceSecret: String, private val 
                     val buffer = Buffer()
                     body.writeTo(buffer)
                     val bodyBytes = buffer.readByteArray()
+                    val timestamp = (System.currentTimeMillis() / 1000L).toString()
 
                     val mac = Mac.getInstance("HmacSHA256")
                     mac.init(SecretKeySpec(deviceSecret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
-                    val hex = mac.doFinal(bodyBytes).joinToString("") { "%02x".format(it) }
+                    mac.update("$timestamp\n".toByteArray(Charsets.UTF_8))
+                    mac.update(bodyBytes)
+                    val hex = mac.doFinal().joinToString("") { "%02x".format(it) }
 
                     original.newBuilder()
                         .addHeader("X-Signature", "sha256=$hex")
+                        .addHeader("X-Timestamp", timestamp)
                         .method(original.method, bodyBytes.toRequestBody(body.contentType()))
                         .build()
                 } else {
@@ -95,91 +125,81 @@ class ApiService(baseUrl: String, private val deviceSecret: String, private val 
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
-        val retrofit = Retrofit.Builder()
+        api = Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
-
-        api = retrofit.create(HealthPlatformApi::class.java)
+            .create(HealthPlatformApi::class.java)
     }
 
-    suspend fun syncBloodPressure(records: List<BloodPressureData>): Result<SyncResponse> {
-        return try {
-            val request = SyncRequest(
-                device_secret = deviceSecret,
-                data_type = "blood_pressure",
-                records = records
-            )
-            val response = api.syncData(request)
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: throw Exception("Empty sync response body"))
-            } else {
-                Result.failure(Exception("Sync failed: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    // -------------------------------------------------------------------------
+    // Public sync methods
+    // -------------------------------------------------------------------------
 
-    suspend fun syncSleep(records: List<SleepData>): Result<SyncResponse> {
-        return try {
-            val request = SyncRequest(
-                device_secret = deviceSecret,
-                data_type = "sleep",
-                records = records
-            )
-            val response = api.syncData(request)
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: throw Exception("Empty sync response body"))
-            } else {
-                Result.failure(Exception("Sync failed: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun syncBloodPressure(records: List<BloodPressureData>): Result<SyncResponse> =
+        sync(SyncRequest(data_type = "blood_pressure", records = records))
 
-    suspend fun syncBodyMeasurements(records: List<BodyMeasurementData>): Result<SyncResponse> {
-        return try {
-            val request = SyncRequest(
-                device_secret = deviceSecret,
-                data_type = "body_measurements",
-                records = records
-            )
-            val response = api.syncData(request)
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: throw Exception("Empty sync response body"))
-            } else {
-                Result.failure(Exception("Sync failed: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun syncSleep(records: List<SleepData>): Result<SyncResponse> =
+        sync(SyncRequest(data_type = "sleep", records = records))
 
-    suspend fun syncHrv(records: List<HrvData>): Result<SyncResponse> {
-        return try {
-            val syncRecords = records.map { hrv ->
+    suspend fun syncBodyMeasurements(records: List<BodyMeasurementData>): Result<SyncResponse> =
+        sync(SyncRequest(data_type = "body_measurements", records = records))
+
+    suspend fun syncHrv(records: List<HrvData>): Result<SyncResponse> =
+        sync(SyncRequest(
+            data_type = "hrv",
+            records = records.map { hrv ->
                 HrvSyncRecord(
                     measured_at = hrv.measuredAt,
                     hrv_ms = hrv.hrvMs,
                     device_name = hrv.deviceName
                 )
             }
-            val request = SyncRequest(
-                device_secret = deviceSecret,
-                data_type = "hrv",
-                records = syncRecords
-            )
-            val response = api.syncData(request)
-            if (response.isSuccessful) {
-                Result.success(response.body() ?: throw Exception("Empty sync response body"))
-            } else {
-                Result.failure(Exception("Sync failed: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+        ))
+
+    // -------------------------------------------------------------------------
+    // Internal helpers
+    // -------------------------------------------------------------------------
+
+    private suspend fun <T : Any> sync(request: SyncRequest<T>): Result<SyncResponse> = try {
+        val response = api.syncData(request)
+        if (response.isSuccessful) {
+            Result.success(response.body() ?: throw Exception("Empty sync response body"))
+        } else {
+            Result.failure(Exception("Sync failed: ${response.code()}"))
         }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    // -------------------------------------------------------------------------
+    // Singleton factory
+    // -------------------------------------------------------------------------
+
+    companion object {
+        /**
+         * Shared Gson instance — thread-safe and expensive to construct.
+         * Used by both [ApiService] and [SyncWorker] serialisation.
+         */
+        val gson = Gson()
+
+        @Volatile private var instance: ApiService? = null
+
+        /**
+         * Returns the singleton [ApiService], creating it on first call.
+         *
+         * The underlying [OkHttpClient] (with cert pinning, HMAC interceptor, and
+         * connection pool) is created once and reused. The [apiKey] is refreshed on
+         * every call so WorkManager runs always use the current key.
+         */
+        fun get(baseUrl: String, deviceSecret: String, apiKey: String): ApiService =
+            (instance ?: synchronized(this) {
+                instance ?: ApiService(baseUrl, deviceSecret, apiKey).also { instance = it }
+            }).also { it._apiKey = apiKey }
+
+        /** Creates a fresh (non-singleton) instance for unit testing only. */
+        internal fun createForTest(baseUrl: String, deviceSecret: String, apiKey: String) =
+            ApiService(baseUrl, deviceSecret, apiKey)
     }
 }

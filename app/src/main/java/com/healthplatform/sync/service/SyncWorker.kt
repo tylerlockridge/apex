@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.glance.appwidget.updateAll
 import androidx.work.*
-import com.google.gson.Gson
 import com.healthplatform.sync.Config
 import com.healthplatform.sync.SyncPrefsKeys
 import com.healthplatform.sync.data.BloodPressureData
@@ -31,8 +30,6 @@ class SyncWorker(
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
-    private val gson = Gson()
-
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             val prefs = applicationContext
@@ -40,7 +37,7 @@ class SyncWorker(
 
             val reader = HealthConnectReader(applicationContext)
             val apiKey = SecurePrefs.getApiKey(applicationContext)
-            val api = ApiService(Config.SERVER_URL, Config.DEVICE_SECRET, apiKey)
+            val api = ApiService.get(Config.SERVER_URL, Config.DEVICE_SECRET, apiKey)
             val dao = ApexDatabase.get(applicationContext).syncQueueDao()
 
             val since = Instant.now().minus(30, ChronoUnit.DAYS)
@@ -117,7 +114,8 @@ class SyncWorker(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} BP records")
                             dao.deleteByIds(pending.map { it.id })
-                            val latest = records.last()
+                            // maxByOrNull is defensive; records are sorted ASC by measuredAt (DAO guarantees this).
+                            val latest = records.maxByOrNull { it.measuredAt } ?: return@fold
                             prefs.edit()
                                 .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, latest.systolic)
                                 .putInt(SyncPrefsKeys.LAST_BP_DIASTOLIC, latest.diastolic)
@@ -141,7 +139,7 @@ class SyncWorker(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} sleep records")
                             dao.deleteByIds(pending.map { it.id })
-                            val latest = records.last()
+                            val latest = records.maxByOrNull { it.sleepStart } ?: return@fold
                             prefs.edit()
                                 .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, latest.durationMinutes)
                                 .putInt(SyncPrefsKeys.LAST_SLEEP_DEEP_MIN, latest.deepSleepMinutes ?: 0)
@@ -166,7 +164,7 @@ class SyncWorker(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} body records")
                             dao.deleteByIds(pending.map { it.id })
-                            val latest = records.last()
+                            val latest = records.maxByOrNull { it.measuredAt } ?: return@fold
                             if (latest.weightKg != null) {
                                 prefs.edit()
                                     .putFloat(SyncPrefsKeys.LAST_WEIGHT_KG, latest.weightKg.toFloat())
@@ -191,7 +189,7 @@ class SyncWorker(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} HRV records")
                             dao.deleteByIds(pending.map { it.id })
-                            val latest = records.last()
+                            val latest = records.maxByOrNull { it.measuredAt } ?: return@fold
                             prefs.edit()
                                 .putFloat(SyncPrefsKeys.LAST_HRV_MS, latest.hrvMs.toFloat())
                                 .putString(SyncPrefsKeys.LAST_HRV_TIME, latest.measuredAt)
@@ -259,7 +257,12 @@ class SyncWorker(
 
     companion object {
         private const val TAG = "SyncWorker"
-        private const val WORK_NAME = "health_sync_periodic"
+
+        /** Name of the periodic work — exposed so callers can observe its state. */
+        const val WORK_NAME = "health_sync_periodic"
+
+        /** Shared Gson instance — [ApiService.Companion.gson] is the same object. */
+        private val gson = ApiService.gson
 
         const val KEY_DATA_TYPE_FILTER = "data_type_filter"
         const val DATA_TYPE_BP    = "blood_pressure"

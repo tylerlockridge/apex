@@ -94,13 +94,19 @@ fun SettingsScreen(
             }
         }
 
-        // Ping server via OkHttp (consistent with the rest of the networking stack)
+        // Ping server via a cert-pinned OkHttp client so the status check is
+        // protected by the same ISRG Root X1/X2 pins as the sync client.
         serverStatus = withContext(Dispatchers.IO) {
             try {
                 val storedKey = SecurePrefs.getApiKey(context)
+                val pinner = okhttp3.CertificatePinner.Builder()
+                    .add("tyler-health.duckdns.org", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
+                    .add("tyler-health.duckdns.org", "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
+                    .build()
                 val client = okhttp3.OkHttpClient.Builder()
                     .connectTimeout(4, java.util.concurrent.TimeUnit.SECONDS)
                     .readTimeout(4, java.util.concurrent.TimeUnit.SECONDS)
+                    .certificatePinner(pinner)
                     .build()
                 val request = okhttp3.Request.Builder()
                     .url("${com.healthplatform.sync.Config.SERVER_URL}/api/bp?days=1")
