@@ -1,6 +1,7 @@
 package com.healthplatform.sync.ui
 
 import android.app.Application
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.healthplatform.sync.security.SecurePrefs
@@ -37,16 +38,22 @@ data class BodyMeasurement(
     val bodyFatPercent: Double?
 )
 
+data class HrvReading(
+    val measuredAt: String,
+    val hrvMs: Double
+)
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
 data class TrendsState(
-    val selectedTab: Int = 0,          // 0=BP, 1=Sleep, 2=Body
+    val selectedTab: Int = 0,          // 0=BP, 1=Sleep, 2=Body, 3=HRV
     val selectedRange: Int = 7,        // 7, 30, or 90 days
     val bpReadings: List<BpReading> = emptyList(),
     val sleepSessions: List<SleepSession> = emptyList(),
     val bodyMeasurements: List<BodyMeasurement> = emptyList(),
+    val hrvReadings: List<HrvReading> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -55,14 +62,20 @@ data class TrendsState(
 // ViewModel
 // ---------------------------------------------------------------------------
 
-class TrendsViewModel(application: Application) : AndroidViewModel(application) {
+class TrendsViewModel(
+    application: Application,
+    // Secondary constructor parameter allows injecting a fake client in tests
+    // without requiring Hilt or a ViewModelFactory in production code.
+    @VisibleForTesting
+    internal val clientProvider: () -> ServerApiClient = {
+        ServerApiClient(SecurePrefs.getApiKey(application))
+    }
+) : AndroidViewModel(application) {
 
     private val _state = MutableStateFlow(TrendsState())
     val state: StateFlow<TrendsState> = _state.asStateFlow()
 
-    private val client: ServerApiClient by lazy {
-        ServerApiClient(SecurePrefs.getApiKey(application))
-    }
+    private val client: ServerApiClient by lazy { clientProvider() }
 
     fun selectTab(index: Int) {
         _state.update { it.copy(selectedTab = index, error = null) }
@@ -79,20 +92,19 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun loadDataForCurrentTab() {
-        val currentTab = _state.value.selectedTab
         val days = _state.value.selectedRange
-        when (currentTab) {
+        when (_state.value.selectedTab) {
             0 -> loadBp(days)
             1 -> loadSleep(days)
             2 -> loadBody(days)
+            3 -> loadHrv(days)
         }
     }
 
     fun loadBp(days: Int = _state.value.selectedRange) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
-            val result = client.getBloodPressure(days)
-            result.fold(
+            client.getBloodPressure(days).fold(
                 onSuccess = { list ->
                     val readings = list
                         .sortedBy { it.measured_at }
@@ -100,9 +112,7 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
                     _state.update { it.copy(bpReadings = readings, isLoading = false) }
                 },
                 onFailure = { e ->
-                    _state.update {
-                        it.copy(isLoading = false, error = e.toFriendlyMessage())
-                    }
+                    _state.update { it.copy(isLoading = false, error = e.toFriendlyMessage()) }
                 }
             )
         }
@@ -111,8 +121,7 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
     fun loadSleep(days: Int = _state.value.selectedRange) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
-            val result = client.getSleep(days)
-            result.fold(
+            client.getSleep(days).fold(
                 onSuccess = { list ->
                     val sessions = list
                         .sortedBy { it.sleep_start }
@@ -129,9 +138,7 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
                     _state.update { it.copy(sleepSessions = sessions, isLoading = false) }
                 },
                 onFailure = { e ->
-                    _state.update {
-                        it.copy(isLoading = false, error = e.toFriendlyMessage())
-                    }
+                    _state.update { it.copy(isLoading = false, error = e.toFriendlyMessage()) }
                 }
             )
         }
@@ -140,8 +147,7 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
     fun loadBody(days: Int = _state.value.selectedRange) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
-            val result = client.getBodyMeasurements(days)
-            result.fold(
+            client.getBodyMeasurements(days).fold(
                 onSuccess = { list ->
                     val measurements = list
                         .sortedBy { it.measured_at }
@@ -155,9 +161,24 @@ class TrendsViewModel(application: Application) : AndroidViewModel(application) 
                     _state.update { it.copy(bodyMeasurements = measurements, isLoading = false) }
                 },
                 onFailure = { e ->
-                    _state.update {
-                        it.copy(isLoading = false, error = e.toFriendlyMessage())
-                    }
+                    _state.update { it.copy(isLoading = false, error = e.toFriendlyMessage()) }
+                }
+            )
+        }
+    }
+
+    fun loadHrv(days: Int = _state.value.selectedRange) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, error = null) }
+            client.getHrv(days).fold(
+                onSuccess = { list ->
+                    val readings = list
+                        .sortedBy { it.measured_at }
+                        .map { HrvReading(it.measured_at, it.hrv_ms) }
+                    _state.update { it.copy(hrvReadings = readings, isLoading = false) }
+                },
+                onFailure = { e ->
+                    _state.update { it.copy(isLoading = false, error = e.toFriendlyMessage()) }
                 }
             )
         }

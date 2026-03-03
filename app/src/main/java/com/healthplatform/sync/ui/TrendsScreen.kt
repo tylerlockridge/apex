@@ -57,8 +57,8 @@ fun TrendsScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Sub-tab row: BP | Sleep | Body
-        val tabLabels = listOf("BP", "Sleep", "Body")
+        // Sub-tab row: BP | Sleep | Body | HRV
+        val tabLabels = listOf("BP", "Sleep", "Body", "HRV")
         ScrollableTabRow(
             selectedTabIndex = state.selectedTab,
             containerColor = ApexSurface,
@@ -136,6 +136,7 @@ fun TrendsScreen(
                                     0 -> BpTabContent(state, viewModel)
                                     1 -> SleepTabContent(state, viewModel)
                                     2 -> BodyTabContent(state, viewModel)
+                                    3 -> HrvTabContent(state, viewModel)
                                 }
                             }
                         }
@@ -422,6 +423,61 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
             "Start" to if (startWeight != null) "%.1f kg".format(startWeight) else "—",
             "Change" to if (change != null) "%+.1f kg".format(change) else "—",
             "Rate/wk" to if (ratePerWeek != null) "%+.2f kg".format(ratePerWeek) else "—"
+        )
+    )
+}
+
+// ---------------------------------------------------------------------------
+// HRV Tab
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
+    RangeSelector(state.selectedRange) { viewModel.selectRange(it) }
+
+    val readings = state.hrvReadings
+
+    if (readings.isEmpty()) {
+        EmptyState("No HRV data for this range")
+        return
+    }
+
+    val points = readings.mapNotNull { r ->
+        try { parseIsoToMillis(r.measuredAt) to r.hrvMs.toFloat() }
+        catch (e: Exception) { null }
+    }
+
+    // Healthy HRV baselines (RMSSD ms — population varies widely, these are indicative)
+    val hrvBaselines = listOf(
+        Triple(0f, 30f, ApexStatusRed),       // low
+        Triple(30f, 60f, ApexStatusYellow),   // average
+        Triple(60f, 200f, ApexStatusGreen)    // good
+    )
+
+    TrendsCard(title = "HRV — RMSSD (ms)") {
+        LineChart(
+            dataPoints = points,
+            lineColor = ApexPrimary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+            yLabel = "ms",
+            showBaselines = true,
+            baselines = hrvBaselines
+        )
+    }
+
+    val avgHrv = readings.map { it.hrvMs }.average()
+    val minHrv = readings.minOf { it.hrvMs }
+    val maxHrv = readings.maxOf { it.hrvMs }
+    val trend = if (readings.size >= 2) readings.last().hrvMs - readings.first().hrvMs else null
+
+    StatsRow(
+        listOf(
+            "Avg" to "%.1f ms".format(avgHrv),
+            "Min" to "%.1f ms".format(minHrv),
+            "Max" to "%.1f ms".format(maxHrv),
+            "Trend" to if (trend != null) "%+.1f".format(trend) else "—"
         )
     )
 }

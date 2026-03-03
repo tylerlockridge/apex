@@ -10,8 +10,24 @@ class BiometricLockManager(private val context: Context) {
 
     fun isEnabled(): Boolean = SecurePrefs.getBiometricEnabled(context)
 
-    fun setEnabled(enabled: Boolean) {
+    /** Returns true if strong biometrics are enrolled and ready to use. */
+    fun canAuthenticate(): Boolean {
+        val result = BiometricManager.from(context)
+            .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+        return result == BiometricManager.BIOMETRIC_SUCCESS
+    }
+
+    /**
+     * Enable or disable biometric lock.
+     *
+     * Returns false (and does NOT persist the change) when trying to enable
+     * biometrics while none are enrolled — the caller should surface an error
+     * instead of silently locking the user out.
+     */
+    fun setEnabled(enabled: Boolean): Boolean {
+        if (enabled && !canAuthenticate()) return false
         SecurePrefs.setBiometricEnabled(context, enabled)
+        return true
     }
 
     fun authenticate(

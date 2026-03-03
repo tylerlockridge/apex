@@ -22,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,20 +42,20 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(),
     onRequestPermissions: () -> Unit,
 ) {
-    val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val haptic = rememberApexHaptic()
     var isRefreshing by remember { mutableStateOf(false) }
 
-    // Load prefs each time the screen becomes active
+    // ViewModel loads on init; reload whenever the screen becomes active after
+    // returning from another tab so cached SharedPrefs stay fresh.
     LaunchedEffect(Unit) {
-        viewModel.loadFromPrefs(context)
+        viewModel.loadFromPrefs()
     }
 
     // Handle pull-to-refresh
     LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
-            viewModel.loadFromPrefs(context)
+            viewModel.loadFromPrefs()
             kotlinx.coroutines.delay(800)
             isRefreshing = false
         }
@@ -84,7 +83,7 @@ fun DashboardScreen(
         floatingActionButton = {
             SyncFab(
                 isSyncing = state.isSyncing,
-                onSync = { haptic.confirm(); viewModel.triggerSync(context) }
+                onSync = { haptic.confirm(); viewModel.triggerSync() }
             )
         }
     ) { innerPadding ->
@@ -107,7 +106,7 @@ fun DashboardScreen(
                 DashboardHeader()
                 SyncStatusCard(
                     state = state,
-                    onSyncNow = { haptic.click(); viewModel.triggerSync(context) }
+                    onSyncNow = { haptic.click(); viewModel.triggerSync() }
                 )
 
                 Text(
@@ -183,8 +182,8 @@ fun DashboardScreen(
                     onRequestPermissions = { haptic.click(); onRequestPermissions() }
                 )
                 QuickActionsRow(
-                    onSyncBp = { haptic.click(); viewModel.triggerBpSync(context) },
-                    onSyncSleep = { haptic.click(); viewModel.triggerSleepSync(context) }
+                    onSyncBp = { haptic.click(); viewModel.triggerBpSync() },
+                    onSyncSleep = { haptic.click(); viewModel.triggerSleepSync() }
                 )
             }
         }
@@ -337,13 +336,13 @@ private fun PulsingDot(color: Color) {
 
 @Composable
 private fun SyncFab(isSyncing: Boolean, onSync: () -> Unit) {
-    val infiniteTransition = rememberInfiniteTransition(label = "fab_pulse")
-    val fabScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
+    // animateFloatAsState settles when isSyncing becomes false — no wasted GPU work
+    // at rest, unlike an infiniteRepeatable that loops between 1f and 1f.
+    val fabScale by animateFloatAsState(
         targetValue = if (isSyncing) 1.08f else 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
         ),
         label = "fab_scale"
     )

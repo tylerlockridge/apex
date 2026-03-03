@@ -1,15 +1,29 @@
 package com.healthplatform.sync.service
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
+import androidx.glance.appwidget.updateAll
 import androidx.work.*
+import com.google.gson.Gson
 import com.healthplatform.sync.Config
+import com.healthplatform.sync.SyncPrefsKeys
+import com.healthplatform.sync.data.BloodPressureData
+import com.healthplatform.sync.data.BodyMeasurementData
 import com.healthplatform.sync.data.HealthConnectReader
+import com.healthplatform.sync.data.HrvData
+import com.healthplatform.sync.data.SleepData
+import com.healthplatform.sync.data.db.ApexDatabase
+import com.healthplatform.sync.data.db.SyncQueueEntity
 import com.healthplatform.sync.security.SecurePrefs
+import com.healthplatform.sync.widget.HealthGlanceWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class SyncWorker(
@@ -17,116 +31,281 @@ class SyncWorker(
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
+    private val gson = Gson()
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            val prefs = applicationContext.getSharedPreferences("health_sync", Context.MODE_PRIVATE)
+            val prefs = applicationContext
+                .getSharedPreferences(SyncPrefsKeys.FILE_NAME, Context.MODE_PRIVATE)
 
             val reader = HealthConnectReader(applicationContext)
             val apiKey = SecurePrefs.getApiKey(applicationContext)
             val api = ApiService(Config.SERVER_URL, Config.DEVICE_SECRET, apiKey)
+            val dao = ApexDatabase.get(applicationContext).syncQueueDao()
 
-            // Read data from the last 30 days to ensure recent values are always shown
             val since = Instant.now().minus(30, ChronoUnit.DAYS)
+            val filter = inputData.getString(KEY_DATA_TYPE_FILTER)
 
-            // Sync Blood Pressure
-            val bpRecords = reader.readBloodPressure(since)
-            if (bpRecords.isNotEmpty()) {
-                api.syncBloodPressure(bpRecords)
-                Log.i(TAG, "Synced ${bpRecords.size} BP records")
-                val latest = bpRecords.last()
-                prefs.edit()
-                    .putInt("last_bp_systolic", latest.systolic)
-                    .putInt("last_bp_diastolic", latest.diastolic)
-                    .putString("last_bp_time", latest.measuredAt)
-                    .apply()
-            }
+            // ----------------------------------------------------------------
+            // Phase 1 — Read from Health Connect → write to Room queue
+            //
+            // Each record is keyed by (dataType, measuredAt). The DAO uses
+            // OnConflictStrategy.IGNORE, so records already in the queue are
+            // silently skipped and never duplicated.
+            //
+            // If Health Connect is unavailable (permissions revoked, HC error)
+            // we log a warning and continue to Phase 2 — whatever is already
+            // in the queue will still be retried.
+            // ----------------------------------------------------------------
 
-            // Sync Sleep
-            val sleepRecords = reader.readSleep(since)
-            if (sleepRecords.isNotEmpty()) {
-                api.syncSleep(sleepRecords)
-                Log.i(TAG, "Synced ${sleepRecords.size} sleep records")
-                val latest = sleepRecords.last()
-                prefs.edit()
-                    .putInt("last_sleep_duration_min", latest.durationMinutes)
-                    .putInt("last_sleep_deep_min", latest.deepSleepMinutes ?: 0)
-                    .putInt("last_sleep_rem_min", latest.remSleepMinutes ?: 0)
-                    .putString("last_sleep_time", latest.sleepEnd)
-                    .apply()
-            }
-
-            // Sync Body Measurements
-            val bodyRecords = reader.readWeight(since)
-            if (bodyRecords.isNotEmpty()) {
-                api.syncBodyMeasurements(bodyRecords)
-                Log.i(TAG, "Synced ${bodyRecords.size} body measurement records")
-                val latest = bodyRecords.last()
-                if (latest.weightKg != null) {
-                    prefs.edit()
-                        .putFloat("last_weight_kg", latest.weightKg.toFloat())
-                        .putString("last_weight_time", latest.measuredAt)
-                        .apply()
+            if (filter == null || filter == DATA_TYPE_BP) {
+                try {
+                    val records = reader.readBloodPressure(since)
+                    dao.insertAll(records.map { it.toQueueEntity() })
+                    Log.d(TAG, "Queued ${records.size} BP records from Health Connect")
+                } catch (e: Exception) {
+                    Log.w(TAG, "HC BP read failed — will flush existing queue", e)
                 }
             }
 
-            // Sync HRV
-            val hrvRecords = reader.readHeartRateVariability(since)
-            if (hrvRecords.isNotEmpty()) {
-                Log.i(TAG, "Read ${hrvRecords.size} HRV records")
-                val latest = hrvRecords.last()
-                prefs.edit()
-                    .putFloat("last_hrv_ms", latest.hrvMs.toFloat())
-                    .putString("last_hrv_time", latest.measuredAt)
-                    .apply()
+            if (filter == null || filter == DATA_TYPE_SLEEP) {
+                try {
+                    val records = reader.readSleep(since)
+                    dao.insertAll(records.map { it.toQueueEntity() })
+                    Log.d(TAG, "Queued ${records.size} sleep records from Health Connect")
+                } catch (e: Exception) {
+                    Log.w(TAG, "HC sleep read failed — will flush existing queue", e)
+                }
             }
 
-            // Update last sync time
-            prefs.edit().putLong("last_sync", System.currentTimeMillis()).apply()
+            if (filter == null || filter == DATA_TYPE_BODY) {
+                try {
+                    val records = reader.readWeight(since)
+                    dao.insertAll(records.map { it.toQueueEntity() })
+                    Log.d(TAG, "Queued ${records.size} body records from Health Connect")
+                } catch (e: Exception) {
+                    Log.w(TAG, "HC body read failed — will flush existing queue", e)
+                }
+            }
 
-            Result.success()
+            if (filter == null || filter == DATA_TYPE_HRV) {
+                try {
+                    val records = reader.readHeartRateVariability(since)
+                    dao.insertAll(records.map { it.toQueueEntity() })
+                    Log.d(TAG, "Queued ${records.size} HRV records from Health Connect")
+                } catch (e: Exception) {
+                    Log.w(TAG, "HC HRV read failed — will flush existing queue", e)
+                }
+            }
+
+            // ----------------------------------------------------------------
+            // Phase 2 — Flush the Room queue to the server
+            //
+            // Records are only deleted from the queue after the server
+            // acknowledges a successful upload. A network failure leaves them
+            // in place; WorkManager's exponential backoff will retry.
+            // ----------------------------------------------------------------
+
+            var anyFailure = false
+
+            // ---- Blood Pressure ----
+            if (filter == null || filter == DATA_TYPE_BP) {
+                val pending = dao.getPending(DATA_TYPE_BP)
+                if (pending.isNotEmpty()) {
+                    val records = pending.map { gson.fromJson(it.payload, BloodPressureData::class.java) }
+                    api.syncBloodPressure(records).fold(
+                        onSuccess = {
+                            Log.i(TAG, "Synced ${records.size} BP records")
+                            dao.deleteByIds(pending.map { it.id })
+                            val latest = records.last()
+                            prefs.edit()
+                                .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, latest.systolic)
+                                .putInt(SyncPrefsKeys.LAST_BP_DIASTOLIC, latest.diastolic)
+                                .putString(SyncPrefsKeys.LAST_BP_TIME, latest.measuredAt)
+                                .apply()
+                        },
+                        onFailure = { e ->
+                            Log.e(TAG, "BP sync failed — ${pending.size} records kept in queue", e)
+                            anyFailure = true
+                        }
+                    )
+                }
+            }
+
+            // ---- Sleep ----
+            if (filter == null || filter == DATA_TYPE_SLEEP) {
+                val pending = dao.getPending(DATA_TYPE_SLEEP)
+                if (pending.isNotEmpty()) {
+                    val records = pending.map { gson.fromJson(it.payload, SleepData::class.java) }
+                    api.syncSleep(records).fold(
+                        onSuccess = {
+                            Log.i(TAG, "Synced ${records.size} sleep records")
+                            dao.deleteByIds(pending.map { it.id })
+                            val latest = records.last()
+                            prefs.edit()
+                                .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, latest.durationMinutes)
+                                .putInt(SyncPrefsKeys.LAST_SLEEP_DEEP_MIN, latest.deepSleepMinutes ?: 0)
+                                .putInt(SyncPrefsKeys.LAST_SLEEP_REM_MIN, latest.remSleepMinutes ?: 0)
+                                .putString(SyncPrefsKeys.LAST_SLEEP_TIME, latest.sleepEnd)
+                                .apply()
+                        },
+                        onFailure = { e ->
+                            Log.e(TAG, "Sleep sync failed — ${pending.size} records kept in queue", e)
+                            anyFailure = true
+                        }
+                    )
+                }
+            }
+
+            // ---- Body Measurements ----
+            if (filter == null || filter == DATA_TYPE_BODY) {
+                val pending = dao.getPending(DATA_TYPE_BODY)
+                if (pending.isNotEmpty()) {
+                    val records = pending.map { gson.fromJson(it.payload, BodyMeasurementData::class.java) }
+                    api.syncBodyMeasurements(records).fold(
+                        onSuccess = {
+                            Log.i(TAG, "Synced ${records.size} body records")
+                            dao.deleteByIds(pending.map { it.id })
+                            val latest = records.last()
+                            if (latest.weightKg != null) {
+                                prefs.edit()
+                                    .putFloat(SyncPrefsKeys.LAST_WEIGHT_KG, latest.weightKg.toFloat())
+                                    .putString(SyncPrefsKeys.LAST_WEIGHT_TIME, latest.measuredAt)
+                                    .apply()
+                            }
+                        },
+                        onFailure = { e ->
+                            Log.e(TAG, "Body sync failed — ${pending.size} records kept in queue", e)
+                            anyFailure = true
+                        }
+                    )
+                }
+            }
+
+            // ---- HRV ----
+            if (filter == null || filter == DATA_TYPE_HRV) {
+                val pending = dao.getPending(DATA_TYPE_HRV)
+                if (pending.isNotEmpty()) {
+                    val records = pending.map { gson.fromJson(it.payload, HrvData::class.java) }
+                    api.syncHrv(records).fold(
+                        onSuccess = {
+                            Log.i(TAG, "Synced ${records.size} HRV records")
+                            dao.deleteByIds(pending.map { it.id })
+                            val latest = records.last()
+                            prefs.edit()
+                                .putFloat(SyncPrefsKeys.LAST_HRV_MS, latest.hrvMs.toFloat())
+                                .putString(SyncPrefsKeys.LAST_HRV_TIME, latest.measuredAt)
+                                .apply()
+                        },
+                        onFailure = { e ->
+                            Log.e(TAG, "HRV sync failed — ${pending.size} records kept in queue", e)
+                            anyFailure = true
+                        }
+                    )
+                }
+            }
+
+            prefs.edit().putLong(SyncPrefsKeys.LAST_SYNC, System.currentTimeMillis()).apply()
+
+            recordSyncHistory(prefs, !anyFailure)
+            HealthGlanceWidget().updateAll(applicationContext)
+
+            if (anyFailure) Result.retry() else Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Sync failed", e)
             Result.retry()
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Queue entity builders — map typed data classes → SyncQueueEntity
+    // -------------------------------------------------------------------------
+
+    private fun BloodPressureData.toQueueEntity() = SyncQueueEntity(
+        dataType = DATA_TYPE_BP,
+        measuredAt = measuredAt,
+        payload = gson.toJson(this)
+    )
+
+    private fun SleepData.toQueueEntity() = SyncQueueEntity(
+        dataType = DATA_TYPE_SLEEP,
+        measuredAt = sleepStart,   // sleepStart is the unique identifier for a session
+        payload = gson.toJson(this)
+    )
+
+    private fun BodyMeasurementData.toQueueEntity() = SyncQueueEntity(
+        dataType = DATA_TYPE_BODY,
+        measuredAt = measuredAt,
+        payload = gson.toJson(this)
+    )
+
+    private fun HrvData.toQueueEntity() = SyncQueueEntity(
+        dataType = DATA_TYPE_HRV,
+        measuredAt = measuredAt,
+        payload = gson.toJson(this)
+    )
+
+    /** Prepends a sync event to the rolling history (last 10 entries, newest first). */
+    private fun recordSyncHistory(prefs: SharedPreferences, success: Boolean) {
+        val existing = prefs.getString(SyncPrefsKeys.SYNC_HISTORY, "[]") ?: "[]"
+        val arr = try { JSONArray(existing) } catch (e: Exception) { JSONArray() }
+        val entry = JSONObject().put("t", System.currentTimeMillis()).put("ok", success)
+        val updated = JSONArray().apply {
+            put(entry)
+            for (i in 0 until minOf(arr.length(), 9)) put(arr.getJSONObject(i))
+        }
+        prefs.edit().putString(SyncPrefsKeys.SYNC_HISTORY, updated.toString()).apply()
+    }
+
     companion object {
         private const val TAG = "SyncWorker"
         private const val WORK_NAME = "health_sync_periodic"
+
+        const val KEY_DATA_TYPE_FILTER = "data_type_filter"
+        const val DATA_TYPE_BP    = "blood_pressure"
+        const val DATA_TYPE_SLEEP = "sleep"
+        const val DATA_TYPE_BODY  = "body"
+        const val DATA_TYPE_HRV   = "hrv"
 
         fun schedule(context: Context) {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
-            val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(
-                15, TimeUnit.MINUTES
-            )
+            val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(constraints)
-                .setBackoffCriteria(
-                    BackoffPolicy.EXPONENTIAL,
-                    1, TimeUnit.MINUTES
-                )
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
                 .build()
 
             WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(
-                    WORK_NAME,
-                    ExistingPeriodicWorkPolicy.KEEP,
-                    syncRequest
-                )
+                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
         }
 
-        fun runOnce(context: Context) {
+        /**
+         * Enqueues a one-time sync and returns the work ID so callers can observe
+         * completion via [WorkManager.getWorkInfoByIdFlow].
+         *
+         * @param dataTypeFilter one of [DATA_TYPE_BP], [DATA_TYPE_SLEEP], [DATA_TYPE_BODY],
+         *   [DATA_TYPE_HRV], or null to sync all types.
+         */
+        fun runOnce(context: Context, dataTypeFilter: String? = null): UUID {
+            val inputData = if (dataTypeFilter != null) {
+                workDataOf(KEY_DATA_TYPE_FILTER to dataTypeFilter)
+            } else {
+                workDataOf()
+            }
+
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
-            val syncRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+            val request = OneTimeWorkRequestBuilder<SyncWorker>()
                 .setConstraints(constraints)
+                .setInputData(inputData)
                 .build()
 
-            WorkManager.getInstance(context).enqueue(syncRequest)
+            WorkManager.getInstance(context).enqueue(request)
+            return request.id
         }
 
         fun cancel(context: Context) {

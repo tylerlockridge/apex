@@ -19,6 +19,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.healthplatform.sync.SyncPrefsKeys
 import com.healthplatform.sync.ui.MainActivity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,13 +32,13 @@ import java.util.Locale
 class HealthGlanceWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val prefs = context.getSharedPreferences("health_sync", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(SyncPrefsKeys.FILE_NAME, Context.MODE_PRIVATE)
 
-        val bpSystolic = if (prefs.contains("last_bp_systolic")) prefs.getInt("last_bp_systolic", 0) else null
-        val bpDiastolic = if (prefs.contains("last_bp_diastolic")) prefs.getInt("last_bp_diastolic", 0) else null
-        val sleepDurationMin = if (prefs.contains("last_sleep_duration_min")) prefs.getInt("last_sleep_duration_min", 0) else null
-        val hrvMs = if (prefs.contains("last_hrv_ms")) prefs.getFloat("last_hrv_ms", 0f).toDouble() else null
-        val lastSyncMs = prefs.getLong("last_sync", 0L)
+        val bpSystolic     = if (prefs.contains(SyncPrefsKeys.LAST_BP_SYSTOLIC)) prefs.getInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, 0) else null
+        val bpDiastolic    = if (prefs.contains(SyncPrefsKeys.LAST_BP_DIASTOLIC)) prefs.getInt(SyncPrefsKeys.LAST_BP_DIASTOLIC, 0) else null
+        val sleepDurationMin = if (prefs.contains(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN)) prefs.getInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, 0) else null
+        val hrvMs          = if (prefs.contains(SyncPrefsKeys.LAST_HRV_MS)) prefs.getFloat(SyncPrefsKeys.LAST_HRV_MS, 0f).toDouble() else null
+        val lastSyncMs     = prefs.getLong(SyncPrefsKeys.LAST_SYNC, 0L)
 
         val lastSyncLabel = if (lastSyncMs > 0) {
             val df = SimpleDateFormat("h:mm a", Locale.getDefault())
@@ -70,11 +71,11 @@ class HealthGlanceWidget : GlanceAppWidget() {
 // Widget UI
 // ---------------------------------------------------------------------------
 
-private val WidgetBackground = Color(0xFF0D1117)
-private val WidgetSurface = Color(0xFF161B22)
-private val WidgetTeal = Color(0xFF00D4AA)
-private val WidgetText = Color(0xFFE6EDF3)
-private val WidgetMuted = Color(0xFF8B949E)
+private val WidgetBackground = Color(0xFF0C1320)  // matches ApexBackground
+private val WidgetSurface    = Color(0xFF141E30)  // matches ApexSurface
+private val WidgetAccent     = Color(0xFF5B9BD5)  // matches ApexPrimary (steel blue)
+private val WidgetText       = Color(0xFFE6EDF3)
+private val WidgetMuted      = Color(0xFF8B949E)
 
 @Composable
 private fun WidgetContent(
@@ -100,7 +101,7 @@ private fun WidgetContent(
             Text(
                 text = "Apex",
                 style = TextStyle(
-                    color = ColorProvider(WidgetTeal),
+                    color = ColorProvider(WidgetAccent),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -181,7 +182,7 @@ private fun WidgetContent(
                 )
                 Text(
                     text = lastSyncLabel,
-                    style = TextStyle(color = ColorProvider(WidgetTeal), fontSize = 10.sp)
+                    style = TextStyle(color = ColorProvider(WidgetAccent), fontSize = 10.sp)
                 )
             }
         }

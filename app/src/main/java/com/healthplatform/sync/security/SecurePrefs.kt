@@ -16,7 +16,12 @@ object SecurePrefs {
 
     private fun get(context: Context): SharedPreferences =
         instance ?: synchronized(this) {
-            instance ?: create(context.applicationContext).also { instance = it }
+            // Double-checked locking: migration runs inside the lock so it is
+            // guaranteed to execute exactly once before the instance is published.
+            instance ?: create(context.applicationContext).also { prefs ->
+                migrateIfNeeded(context.applicationContext, prefs)
+                instance = prefs
+            }
         }
 
     private fun create(context: Context): SharedPreferences {
@@ -32,7 +37,8 @@ object SecurePrefs {
         )
     }
 
-    // One-time migration from plain "health_sync" prefs — runs as a no-op after first call
+    // One-time migration from plain "health_sync" prefs — runs once, inside the
+    // synchronized block in get(), so there is no concurrent-migration race.
     private fun migrateIfNeeded(context: Context, secure: SharedPreferences) {
         val plain = context.getSharedPreferences("health_sync", Context.MODE_PRIVATE)
         if (plain.contains(KEY_API_KEY) && !secure.contains(KEY_API_KEY)) {
@@ -43,28 +49,29 @@ object SecurePrefs {
             plain.edit().remove(KEY_API_KEY).apply()
         }
         if (plain.contains(KEY_BIOMETRIC_ENABLED) && !secure.contains(KEY_BIOMETRIC_ENABLED)) {
-            secure.edit().putBoolean(KEY_BIOMETRIC_ENABLED, plain.getBoolean(KEY_BIOMETRIC_ENABLED, false)).apply()
+            secure.edit()
+                .putBoolean(KEY_BIOMETRIC_ENABLED, plain.getBoolean(KEY_BIOMETRIC_ENABLED, false))
+                .apply()
             plain.edit().remove(KEY_BIOMETRIC_ENABLED).apply()
         }
     }
 
-    fun getApiKey(context: Context): String {
-        val secure = get(context)
-        migrateIfNeeded(context, secure)
-        return secure.getString(KEY_API_KEY, "") ?: ""
-    }
+    fun getApiKey(context: Context): String =
+        get(context).getString(KEY_API_KEY, "") ?: ""
 
     fun setApiKey(context: Context, key: String) {
         get(context).edit().putString(KEY_API_KEY, key).apply()
     }
 
-    fun getBiometricEnabled(context: Context): Boolean {
-        val secure = get(context)
-        migrateIfNeeded(context, secure)
-        return secure.getBoolean(KEY_BIOMETRIC_ENABLED, false)
-    }
+    fun getBiometricEnabled(context: Context): Boolean =
+        get(context).getBoolean(KEY_BIOMETRIC_ENABLED, false)
 
     fun setBiometricEnabled(context: Context, enabled: Boolean) {
         get(context).edit().putBoolean(KEY_BIOMETRIC_ENABLED, enabled).apply()
+    }
+
+    /** Wipes all secure preferences (API key, biometric flag). Used by "Clear all data". */
+    fun clearAll(context: Context) {
+        get(context).edit().clear().commit()
     }
 }

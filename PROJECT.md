@@ -19,14 +19,14 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-02-28 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-02 -->
 ## Quick Resume
-**Last Active:** 2026-02-28
-**Current Phase:** Full LLM audit pipeline complete — all 7 action items executed
-**Current Task:** Done. All audit fixes committed (commits e5660a6 → 12b2534). CI running.
-**Audit Score:** 3.8/10 → projected 6.0/10 after all fixes (Security 2.4→7.0, Testing 1.0→3.0, Perf 5.3→6.5)
-**Blockers:** None. BP/sleep/body tables still empty on server. New HC syncs will populate going forward.
-**Next Action:** CI green check. Then consider: expand test coverage (HealthConnectReader, SecurePrefs), add Hilt DI to improve architecture score, README minSdk fix (low priority).
+**Last Active:** 2026-03-02
+**Current Phase:** Deep composite audit complete + known gaps addressed
+**Current Task:** Done. All session changes NOT YET committed — need `git add` + commit + push to CI.
+**Audit Score:** 3.8/10 → projected 6.5/10 after all fixes
+**Blockers:** None. Changes are file-complete and ready to push.
+**Next Action:** Commit and push all 2026-03-02 changes. Remaining gaps: offline queue (Room, complex), HMAC request signing, QR onboarding (CameraX), Hevy sync, incremental sync (change tokens).
 
 ## Commits This Session (2026-02-27)
 - `82197aa` — feat: new Apex icon — steel blue gradient + mountain-A lettermark

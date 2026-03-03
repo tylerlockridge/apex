@@ -2,6 +2,7 @@ package com.healthplatform.sync.service
 
 import com.healthplatform.sync.BuildConfig
 import com.healthplatform.sync.Config
+import okhttp3.CertificatePinner
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -64,6 +65,16 @@ data class WorkoutStatsSummaryResponse(
     val avg_sets_per_workout: Int?
 )
 
+data class HrvReadingResponse(
+    val id: String?,
+    val measured_at: String,
+    val hrv_ms: Double,
+    val resting_hr: Int?,
+    val reading_type: String?,
+    val source: String?,
+    val device_name: String?
+)
+
 // ---------------------------------------------------------------------------
 // Retrofit interface
 // ---------------------------------------------------------------------------
@@ -94,6 +105,11 @@ interface ServerReadApi {
     suspend fun getWorkoutStatsSummary(
         @Query("days") days: Int = 30
     ): WorkoutStatsSummaryResponse
+
+    @GET("api/hrv/recent")
+    suspend fun getHrv(
+        @Query("days") days: Int = 30
+    ): List<HrvReadingResponse>
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +121,11 @@ class ServerApiClient(private val apiKey: String) {
     private val api: ServerReadApi
 
     init {
+        val certificatePinner = CertificatePinner.Builder()
+            .add("tyler-health.duckdns.org", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
+            .add("tyler-health.duckdns.org", "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
+            .build()
+
         val client = OkHttpClient.Builder()
             .addInterceptor(Interceptor { chain ->
                 val request = chain.request().newBuilder()
@@ -119,6 +140,7 @@ class ServerApiClient(private val apiKey: String) {
                     })
                 }
             }
+            .certificatePinner(certificatePinner)
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
             .build()
@@ -167,6 +189,14 @@ class ServerApiClient(private val apiKey: String) {
     suspend fun getWorkoutStatsSummary(days: Int = 30): Result<WorkoutStatsSummaryResponse> {
         return try {
             Result.success(api.getWorkoutStatsSummary(days))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getHrv(days: Int = 30): Result<List<HrvReadingResponse>> {
+        return try {
+            Result.success(api.getHrv(days))
         } catch (e: Exception) {
             Result.failure(e)
         }

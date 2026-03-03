@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.devtools.ksp")
 }
 
 // Load secrets from local.properties (gitignored — never committed)
@@ -64,6 +65,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -108,6 +115,12 @@ dependencies {
     // WorkManager for background sync
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
+    // Room — offline sync queue
+    val roomVersion = "2.6.1"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
+
     // DataStore for preferences
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
@@ -124,10 +137,15 @@ dependencies {
     // Splash screen
     implementation("androidx.core:core-splashscreen:1.0.1")
 
-    // Testing
+    // Testing — unit
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("io.mockk:mockk:1.13.9")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("androidx.test:core-ktx:1.5.0")
+    testImplementation("app.cash.turbine:turbine:1.1.0")
+    testImplementation("androidx.work:work-testing:2.9.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.10.01"))
