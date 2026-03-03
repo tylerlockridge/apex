@@ -64,13 +64,18 @@ data class TrendsState(
 
 class TrendsViewModel(
     application: Application,
-    // Secondary constructor parameter allows injecting a fake client in tests
-    // without requiring Hilt or a ViewModelFactory in production code.
+    // Allows injecting a fake client in tests without requiring Hilt or a ViewModelFactory.
     @VisibleForTesting
-    internal val clientProvider: () -> ServerApiClient = {
-        ServerApiClient(SecurePrefs.getApiKey(application))
-    }
+    internal val clientProvider: () -> ServerApiClient
 ) : AndroidViewModel(application) {
+
+    // ViewModelProvider.AndroidViewModelFactory finds ViewModels by reflection looking for a
+    // (Application) constructor. Kotlin default parameters don't generate a JVM overload, so
+    // the factory crashes with NoSuchMethodException. This explicit secondary constructor
+    // provides the JVM-visible (Application) entry point the factory expects.
+    constructor(application: Application) : this(application, {
+        ServerApiClient(SecurePrefs.getApiKey(application))
+    })
 
     private val _state = MutableStateFlow(TrendsState())
     val state: StateFlow<TrendsState> = _state.asStateFlow()
