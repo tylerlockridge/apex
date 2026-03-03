@@ -88,16 +88,30 @@ fun TrendsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Content area scrolls
+        val tabError = when (state.selectedTab) {
+            0 -> state.bpError
+            1 -> state.sleepError
+            2 -> state.bodyError
+            else -> state.hrvError
+        }
+
         Box(modifier = Modifier.fillMaxSize()) {
             when {
                 state.isLoading -> {
+                    // L-5: skeleton count matches expected cards per tab
+                    val skeletonCount = when (state.selectedTab) {
+                        0 -> 3   // BP: 2 charts + stats
+                        1 -> 2   // Sleep: stacked bar + stats
+                        2 -> 2   // Body: weight/fat charts + stats
+                        else -> 2 // HRV: chart + stats
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        repeat(3) {
+                        repeat(skeletonCount) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -109,9 +123,9 @@ fun TrendsScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
-                state.error != null -> {
+                tabError != null -> {
                     ErrorCard(
-                        message = state.error!!,
+                        message = tabError,
                         onRetry = { viewModel.refresh() },
                         modifier = Modifier.align(Alignment.TopCenter)
                     )

@@ -90,6 +90,10 @@ class ActivityViewModel(
     }
 
     private fun loadAll() {
+        // H-4: guard prevents a second concurrent load (e.g. from triggerHevySync calling
+        // loadAll() while a previous loadWorkouts() is still in flight), which would cause
+        // two isLoading state updates to race and potentially leave the UI stuck loading.
+        if (_state.value.isLoading) return
         loadWorkouts()
         loadStats()
     }

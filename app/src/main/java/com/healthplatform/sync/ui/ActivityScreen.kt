@@ -56,138 +56,138 @@ fun ActivityScreen(
                 .padding(horizontal = 16.dp)
                 .padding(top = 16.dp, bottom = 24.dp)
         ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Activity",
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                color = ApexOnBackground
-            )
-            if (state.isSyncing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = ApexPrimary,
-                    strokeWidth = 2.dp
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Activity",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = ApexOnBackground
                 )
-            } else {
-                IconButton(
-                    onClick = { haptic.confirm(); viewModel.triggerHevySync() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Sync,
-                        contentDescription = "Sync Hevy workouts",
-                        tint = ApexPrimary
-                    )
-                }
-            }
-        }
-        if (state.syncError != null) {
-            Text(
-                text = state.syncError!!,
-                style = MaterialTheme.typography.labelSmall,
-                color = ApexStatusRed,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            when {
-                state.isLoading && state.workouts.isEmpty() -> {
+                if (state.isSyncing) {
                     CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = ApexPrimary
+                        modifier = Modifier.size(24.dp),
+                        color = ApexPrimary,
+                        strokeWidth = 2.dp
                     )
-                }
-                state.error != null && state.workouts.isEmpty() -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                } else {
+                    IconButton(
+                        onClick = { haptic.confirm(); viewModel.triggerHevySync() }
                     ) {
-                        Text(
-                            text = state.error!!,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = ApexStatusRed
+                        Icon(
+                            imageVector = Icons.Rounded.Sync,
+                            contentDescription = "Sync Hevy workouts",
+                            tint = ApexPrimary
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = { haptic.reject(); viewModel.refresh() },
-                            border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
-                        ) {
-                            Text("Retry")
-                        }
                     }
                 }
-                else -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Weekly summary card
-                        state.stats?.let { stats ->
-                            WeeklySummaryCard(stats)
-                        }
+            }
+            if (state.syncError != null) {
+                Text(
+                    text = state.syncError!!,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ApexStatusRed,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
 
-                        // Workout list
-                        if (state.workouts.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 32.dp),
-                                contentAlignment = Alignment.Center
+            Box(modifier = Modifier.fillMaxSize()) {
+                when {
+                    state.isLoading && state.workouts.isEmpty() -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.Center),
+                            color = ApexPrimary
+                        )
+                    }
+                    state.error != null && state.workouts.isEmpty() -> {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = state.error!!,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = ApexStatusRed
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = { haptic.reject(); viewModel.refresh() },
+                                border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("—", style = MaterialTheme.typography.headlineLarge, color = ApexOnSurfaceVariant)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "No workouts yet",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = ApexOnSurfaceVariant
-                                    )
-                                    Text(
-                                        text = "Pull your workouts from Hevy to see them here",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = ApexOnSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Button(
-                                        onClick = { haptic.confirm(); viewModel.triggerHevySync() },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = ApexPrimary,
-                                            contentColor = ApexOnPrimary
+                                Text("Retry")
+                            }
+                        }
+                    }
+                    else -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Weekly summary card
+                            state.stats?.let { stats ->
+                                WeeklySummaryCard(stats)
+                            }
+
+                            // Workout list
+                            if (state.workouts.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("—", style = MaterialTheme.typography.headlineLarge, color = ApexOnSurfaceVariant)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "No workouts yet",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = ApexOnSurfaceVariant
                                         )
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Sync,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
+                                        Text(
+                                            text = "Pull your workouts from Hevy to see them here",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = ApexOnSurfaceVariant
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Sync Hevy")
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Button(
+                                            onClick = { haptic.confirm(); viewModel.triggerHevySync() },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = ApexPrimary,
+                                                contentColor = ApexOnPrimary
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Sync,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Sync Hevy")
+                                        }
                                     }
                                 }
+                            } else {
+                                Text(
+                                    text = "Recent Workouts",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = ApexPrimary
+                                )
+                                state.workouts.forEach { workout ->
+                                    WorkoutCard(workout)
+                                }
                             }
-                        } else {
-                            Text(
-                                text = "Recent Workouts",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = ApexPrimary
-                            )
-                            state.workouts.forEach { workout ->
-                                WorkoutCard(workout)
-                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
-        }
         } // Column
     } // PullToRefreshBox
 }

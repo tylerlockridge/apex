@@ -164,4 +164,4 @@ See `documentation/11-unimplemented-features.md`.
 |--------|-------|--------|
 | Sprint 1 (bugs) | #1–7 | ✅ Complete — commit e0bb642 (2026-03-03) |
 | Sprint 2 (features) | #8–12 | ✅ Complete — commit 4acfded (2026-03-03). QR onboarding (#13) deferred to Sprint 3 |
-| Sprint 3 (polish) | multiple | ⬜ Backlog |
+| Sprint 3 (polish) | multiple | ✅ Complete — see sprint 3 commit |

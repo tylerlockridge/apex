@@ -79,7 +79,7 @@ class TrendsViewModelTest {
             // Sorted ascending by measured_at
             assertEquals(118, loaded.bpReadings[0].systolic)
             assertEquals(125, loaded.bpReadings[1].systolic)
-            assertNull(loaded.error)
+            assertNull(loaded.bpError)
         }
     }
 
@@ -97,7 +97,7 @@ class TrendsViewModelTest {
             skipItems(1) // isLoading=true
             val errorState = awaitItem()
 
-            assertTrue(errorState.error!!.contains("unreachable"))
+            assertTrue(errorState.bpError!!.contains("unreachable"))
             assertTrue(errorState.bpReadings.isEmpty())
         }
     }
@@ -150,7 +150,7 @@ class TrendsViewModelTest {
             // Sorted ascending by measured_at
             assertEquals(48.7, loaded.hrvReadings[0].hrvMs, 0.01)
             assertEquals(55.3, loaded.hrvReadings[1].hrvMs, 0.01)
-            assertNull(loaded.error)
+            assertNull(loaded.hrvError)
         }
     }
 
@@ -175,7 +175,7 @@ class TrendsViewModelTest {
             skipItems(1) // isLoading=true
             val errorState = awaitItem()
 
-            assertTrue(errorState.error!!.contains("connect", ignoreCase = true))
+            assertTrue(errorState.hrvError!!.contains("connect", ignoreCase = true))
         }
     }
 

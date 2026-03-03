@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
 import androidx.work.*
 import com.healthplatform.sync.Config
@@ -221,7 +222,13 @@ class SyncWorker(
             }
 
             recordSyncHistory(prefs, !anyFailure)
-            HealthGlanceWidget().updateAll(applicationContext)
+            // M-3: only trigger widget update when at least one widget is pinned —
+            // avoids unnecessary Glance work when the user has no active widget.
+            val widgetIds = GlanceAppWidgetManager(applicationContext)
+                .getGlanceIds(HealthGlanceWidget::class.java)
+            if (widgetIds.isNotEmpty()) {
+                HealthGlanceWidget().updateAll(applicationContext)
+            }
 
             if (anyFailure) Result.retry() else Result.success()
         } catch (e: Exception) {

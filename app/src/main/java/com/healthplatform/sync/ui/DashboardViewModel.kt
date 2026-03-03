@@ -15,8 +15,10 @@ import androidx.work.WorkInfo
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -25,6 +27,7 @@ data class DashboardState(
     val lastSyncMs: Long = 0L,
     val isSyncing: Boolean = false,
     val syncError: String? = null,
+    val isLoadingPrefs: Boolean = false,
     val hasAllPermissions: Boolean = false,
     val isHealthConnectAvailable: Boolean = false,
     val lastBpSystolic: Int? = null,
@@ -59,6 +62,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun loadFromPrefs() {
         val context = getApplication<Application>()
+        _state.update { it.copy(isLoadingPrefs = true) }
         viewModelScope.launch {
             val prefs = context.getSharedPreferences(SyncPrefsKeys.FILE_NAME, android.content.Context.MODE_PRIVATE)
 
@@ -77,15 +81,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val hrvMs   = if (prefs.contains(SyncPrefsKeys.LAST_HRV_MS)) prefs.getFloat(SyncPrefsKeys.LAST_HRV_MS, 0f).toDouble() else null
             val hrvTime = prefs.getString(SyncPrefsKeys.LAST_HRV_TIME, null)
 
+            // H-5: HC availability/permissions checks are suspend operations that hit the
+            // Android Keystore and HC client — must run off the Main thread.
             val isHealthConnectAvailable = try {
-                com.healthplatform.sync.data.HealthConnectReader.isAvailable(context)
+                withContext(Dispatchers.IO) {
+                    com.healthplatform.sync.data.HealthConnectReader.isAvailable(context)
+                }
             } catch (_: Exception) { false }
 
             var hasAllPermissions = false
             if (isHealthConnectAvailable) {
                 try {
-                    hasAllPermissions =
+                    hasAllPermissions = withContext(Dispatchers.IO) {
                         com.healthplatform.sync.data.HealthConnectReader(context).hasAllPermissions()
+                    }
                 } catch (_: Exception) {}
             }
 
@@ -100,22 +109,23 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
             _state.update { current ->
                 current.copy(
-                    lastSyncMs              = prefs.getLong(SyncPrefsKeys.LAST_SYNC, 0L),
+                    lastSyncMs               = prefs.getLong(SyncPrefsKeys.LAST_SYNC, 0L),
                     isHealthConnectAvailable = isHealthConnectAvailable,
-                    hasAllPermissions       = hasAllPermissions,
-                    lastBpSystolic          = bpSystolic,
-                    lastBpDiastolic         = bpDiastolic,
-                    lastBpTime              = bpTime,
-                    lastSleepDurationMin    = sleepDurationMin,
-                    lastSleepDeepMin        = sleepDeepMin,
-                    lastSleepRemMin         = sleepRemMin,
-                    lastSleepTime           = sleepTime,
-                    lastWeightKg            = weightKg,
-                    lastWeightTime          = weightTime,
-                    lastHrvMs               = hrvMs,
-                    lastHrvTime             = hrvTime,
-                    readinessLabel          = readinessLabel,
-                    readinessReason         = readinessReason,
+                    hasAllPermissions        = hasAllPermissions,
+                    isLoadingPrefs           = false,
+                    lastBpSystolic           = bpSystolic,
+                    lastBpDiastolic          = bpDiastolic,
+                    lastBpTime               = bpTime,
+                    lastSleepDurationMin     = sleepDurationMin,
+                    lastSleepDeepMin         = sleepDeepMin,
+                    lastSleepRemMin          = sleepRemMin,
+                    lastSleepTime            = sleepTime,
+                    lastWeightKg             = weightKg,
+                    lastWeightTime           = weightTime,
+                    lastHrvMs                = hrvMs,
+                    lastHrvTime              = hrvTime,
+                    readinessLabel           = readinessLabel,
+                    readinessReason          = readinessReason,
                 )
             }
 
@@ -194,15 +204,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     /**
      * Triggers a WorkManager sync and observes it to completion, then refreshes
      * SharedPreferences state. Debounced — no-ops if a sync is already in flight.
+     * Also skips if the periodic worker is currently running to prevent concurrent
+     * uploads of the same queued records.
      *
      * @param dataTypeFilter one of [SyncWorker.DATA_TYPE_BP], [SyncWorker.DATA_TYPE_SLEEP],
      *   [SyncWorker.DATA_TYPE_BODY], [SyncWorker.DATA_TYPE_HRV], or null to sync all.
-     */
-    /**
-     * Triggers a WorkManager sync and observes it to completion, then refreshes
-     * SharedPreferences state. Debounced — no-ops if a sync is already in flight.
-     * Also skips if the periodic worker is currently running to prevent concurrent
-     * uploads of the same queued records.
      */
     fun triggerSync(dataTypeFilter: String? = null) {
         if (_state.value.isSyncing) return

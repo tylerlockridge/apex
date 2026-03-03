@@ -57,20 +57,17 @@ fun DashboardScreen(
         viewModel.loadFromPrefs()
     }
 
-    // Handle pull-to-refresh
-    LaunchedEffect(isRefreshing) {
-        if (isRefreshing) {
-            viewModel.loadFromPrefs()
-            kotlinx.coroutines.delay(800)
-            isRefreshing = false
-        }
+    // Dismiss PTR as soon as prefs have been reloaded (no hardcoded delay).
+    LaunchedEffect(state.isLoadingPrefs) {
+        if (!state.isLoadingPrefs) isRefreshing = false
     }
 
-    // Card visibility for staggered animation
-    var card0Visible by remember { mutableStateOf(false) }
-    var card1Visible by remember { mutableStateOf(false) }
-    var card2Visible by remember { mutableStateOf(false) }
-    var card3Visible by remember { mutableStateOf(false) }
+    // Card visibility for staggered animation — rememberSaveable so the entrance
+    // animation fires once per app session rather than replaying on every tab switch.
+    var card0Visible by rememberSaveable { mutableStateOf(false) }
+    var card1Visible by rememberSaveable { mutableStateOf(false) }
+    var card2Visible by rememberSaveable { mutableStateOf(false) }
+    var card3Visible by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         card0Visible = true
@@ -94,7 +91,7 @@ fun DashboardScreen(
     ) { innerPadding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { isRefreshing = true },
+            onRefresh = { isRefreshing = true; viewModel.loadFromPrefs() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = innerPadding.calculateBottomPadding())
@@ -131,7 +128,7 @@ fun DashboardScreen(
 
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(end = 8.dp)
+                    contentPadding = PaddingValues(start = 4.dp, end = 20.dp)
                 ) {
                     item {
                         AnimatedVisibility(
@@ -312,7 +309,22 @@ private fun SyncStatusCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                PulsingDot(color = dotColor)
+                // L-3: compound indicator — color + icon so error state is accessible
+                // to colorblind users without relying on color alone.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    PulsingDot(color = dotColor)
+                    if (state.syncError != null) {
+                        Icon(
+                            imageVector = Icons.Rounded.ErrorOutline,
+                            contentDescription = "Sync error",
+                            tint = ApexStatusRed,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
                 Column {
                     Text(
                         text = syncLabel,

@@ -25,17 +25,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.healthplatform.sync.BuildConfig
 import com.healthplatform.sync.SyncPrefsKeys
-import com.healthplatform.sync.data.HealthConnectReader
 import com.healthplatform.sync.security.BiometricLockManager
 import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.service.SyncWorker
 import com.healthplatform.sync.ui.theme.*
 import com.healthplatform.sync.ui.util.rememberApexHaptic
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.*
@@ -48,6 +47,7 @@ import java.util.*
 fun SettingsScreen(
     onRequestPermissions: () -> Unit,
     onLock: (() -> Unit)? = null,
+    settingsViewModel: SettingsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -66,14 +66,12 @@ fun SettingsScreen(
     // Sync history: list of (timestampMs, success) pairs, newest first
     var syncHistory by remember { mutableStateOf<List<Pair<Long, Boolean>>>(emptyList()) }
 
-    var isHealthConnectAvailable by remember { mutableStateOf(false) }
-    var hasAllPermissions by remember { mutableStateOf(false) }
-
-    // Server connection status
-    var serverStatus by remember { mutableStateOf<Boolean?>(null) }
-
     // "Clear all data" confirmation dialog
     var showClearDialog by remember { mutableStateOf(false) }
+
+    // M-4 / L-7: server status and per-type HC permissions come from SettingsViewModel
+    // so the OkHttpClient is built once rather than on every screen open.
+    val serverState by settingsViewModel.serverState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         // Parse sync history from prefs
@@ -83,40 +81,8 @@ fun SettingsScreen(
             val obj = arr.getJSONObject(i)
             Pair(obj.getLong("t"), obj.getBoolean("ok"))
         }
-
-        isHealthConnectAvailable = HealthConnectReader.isAvailable(context)
-        if (isHealthConnectAvailable) {
-            try {
-                val reader = HealthConnectReader(context)
-                hasAllPermissions = reader.hasAllPermissions()
-            } catch (e: Exception) {
-                hasAllPermissions = false
-            }
-        }
-
-        // Ping server via a cert-pinned OkHttp client so the status check is
-        // protected by the same ISRG Root X1/X2 pins as the sync client.
-        serverStatus = withContext(Dispatchers.IO) {
-            try {
-                val storedKey = SecurePrefs.getApiKey(context)
-                val pinner = okhttp3.CertificatePinner.Builder()
-                    .add("tyler-health.duckdns.org", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
-                    .add("tyler-health.duckdns.org", "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
-                    .build()
-                val client = okhttp3.OkHttpClient.Builder()
-                    .connectTimeout(4, java.util.concurrent.TimeUnit.SECONDS)
-                    .readTimeout(4, java.util.concurrent.TimeUnit.SECONDS)
-                    .certificatePinner(pinner)
-                    .build()
-                val request = okhttp3.Request.Builder()
-                    .url("${com.healthplatform.sync.Config.SERVER_URL}/api/bp?days=1")
-                    .addHeader("Authorization", "Bearer $storedKey")
-                    .build()
-                client.newCall(request).execute().use { it.isSuccessful }
-            } catch (e: Exception) {
-                false
-            }
-        }
+        // Refresh server status and HC permissions each time settings opens.
+        settingsViewModel.checkAll()
     }
 
     Scaffold(
@@ -334,12 +300,14 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(text = type, style = MaterialTheme.typography.bodyMedium, color = ApexOnSurface)
-                        if (!isHealthConnectAvailable) {
-                            Icon(imageVector = Icons.Rounded.Cancel, contentDescription = null, tint = ApexStatusRed, modifier = Modifier.size(18.dp))
-                        } else if (hasAllPermissions) {
-                            Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = null, tint = ApexStatusGreen, modifier = Modifier.size(18.dp))
-                        } else {
-                            Icon(imageVector = Icons.Rounded.Cancel, contentDescription = null, tint = ApexStatusRed, modifier = Modifier.size(18.dp))
+                        // L-7: per-type granted/denied status rather than all-or-nothing
+                        when {
+                            !serverState.isHcAvailable ->
+                                Icon(imageVector = Icons.Rounded.Cancel, contentDescription = "Unavailable", tint = ApexStatusRed, modifier = Modifier.size(18.dp))
+                            serverState.hcPermissions[type] == true ->
+                                Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = "Granted", tint = ApexStatusGreen, modifier = Modifier.size(18.dp))
+                            else ->
+                                Icon(imageVector = Icons.Rounded.Cancel, contentDescription = "Not granted", tint = ApexStatusRed, modifier = Modifier.size(18.dp))
                         }
                     }
                     if (index < dataTypes.lastIndex) {
@@ -347,7 +315,8 @@ fun SettingsScreen(
                     }
                 }
 
-                if (!hasAllPermissions && isHealthConnectAvailable) {
+                val allGranted = serverState.hcPermissions.values.all { it }
+                if (!allGranted && serverState.isHcAvailable) {
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(
                         onClick = onRequestPermissions,
@@ -480,7 +449,7 @@ fun SettingsScreen(
                                 .clip(CircleShape)
                         ) {
                             drawCircle(
-                                color = when (serverStatus) {
+                                color = when (serverState.serverStatus) {
                                     true -> ApexStatusGreen
                                     false -> ApexStatusRed
                                     null -> ApexStatusYellow
@@ -488,13 +457,13 @@ fun SettingsScreen(
                             )
                         }
                         Text(
-                            text = when (serverStatus) {
+                            text = when (serverState.serverStatus) {
                                 true -> "Connected"
                                 false -> "Unreachable"
                                 null -> "Checking..."
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = when (serverStatus) {
+                            color = when (serverState.serverStatus) {
                                 true -> ApexStatusGreen
                                 false -> ApexStatusRed
                                 null -> ApexStatusYellow

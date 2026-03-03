@@ -1,0 +1,114 @@
+package com.healthplatform.sync.ui
+
+import android.app.Application
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.BloodPressureRecord
+import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
+import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.WeightRecord
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.healthplatform.sync.Config
+import com.healthplatform.sync.data.HealthConnectReader
+import com.healthplatform.sync.security.SecurePrefs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.CertificatePinner
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
+
+data class SettingsServerState(
+    /** null = check in progress, true = reachable, false = unreachable */
+    val serverStatus: Boolean? = null,
+    val isHcAvailable: Boolean = false,
+    /** Per data-type permission status keyed by display name. */
+    val hcPermissions: Map<String, Boolean> = emptyMap()
+)
+
+/**
+ * Holds the server ping and HC permissions check so the OkHttpClient is built once
+ * per ViewModel lifetime rather than on every Settings screen open (M-4).
+ * Also surfaces per-type HC permission status instead of a single all-or-nothing
+ * flag (L-7).
+ */
+class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val _serverState = MutableStateFlow(SettingsServerState())
+    val serverState: StateFlow<SettingsServerState> = _serverState.asStateFlow()
+
+    // Built once — reused for every ping triggered while this ViewModel is alive.
+    private val pingClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(4, TimeUnit.SECONDS)
+        .certificatePinner(
+            CertificatePinner.Builder()
+                .add("tyler-health.duckdns.org", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
+                .add("tyler-health.duckdns.org", "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
+                .build()
+        )
+        .build()
+
+    init {
+        checkAll()
+    }
+
+    /** Re-run both checks (called when Settings screen opens). */
+    fun checkAll() {
+        viewModelScope.launch {
+            checkHcPermissions()
+            checkServerConnection()
+        }
+    }
+
+    private suspend fun checkHcPermissions() {
+        val context = getApplication<Application>()
+        val isAvailable = try {
+            withContext(Dispatchers.IO) { HealthConnectReader.isAvailable(context) }
+        } catch (_: Exception) { false }
+
+        val permMap: Map<String, Boolean> = if (isAvailable) {
+            try {
+                withContext(Dispatchers.IO) {
+                    val granted = HealthConnectReader(context).checkPermissions()
+                    mapOf(
+                        "Blood Pressure" to (HealthPermission.getReadPermission(BloodPressureRecord::class) in granted),
+                        "Sleep"          to (HealthPermission.getReadPermission(SleepSessionRecord::class) in granted),
+                        "Weight"         to (HealthPermission.getReadPermission(WeightRecord::class) in granted),
+                        "Body Composition" to (
+                            HealthPermission.getReadPermission(BodyFatRecord::class) in granted ||
+                            HealthPermission.getReadPermission(LeanBodyMassRecord::class) in granted
+                        ),
+                        "HRV"            to (HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class) in granted)
+                    )
+                }
+            } catch (_: Exception) { emptyMap() }
+        } else emptyMap()
+
+        _serverState.value = _serverState.value.copy(
+            isHcAvailable = isAvailable,
+            hcPermissions = permMap
+        )
+    }
+
+    private suspend fun checkServerConnection() {
+        val context = getApplication<Application>()
+        val status = withContext(Dispatchers.IO) {
+            try {
+                val key = SecurePrefs.getApiKey(context)
+                val request = Request.Builder()
+                    .url("${Config.SERVER_URL}/api/bp?days=1")
+                    .addHeader("Authorization", "Bearer $key")
+                    .build()
+                pingClient.newCall(request).execute().use { it.isSuccessful }
+            } catch (_: Exception) { false }
+        }
+        _serverState.value = _serverState.value.copy(serverStatus = status)
+    }
+}
