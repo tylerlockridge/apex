@@ -74,8 +74,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val hrvMs   = if (prefs.contains(SyncPrefsKeys.LAST_HRV_MS)) prefs.getFloat(SyncPrefsKeys.LAST_HRV_MS, 0f).toDouble() else null
             val hrvTime = prefs.getString(SyncPrefsKeys.LAST_HRV_TIME, null)
 
-            val isHealthConnectAvailable =
+            val isHealthConnectAvailable = try {
                 com.healthplatform.sync.data.HealthConnectReader.isAvailable(context)
+            } catch (_: Exception) { false }
 
             var hasAllPermissions = false
             if (isHealthConnectAvailable) {
@@ -85,7 +86,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 } catch (_: Exception) {}
             }
 
-            serverClient = ServerApiClient(SecurePrefs.getApiKey(context))
+            // SecurePrefs uses EncryptedSharedPreferences (Android Keystore) which is
+            // unavailable in unit test environments. Null serverClient means loadRecentWorkout()
+            // no-ops rather than crashing; health-metric state still loads from regular prefs.
+            serverClient = try {
+                ServerApiClient(SecurePrefs.getApiKey(context))
+            } catch (_: Exception) { null }
 
             _state.update { current ->
                 current.copy(

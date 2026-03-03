@@ -22,7 +22,13 @@ Server:       See Health-Platform-Desktop — 165.227.125.102 (tyler-health.duck
 ```
 
 ## Secrets Policy
-**NEVER** commit: `local.properties`, API keys, sync secret tokens.
+**NEVER** commit: `local.properties`, `keys/` directory (signing keystore), API keys, sync secret tokens.
+
+## Signing Credentials
+Not yet set up (no release keystore created yet). When release prep begins:
+- Create keystore at `keys/release.keystore` (same password pattern as Inkwell)
+- Store `KEYSTORE_PATH`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` in `local.properties`
+- Add `ANDROID_FINGERPRINT` to the server's `.env` via SSH
 
 ## Repo
 GitHub: https://github.com/tylerlockridge/apex
