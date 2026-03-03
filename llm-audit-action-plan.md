@@ -155,3 +155,13 @@ See `documentation/11-unimplemented-features.md`.
 | UX / Feature Completeness | 5.5 | 6.0 | 7.5 |
 | Performance | 7.0 | 7.5 | 7.5 |
 | **Overall** | **7.0** | **7.5** | **8.0** |
+
+---
+
+## Tracking
+
+| Sprint | Items | Status |
+|--------|-------|--------|
+| Sprint 1 (bugs) | #1–7 | ✅ Complete — commit e0bb642 (2026-03-03) |
+| Sprint 2 (features) | #8–13 | ⬜ Not started |
+| Sprint 3 (polish) | multiple | ⬜ Backlog |

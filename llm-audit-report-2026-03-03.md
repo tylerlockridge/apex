@@ -123,14 +123,14 @@
 
 ## Prioritized Fix Order
 
-**This sprint (bugs before features):**
-1. H-2 — Remove premature timestamp write in SettingsScreen "Sync All Now" *(30 min)*
-2. H-1 — Guard LAST_SYNC write on `!anyFailure` in SyncWorker *(30 min)*
-3. H-3 — Fix HealthConnectReader body fat timestamp matching *(15 min)*
-4. L-10 — Add blank API key early-exit in SyncWorker *(10 min)*
-5. L-4 — Disable sync buttons during active sync *(15 min)*
-6. L-6 — Add "Sync Hevy" button to Activity empty state *(15 min)*
-7. L-8 — Fix widget stale-date display *(15 min)*
+**This sprint (bugs before features):** ✅ All complete — commit e0bb642 (2026-03-03)
+1. ✅ H-2 — Remove premature timestamp write in SettingsScreen "Sync All Now" *(30 min)*
+2. ✅ H-1 — Guard LAST_SYNC write on `!anyFailure` in SyncWorker *(30 min)*
+3. ✅ H-3 — Fix HealthConnectReader body fat timestamp matching *(15 min)*
+4. ✅ L-10 — Add blank API key early-exit in SyncWorker *(10 min)*
+5. ✅ L-4 — Disable sync buttons during active sync *(15 min)*
+6. ✅ L-6 — Add "Sync Hevy" button to Activity empty state *(15 min)*
+7. ✅ L-8 — Fix widget stale-date display *(15 min)*
 
 **Next sprint (features):**
 1. Readiness score card *(medium)*
