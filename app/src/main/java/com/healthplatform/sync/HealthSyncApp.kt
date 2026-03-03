@@ -2,12 +2,13 @@ package com.healthplatform.sync
 
 import android.app.Application
 import androidx.work.Configuration
-import androidx.work.WorkManager
+import com.healthplatform.sync.service.WeeklySummaryWorker
+
 class HealthSyncApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
-        // WorkManager is initialized on-demand via Configuration.Provider.
-        // The default WorkManagerInitializer is removed in AndroidManifest.xml.
+        NotificationChannels.createAll(this)
+        WeeklySummaryWorker.schedule(this)
     }
 
     override val workManagerConfiguration: Configuration

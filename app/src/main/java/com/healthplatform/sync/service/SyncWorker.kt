@@ -1,11 +1,15 @@
 package com.healthplatform.sync.service
 
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.glance.appwidget.updateAll
 import androidx.work.*
 import com.healthplatform.sync.Config
+import com.healthplatform.sync.NotificationChannels
 import com.healthplatform.sync.SyncPrefsKeys
 import com.healthplatform.sync.data.BloodPressureData
 import com.healthplatform.sync.data.BodyMeasurementData
@@ -126,6 +130,10 @@ class SyncWorker(
                                 .putInt(SyncPrefsKeys.LAST_BP_DIASTOLIC, latest.diastolic)
                                 .putString(SyncPrefsKeys.LAST_BP_TIME, latest.measuredAt)
                                 .apply()
+                            // Alert if Stage 2 hypertension (systolic ≥ 140 or diastolic ≥ 90)
+                            if (latest.systolic >= 140 || latest.diastolic >= 90) {
+                                postBpAnomalyNotification(latest.systolic, latest.diastolic)
+                            }
                         },
                         onFailure = { e ->
                             Log.e(TAG, "BP sync failed — ${pending.size} records kept in queue", e)
@@ -250,6 +258,24 @@ class SyncWorker(
         payload = gson.toJson(this)
     )
 
+    private fun postBpAnomalyNotification(systolic: Int, diastolic: Int) {
+        val intent = applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
+        val pendingIntent = PendingIntent.getActivity(
+            applicationContext, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(applicationContext, NotificationChannels.BP_ANOMALY)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Elevated blood pressure")
+            .setContentText("$systolic/$diastolic mmHg — tap to review your trends in Apex")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+        val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(NOTIF_ID_BP, notification)
+    }
+
     /** Prepends a sync event to the rolling history (last 10 entries, newest first). */
     private fun recordSyncHistory(prefs: SharedPreferences, success: Boolean) {
         val existing = prefs.getString(SyncPrefsKeys.SYNC_HISTORY, "[]") ?: "[]"
@@ -264,6 +290,7 @@ class SyncWorker(
 
     companion object {
         private const val TAG = "SyncWorker"
+        private const val NOTIF_ID_BP = 1001
 
         /** Name of the periodic work — exposed so callers can observe its state. */
         const val WORK_NAME = "health_sync_periodic"

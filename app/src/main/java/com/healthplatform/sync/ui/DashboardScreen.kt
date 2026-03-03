@@ -2,6 +2,7 @@ package com.healthplatform.sync.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -20,7 +21,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -108,6 +113,15 @@ fun DashboardScreen(
                     state = state,
                     onSyncNow = { haptic.click(); viewModel.triggerSync() }
                 )
+
+                // Readiness card — only shown once we have enough data
+                val readinessLabel = state.readinessLabel
+                if (readinessLabel != null) {
+                    ReadinessCard(
+                        label = readinessLabel,
+                        reason = state.readinessReason ?: ""
+                    )
+                }
 
                 Text(
                     text = "Health Metrics",
@@ -215,7 +229,46 @@ private fun DashboardHeader() {
 }
 
 // ---------------------------------------------------------------------------
-// B — Sync Status Card
+// B — Readiness Score Card
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ReadinessCard(label: String, reason: String) {
+    val (icon, color) = when (label) {
+        "Good to go"   -> Icons.Rounded.CheckCircle to ApexStatusGreen
+        "Take it easy" -> Icons.Rounded.Info        to ApexStatusYellow
+        else           -> Icons.Rounded.Warning     to ApexStatusRed
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.10f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(28.dp))
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = color
+                )
+                Text(
+                    text = reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ApexOnSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// C — Sync Status Card
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -480,24 +533,17 @@ private fun SleepCard(
         icon = Icons.Rounded.Bedtime
     ) {
         if (durationMin != null) {
+            val score = sleepScore(durationMin, deepMin ?: 0, remMin ?: 0)
+            SleepArcGauge(score = score, modifier = Modifier.size(64.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             val h = durationMin / 60
             val m = durationMin % 60
             Text(
                 text = "${h}h ${m}m",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 color = ApexOnSurface
             )
-            if (deepMin != null && remMin != null && durationMin > 0) {
-                val qualityPct = ((deepMin + remMin) * 100 / durationMin).coerceIn(0, 100)
-                val badge = when {
-                    qualityPct >= 40 -> "High quality"
-                    qualityPct >= 20 -> "Moderate"
-                    else -> "Low quality"
-                }
-                Text(text = badge, style = MaterialTheme.typography.labelSmall, color = ApexPrimary)
-            }
             if (time != null) {
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(text = formatIsoTime(time), style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             }
         } else {
@@ -505,6 +551,72 @@ private fun SleepCard(
             Text(text = "No data", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
         }
     }
+}
+
+/** Arc gauge spanning 240° showing sleep quality score (0–100). */
+@Composable
+private fun SleepArcGauge(score: Int, modifier: Modifier = Modifier) {
+    val arcColor = when {
+        score >= 80 -> ApexStatusGreen
+        score >= 60 -> ApexStatusYellow
+        else        -> ApexStatusRed
+    }
+    val sweepAngle by animateFloatAsState(
+        targetValue = 240f * score / 100f,
+        animationSpec = tween(durationMillis = 900),
+        label = "sleepArc"
+    )
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = Stroke(width = size.minDimension * 0.12f, cap = StrokeCap.Round)
+            val inset  = stroke.width / 2
+            val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
+            val startAngle = 150f  // bottom-left
+            // Track (background arc)
+            drawArc(
+                color = ApexOutline,
+                startAngle = startAngle,
+                sweepAngle = 240f,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = arcSize,
+                style = stroke
+            )
+            // Progress arc
+            drawArc(
+                color = arcColor,
+                startAngle = startAngle,
+                sweepAngle = sweepAngle,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = arcSize,
+                style = stroke
+            )
+        }
+        Text(
+            text = "$score",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = arcColor
+        )
+    }
+}
+
+private fun sleepScore(durationMin: Int, deepMin: Int, remMin: Int): Int {
+    val durationScore = when {
+        durationMin in 420..540 -> 75   // 7–9 h ideal
+        durationMin >= 360      -> 55   // 6–7 h ok
+        durationMin >= 300      -> 35   // 5–6 h poor
+        else                    -> 20
+    }
+    val qualityBonus = if (durationMin > 0) {
+        val ratio = (deepMin + remMin) * 100 / durationMin
+        when {
+            ratio >= 40 -> 20
+            ratio >= 25 -> 10
+            else        -> 0
+        }
+    } else 0
+    return (durationScore + qualityBonus).coerceIn(0, 100)
 }
 
 @Composable

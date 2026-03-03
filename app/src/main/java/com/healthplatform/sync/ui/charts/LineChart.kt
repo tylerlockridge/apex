@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -42,6 +43,8 @@ import java.time.format.DateTimeFormatter
  * @param yLabel Unit label for Y axis
  * @param showBaselines Whether to render colored horizontal band regions
  * @param baselines List of (min, max, color) for band regions
+ * @param overlayPoints Optional second series drawn as a dashed line (e.g. rolling average)
+ * @param overlayColor Color for the overlay line
  */
 @Composable
 fun LineChart(
@@ -50,7 +53,9 @@ fun LineChart(
     modifier: Modifier = Modifier,
     yLabel: String = "",
     showBaselines: Boolean = false,
-    baselines: List<Triple<Float, Float, Color>> = emptyList()
+    baselines: List<Triple<Float, Float, Color>> = emptyList(),
+    overlayPoints: List<Pair<Long, Float>> = emptyList(),
+    overlayColor: Color = ApexPrimary.copy(alpha = 0.5f)
 ) {
     val progress = remember { Animatable(0f) }
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
@@ -203,6 +208,27 @@ fun LineChart(
                     radius = 4f,
                     center = Offset(xForTimestamp(ts), yForValue(value))
                 )
+            }
+
+            // Draw overlay series (dashed) — e.g. rolling average
+            if (overlayPoints.size >= 2) {
+                val visibleOverlay = overlayPoints.take(visibleCount.coerceAtMost(overlayPoints.size))
+                if (visibleOverlay.size >= 2) {
+                    val overlayPath = Path()
+                    visibleOverlay.forEachIndexed { i, (ts, value) ->
+                        val x = xForTimestamp(ts)
+                        val y = yForValue(value)
+                        if (i == 0) overlayPath.moveTo(x, y) else overlayPath.lineTo(x, y)
+                    }
+                    drawPath(
+                        path = overlayPath,
+                        color = overlayColor,
+                        style = Stroke(
+                            width = 2f,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 6f))
+                        )
+                    )
+                }
             }
 
             // Selected point + tooltip

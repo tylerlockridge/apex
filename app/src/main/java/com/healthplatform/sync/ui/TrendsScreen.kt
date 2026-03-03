@@ -447,6 +447,14 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         catch (e: Exception) { null }
     }
 
+    // 7-day rolling average — for each point, average the preceding 7 readings
+    val rollingAvgPoints = if (points.size >= 2) {
+        points.mapIndexed { i, (ts, _) ->
+            val window = points.subList(maxOf(0, i - 6), i + 1)
+            ts to window.map { it.second }.average().toFloat()
+        }
+    } else emptyList()
+
     // Healthy HRV baselines (RMSSD ms — population varies widely, these are indicative)
     val hrvBaselines = listOf(
         Triple(0f, 30f, ApexStatusRed),       // low
@@ -463,8 +471,15 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
                 .height(180.dp),
             yLabel = "ms",
             showBaselines = true,
-            baselines = hrvBaselines
+            baselines = hrvBaselines,
+            overlayPoints = rollingAvgPoints,
+            overlayColor = ApexSecondary.copy(alpha = 0.7f)
         )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            ChartLegendItem(color = ApexPrimary, label = "HRV")
+            ChartLegendItem(color = ApexSecondary.copy(alpha = 0.7f), label = "7d avg", dashed = true)
+        }
     }
 
     val avgHrv = readings.map { it.hrvMs }.average()
@@ -592,6 +607,27 @@ private fun LegendDot(label: String, color: Color) {
                 .size(8.dp)
                 .background(color, RoundedCornerShape(2.dp))
         )
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
+    }
+}
+
+/** Legend item that shows either a solid dot or a dashed line segment. */
+@Composable
+private fun ChartLegendItem(color: Color, label: String, dashed: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (dashed) {
+            androidx.compose.foundation.Canvas(modifier = Modifier.size(width = 18.dp, height = 2.dp)) {
+                drawLine(
+                    color = color,
+                    start = Offset(0f, size.height / 2),
+                    end = Offset(size.width, size.height / 2),
+                    strokeWidth = 3f,
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 4f))
+                )
+            }
+        } else {
+            Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(2.dp)))
+        }
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
     }
 }

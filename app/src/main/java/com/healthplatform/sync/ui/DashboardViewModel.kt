@@ -40,6 +40,9 @@ data class DashboardState(
     val lastHrvTime: String? = null,
     val lastWorkoutTitle: String? = null,
     val lastWorkoutDate: String? = null,
+    // Readiness score derived from BP + sleep + HRV (null until data is available)
+    val readinessLabel: String? = null,
+    val readinessReason: String? = null,
 )
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -93,6 +96,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 ServerApiClient(SecurePrefs.getApiKey(context))
             } catch (_: Exception) { null }
 
+            val (readinessLabel, readinessReason) = computeReadiness(bpSystolic, sleepDurationMin, hrvMs)
+
             _state.update { current ->
                 current.copy(
                     lastSyncMs              = prefs.getLong(SyncPrefsKeys.LAST_SYNC, 0L),
@@ -109,6 +114,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     lastWeightTime          = weightTime,
                     lastHrvMs               = hrvMs,
                     lastHrvTime             = hrvTime,
+                    readinessLabel          = readinessLabel,
+                    readinessReason         = readinessReason,
                 )
             }
 
@@ -133,6 +140,55 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 onFailure = { /* Non-critical — silently ignore */ }
             )
         }
+    }
+
+    /**
+     * Derives a readiness label from the most recent BP, sleep, and HRV values.
+     * Uses fixed population thresholds — no server call required.
+     * Returns (label, reason) where reason summarises the limiting factor(s).
+     */
+    private fun computeReadiness(
+        systolic: Int?,
+        sleepMin: Int?,
+        hrvMs: Double?
+    ): Pair<String?, String?> {
+        if (listOfNotNull(systolic, sleepMin, hrvMs).isEmpty()) return null to null
+
+        var score = 0
+        val concerns = mutableListOf<String>()
+
+        systolic?.let {
+            when {
+                it < 120 -> score += 2
+                it < 130 -> score += 1
+                it < 140 -> concerns.add("BP elevated")
+                else     -> { score -= 1; concerns.add("BP high ($it)") }
+            }
+        }
+
+        sleepMin?.let {
+            when {
+                it >= 420 -> score += 2                          // 7+ h
+                it >= 360 -> { score += 1; concerns.add("Under 7h sleep") }
+                else      -> { score -= 1; concerns.add("Low sleep (${it / 60}h)") }
+            }
+        }
+
+        hrvMs?.let {
+            when {
+                it >= 60 -> score += 2
+                it >= 30 -> score += 1
+                else     -> { score -= 1; concerns.add("Low HRV (${it.toInt()} ms)") }
+            }
+        }
+
+        val label = when {
+            score >= 4 -> "Good to go"
+            score >= 2 -> "Take it easy"
+            else       -> "Recovery day"
+        }
+        val reason = if (concerns.isEmpty()) "All metrics looking good" else concerns.joinToString(" · ")
+        return label to reason
     }
 
     /**
