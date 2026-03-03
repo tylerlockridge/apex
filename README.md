@@ -3,7 +3,25 @@
 Android companion app for the Health Intelligence Platform. Syncs all Health Connect data, provides a local dashboard with charts, and features a polished dark-themed experience with animations.
 
 **Backend:** https://tyler-health.duckdns.org
-**Status:** v1 built (config screen + basic sync), v2 PRD below
+**Status:** v2 complete — full 4-tab app, all health types syncing, charts, widgets, security hardened
+
+## Current Implementation Status (2026-03-03)
+
+### ✅ Implemented
+- **4-screen nav:** Dashboard, Trends (BP/Sleep/Body/HRV tabs), Activity (Hevy workouts), Settings
+- **Health Connect sync:** BP, sleep, body measurements, HRV — WorkManager 15-min periodic + manual trigger
+- **Offline queue:** Room DB two-phase sync (HC → queue → server, retry on failure)
+- **Security:** EncryptedSharedPreferences (API key, biometric flag), BiometricLockManager, HMAC-SHA256 request signing with replay protection, certificate pinning (ISRG Root X1/X2)
+- **Charts:** Vico line/bar charts — BP trends, sleep stages, body composition, HRV
+- **Widgets:** Glance home screen widget (4×2) — BP + sleep + HRV; auto-updates after sync
+- **Sync history:** Last 10 sync events displayed in Settings with ✅/❌ icons
+- **Hevy workouts:** Activity screen fetches + displays workouts from server; sync trigger button
+- **Unit tests:** 22 tests — TrendsViewModelTest, DashboardViewModelTest, ActivityViewModelTest, ErrorMessageTest
+
+### ❌ Not Yet Implemented
+- QR code onboarding (CameraX + ML Kit)
+- Server version validation
+- Incremental sync (Health Connect change tokens)
 
 ---
 
