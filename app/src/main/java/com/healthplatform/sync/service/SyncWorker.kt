@@ -47,7 +47,10 @@ class SyncWorker(
                 .getSharedPreferences(SyncPrefsKeys.FILE_NAME, Context.MODE_PRIVATE)
 
             val reader = HealthConnectReader(applicationContext)
-            val api = ApiService.get(Config.SERVER_URL, Config.DEVICE_SECRET, apiKey)
+            val serverUrl = Config.getServerUrl(applicationContext)
+            val deviceSecret = com.healthplatform.sync.security.SecurePrefs
+                .getDeviceSecret(applicationContext, Config.DEVICE_SECRET)
+            val api = ApiService.get(serverUrl, deviceSecret, apiKey)
             val dao = ApexDatabase.get(applicationContext).syncQueueDao()
 
             val since = Instant.now().minus(30, ChronoUnit.DAYS)
@@ -56,9 +59,16 @@ class SyncWorker(
             // ----------------------------------------------------------------
             // Phase 1 — Read from Health Connect → write to Room queue
             //
-            // Each record is keyed by (dataType, measuredAt). The DAO uses
-            // OnConflictStrategy.IGNORE, so records already in the queue are
-            // silently skipped and never duplicated.
+            // Uses change tokens for incremental reads (BP, Sleep, HRV) —
+            // only records changed since the last sync are fetched, reducing
+            // battery drain significantly on subsequent syncs.
+            //
+            // Body measurements use a full 30-day read because combining
+            // weight/body-fat/lean-mass changes incrementally is complex.
+            //
+            // Token lifecycle: saved after a successful HC read. On expiry
+            // (token cleared), the next sync falls back to a full 30-day read
+            // and acquires a fresh token.
             //
             // If Health Connect is unavailable (permissions revoked, HC error)
             // we log a warning and continue to Phase 2 — whatever is already
@@ -67,25 +77,54 @@ class SyncWorker(
 
             if (filter == null || filter == DATA_TYPE_BP) {
                 try {
-                    val records = reader.readBloodPressure(since)
+                    val storedToken = prefs.getString(SyncPrefsKeys.CHANGE_TOKEN_BP, null)
+                    val (records, newToken) = if (storedToken != null) {
+                        Log.d(TAG, "BP: incremental read using change token")
+                        reader.readBloodPressureChanges(storedToken)
+                    } else {
+                        Log.d(TAG, "BP: full 30-day read (no token)")
+                        reader.readBloodPressure(since) to reader.getBpChangesToken()
+                    }
                     dao.insertAll(records.map { it.toQueueEntity() })
+                    prefs.edit().putString(SyncPrefsKeys.CHANGE_TOKEN_BP, newToken).apply()
                     Log.d(TAG, "Queued ${records.size} BP records from Health Connect")
                 } catch (e: Exception) {
-                    Log.w(TAG, "HC BP read failed — will flush existing queue", e)
+                    // Expired token — clear it so next sync does a full read
+                    if (prefs.contains(SyncPrefsKeys.CHANGE_TOKEN_BP)) {
+                        Log.w(TAG, "BP change token expired — clearing for full re-sync", e)
+                        prefs.edit().remove(SyncPrefsKeys.CHANGE_TOKEN_BP).apply()
+                    } else {
+                        Log.w(TAG, "HC BP read failed — will flush existing queue", e)
+                    }
                 }
             }
 
             if (filter == null || filter == DATA_TYPE_SLEEP) {
                 try {
-                    val records = reader.readSleep(since)
+                    val storedToken = prefs.getString(SyncPrefsKeys.CHANGE_TOKEN_SLEEP, null)
+                    val (records, newToken) = if (storedToken != null) {
+                        Log.d(TAG, "Sleep: incremental read using change token")
+                        reader.readSleepChanges(storedToken)
+                    } else {
+                        Log.d(TAG, "Sleep: full 30-day read (no token)")
+                        reader.readSleep(since) to reader.getSleepChangesToken()
+                    }
                     dao.insertAll(records.map { it.toQueueEntity() })
+                    prefs.edit().putString(SyncPrefsKeys.CHANGE_TOKEN_SLEEP, newToken).apply()
                     Log.d(TAG, "Queued ${records.size} sleep records from Health Connect")
                 } catch (e: Exception) {
-                    Log.w(TAG, "HC sleep read failed — will flush existing queue", e)
+                    if (prefs.contains(SyncPrefsKeys.CHANGE_TOKEN_SLEEP)) {
+                        Log.w(TAG, "Sleep change token expired — clearing for full re-sync", e)
+                        prefs.edit().remove(SyncPrefsKeys.CHANGE_TOKEN_SLEEP).apply()
+                    } else {
+                        Log.w(TAG, "HC sleep read failed — will flush existing queue", e)
+                    }
                 }
             }
 
             if (filter == null || filter == DATA_TYPE_BODY) {
+                // Body measurements: full read (weight/body-fat/lean-mass merge is not
+                // easily incremental). Room IGNORE strategy prevents duplicates.
                 try {
                     val records = reader.readWeight(since)
                     dao.insertAll(records.map { it.toQueueEntity() })
@@ -97,11 +136,24 @@ class SyncWorker(
 
             if (filter == null || filter == DATA_TYPE_HRV) {
                 try {
-                    val records = reader.readHeartRateVariability(since)
+                    val storedToken = prefs.getString(SyncPrefsKeys.CHANGE_TOKEN_HRV, null)
+                    val (records, newToken) = if (storedToken != null) {
+                        Log.d(TAG, "HRV: incremental read using change token")
+                        reader.readHrvChanges(storedToken)
+                    } else {
+                        Log.d(TAG, "HRV: full 30-day read (no token)")
+                        reader.readHeartRateVariability(since) to reader.getHrvChangesToken()
+                    }
                     dao.insertAll(records.map { it.toQueueEntity() })
+                    prefs.edit().putString(SyncPrefsKeys.CHANGE_TOKEN_HRV, newToken).apply()
                     Log.d(TAG, "Queued ${records.size} HRV records from Health Connect")
                 } catch (e: Exception) {
-                    Log.w(TAG, "HC HRV read failed — will flush existing queue", e)
+                    if (prefs.contains(SyncPrefsKeys.CHANGE_TOKEN_HRV)) {
+                        Log.w(TAG, "HRV change token expired — clearing for full re-sync", e)
+                        prefs.edit().remove(SyncPrefsKeys.CHANGE_TOKEN_HRV).apply()
+                    } else {
+                        Log.w(TAG, "HC HRV read failed — will flush existing queue", e)
+                    }
                 }
             }
 

@@ -13,6 +13,7 @@ import androidx.lifecycle.viewModelScope
 import com.healthplatform.sync.Config
 import com.healthplatform.sync.data.HealthConnectReader
 import com.healthplatform.sync.security.SecurePrefs
+import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +30,9 @@ data class SettingsServerState(
     val serverStatus: Boolean? = null,
     val isHcAvailable: Boolean = false,
     /** Per data-type permission status keyed by display name. */
-    val hcPermissions: Map<String, Boolean> = emptyMap()
+    val hcPermissions: Map<String, Boolean> = emptyMap(),
+    /** null = unknown / endpoint missing, true = version ok, false = server is outdated. */
+    val serverVersionOk: Boolean? = null
 )
 
 /**
@@ -59,11 +62,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         checkAll()
     }
 
-    /** Re-run both checks (called when Settings screen opens). */
+    /** Re-run all checks (called when Settings screen opens). */
     fun checkAll() {
         viewModelScope.launch {
             checkHcPermissions()
             checkServerConnection()
+            checkServerVersion()
         }
     }
 
@@ -99,16 +103,52 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private suspend fun checkServerConnection() {
         val context = getApplication<Application>()
+        val serverUrl = Config.getServerUrl(context)
         val status = withContext(Dispatchers.IO) {
             try {
                 val key = SecurePrefs.getApiKey(context)
                 val request = Request.Builder()
-                    .url("${Config.SERVER_URL}/api/bp?days=1")
+                    .url("$serverUrl/api/bp?days=1")
                     .addHeader("Authorization", "Bearer $key")
                     .build()
                 pingClient.newCall(request).execute().use { it.isSuccessful }
             } catch (_: Exception) { false }
         }
         _serverState.value = _serverState.value.copy(serverStatus = status)
+    }
+
+    private suspend fun checkServerVersion() {
+        val context = getApplication<Application>()
+        val serverUrl = Config.getServerUrl(context)
+        val versionOk = withContext(Dispatchers.IO) {
+            try {
+                val key = SecurePrefs.getApiKey(context)
+                val request = Request.Builder()
+                    .url("$serverUrl/api/version")
+                    .addHeader("Authorization", "Bearer $key")
+                    .build()
+                val body = pingClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@withContext null
+                    response.body?.string()
+                } ?: return@withContext null
+                val version = JSONObject(body).getString("version")
+                compareVersions(version, Config.MIN_SERVER_VERSION) >= 0
+            } catch (_: Exception) { null }  // endpoint absent or unreachable — skip banner
+        }
+        _serverState.value = _serverState.value.copy(serverVersionOk = versionOk)
+    }
+
+    companion object {
+        /** Returns negative / zero / positive like [Comparable.compareTo]. */
+        private fun compareVersions(a: String, b: String): Int {
+            val aParts = a.split(".").map { it.toIntOrNull() ?: 0 }
+            val bParts = b.split(".").map { it.toIntOrNull() ?: 0 }
+            val len = maxOf(aParts.size, bParts.size)
+            for (i in 0 until len) {
+                val diff = (aParts.getOrElse(i) { 0 }) - (bParts.getOrElse(i) { 0 })
+                if (diff != 0) return diff
+            }
+            return 0
+        }
     }
 }

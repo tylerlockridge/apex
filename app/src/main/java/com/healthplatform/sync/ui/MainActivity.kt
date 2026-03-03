@@ -1,5 +1,6 @@
 package com.healthplatform.sync.ui
 
+import android.content.Context
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.compose.setContent
@@ -13,14 +14,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.healthplatform.sync.SyncPrefsKeys
 import com.healthplatform.sync.ui.util.rememberApexHaptic
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.health.connect.client.PermissionController
@@ -32,6 +37,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.healthplatform.sync.data.HealthConnectReader
 import com.healthplatform.sync.security.BiometricLockManager
+import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.ui.theme.*
 
 // ---------------------------------------------------------------------------
@@ -224,6 +230,8 @@ private fun LockScreen(onAuthenticate: () -> Unit) {
 private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
     val navController = rememberNavController()
     val haptic = rememberApexHaptic()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
 
     Box(
         modifier = Modifier
@@ -232,40 +240,35 @@ private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
     ) {
         ApexWatermarkCanvas(modifier = Modifier.fillMaxSize())
 
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = Color.Transparent,
-            bottomBar = {
-                NavigationBar(
-                    containerColor = ApexSurface,
-                    contentColor = ApexOnSurface,
-                    tonalElevation = 0.dp
-                ) {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
-
-                    destinations.forEach { dest ->
-                        val selected = currentDestination?.hierarchy?.any { it.route == dest.route } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                haptic.tick()
-                                navController.navigate(dest.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
+        // NavigationSuiteScaffold automatically switches between bottom bar (compact),
+        // navigation rail (medium), and navigation drawer (expanded) based on window size.
+        NavigationSuiteScaffold(
+            navigationSuiteItems = {
+                destinations.forEach { dest ->
+                    val selected = currentDestination?.hierarchy?.any { it.route == dest.route } == true
+                    item(
+                        selected = selected,
+                        onClick = {
+                            haptic.tick()
+                            navController.navigate(dest.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
                                 }
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = dest.icon,
-                                    contentDescription = dest.label
-                                )
-                            },
-                            label = { Text(dest.label) },
-                            colors = NavigationBarItemDefaults.colors(
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = { Icon(imageVector = dest.icon, contentDescription = dest.label) },
+                        label = { Text(dest.label) },
+                        colors = NavigationSuiteDefaults.itemColors(
+                            navigationBarItemColors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = ApexPrimary,
+                                selectedTextColor = ApexPrimary,
+                                unselectedIconColor = ApexOnSurfaceVariant,
+                                unselectedTextColor = ApexOnSurfaceVariant,
+                                indicatorColor = ApexSurfaceVariant
+                            ),
+                            navigationRailItemColors = NavigationRailItemDefaults.colors(
                                 selectedIconColor = ApexPrimary,
                                 selectedTextColor = ApexPrimary,
                                 unselectedIconColor = ApexOnSurfaceVariant,
@@ -273,14 +276,19 @@ private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
                                 indicatorColor = ApexSurfaceVariant
                             )
                         )
-                    }
+                    )
                 }
-            }
-        ) { innerPadding ->
+            },
+            containerColor = Color.Transparent,
+            navigationSuiteColors = NavigationSuiteDefaults.colors(
+                navigationBarContainerColor = ApexSurface,
+                navigationRailContainerColor = ApexSurface,
+                navigationDrawerContainerColor = ApexSurface
+            )
+        ) {
             NavHost(
                 navController = navController,
                 startDestination = Destination.Dashboard.route,
-                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
                 enterTransition = { fadeIn(animationSpec = tween(200)) },
                 exitTransition = { fadeOut(animationSpec = tween(150)) }
             ) {
@@ -294,7 +302,25 @@ private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
                     ActivityScreen()
                 }
                 composable(Destination.Settings.route) {
-                    SettingsScreen(onRequestPermissions = onRequestPermissions, onLock = onLock)
+                    SettingsScreen(
+                        onRequestPermissions = onRequestPermissions,
+                        onLock = onLock,
+                        onScanQr = { navController.navigate("qrscan") }
+                    )
+                }
+                composable("qrscan") {
+                    val context = LocalContext.current
+                    QrScanScreen(
+                        onConfigured = { serverUrl, apiKey, deviceSecret ->
+                            // Persist QR-configured values
+                            context.getSharedPreferences(SyncPrefsKeys.FILE_NAME, Context.MODE_PRIVATE)
+                                .edit().putString(SyncPrefsKeys.SERVER_URL, serverUrl).apply()
+                            SecurePrefs.setApiKey(context, apiKey)
+                            SecurePrefs.setDeviceSecret(context, deviceSecret)
+                            navController.popBackStack()
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
                 }
             }
         }

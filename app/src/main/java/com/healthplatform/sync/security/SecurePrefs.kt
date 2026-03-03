@@ -10,6 +10,7 @@ object SecurePrefs {
     private const val FILE_NAME = "apex_secure"
     private const val KEY_API_KEY = "api_key"
     private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
+    private const val KEY_DEVICE_SECRET = "device_secret"
 
     @Volatile
     private var instance: SharedPreferences? = null
@@ -68,6 +69,17 @@ object SecurePrefs {
 
     fun setBiometricEnabled(context: Context, enabled: Boolean) {
         get(context).edit().putBoolean(KEY_BIOMETRIC_ENABLED, enabled).apply()
+    }
+
+    /**
+     * Returns the device secret set by QR onboarding, falling back to [fallback]
+     * (which is typically [BuildConfig.DEVICE_SECRET]).
+     */
+    fun getDeviceSecret(context: Context, fallback: String): String =
+        get(context).getString(KEY_DEVICE_SECRET, fallback)?.takeIf { it.isNotEmpty() } ?: fallback
+
+    fun setDeviceSecret(context: Context, secret: String) {
+        get(context).edit().putString(KEY_DEVICE_SECRET, secret).apply()
     }
 
     /**

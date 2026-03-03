@@ -9,6 +9,8 @@ import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.WeightRecord
+import androidx.health.connect.client.changes.UpsertionChange
+import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Instant
@@ -194,6 +196,121 @@ class HealthConnectReader(private val context: Context) {
                 deviceName = record.metadata.device?.manufacturer
             )
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Change token helpers — incremental sync (avoids re-reading unchanged data)
+    // -------------------------------------------------------------------------
+
+    /** Returns a change token for BP records. Store and pass to [readBloodPressureChanges]. */
+    suspend fun getBpChangesToken(): String =
+        healthConnectClient.getChangesToken(
+            ChangesTokenRequest(recordTypes = setOf(BloodPressureRecord::class))
+        )
+
+    /** Returns a change token for sleep records. Store and pass to [readSleepChanges]. */
+    suspend fun getSleepChangesToken(): String =
+        healthConnectClient.getChangesToken(
+            ChangesTokenRequest(recordTypes = setOf(SleepSessionRecord::class))
+        )
+
+    /** Returns a change token for HRV records. Store and pass to [readHrvChanges]. */
+    suspend fun getHrvChangesToken(): String =
+        healthConnectClient.getChangesToken(
+            ChangesTokenRequest(recordTypes = setOf(HeartRateVariabilityRmssdRecord::class))
+        )
+
+    /**
+     * Returns BP records changed since [token] and the updated token for the next call.
+     * Throws [Exception] if the token is expired — caller should fall back to [readBloodPressure].
+     */
+    suspend fun readBloodPressureChanges(token: String): Pair<List<BloodPressureData>, String> {
+        val records = mutableListOf<BloodPressureData>()
+        var currentToken = token
+        var hasMore = true
+        while (hasMore) {
+            val response = healthConnectClient.getChanges(currentToken)
+            response.changes
+                .filterIsInstance<UpsertionChange>()
+                .mapNotNull { it.record as? BloodPressureRecord }
+                .forEach { record ->
+                    records += BloodPressureData(
+                        systolic = record.systolic.inMillimetersOfMercury.toInt(),
+                        diastolic = record.diastolic.inMillimetersOfMercury.toInt(),
+                        measuredAt = record.time.toString(),
+                        deviceName = record.metadata.device?.manufacturer
+                    )
+                }
+            currentToken = response.nextChangesToken
+            hasMore = response.hasMore
+        }
+        return records to currentToken
+    }
+
+    /**
+     * Returns sleep sessions changed since [token] and the updated token.
+     * Throws [Exception] if the token is expired — caller should fall back to [readSleep].
+     */
+    suspend fun readSleepChanges(token: String): Pair<List<SleepData>, String> {
+        val sessions = mutableListOf<SleepData>()
+        var currentToken = token
+        var hasMore = true
+        while (hasMore) {
+            val response = healthConnectClient.getChanges(currentToken)
+            val newRecords = response.changes
+                .filterIsInstance<UpsertionChange>()
+                .mapNotNull { it.record as? SleepSessionRecord }
+            // Prefer Oura Ring data
+            val oura = newRecords.filter { it.metadata.dataOrigin.packageName == "com.ouraring.oura" }
+            val toProcess = if (oura.isNotEmpty()) oura else newRecords
+            toProcess.forEach { record ->
+                val stages = record.stages
+                sessions += SleepData(
+                    sleepStart = record.startTime.toString(),
+                    sleepEnd = record.endTime.toString(),
+                    durationMinutes = ChronoUnit.MINUTES.between(record.startTime, record.endTime).toInt(),
+                    deepSleepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_DEEP }
+                        .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }.toInt(),
+                    remSleepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_REM }
+                        .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }.toInt(),
+                    lightSleepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_LIGHT }
+                        .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }.toInt(),
+                    deviceName = record.metadata.device?.manufacturer
+                )
+            }
+            currentToken = response.nextChangesToken
+            hasMore = response.hasMore
+        }
+        return sessions to currentToken
+    }
+
+    /**
+     * Returns HRV records changed since [token] and the updated token.
+     * Throws [Exception] if the token is expired — caller should fall back to [readHeartRateVariability].
+     */
+    suspend fun readHrvChanges(token: String): Pair<List<HrvData>, String> {
+        val records = mutableListOf<HrvData>()
+        var currentToken = token
+        var hasMore = true
+        while (hasMore) {
+            val response = healthConnectClient.getChanges(currentToken)
+            val newRecords = response.changes
+                .filterIsInstance<UpsertionChange>()
+                .mapNotNull { it.record as? HeartRateVariabilityRmssdRecord }
+            // Prefer Oura Ring HRV
+            val oura = newRecords.filter { it.metadata.dataOrigin.packageName == "com.ouraring.oura" }
+            val toProcess = if (oura.isNotEmpty()) oura else newRecords
+            toProcess.forEach { record ->
+                records += HrvData(
+                    measuredAt = record.time.toString(),
+                    hrvMs = record.heartRateVariabilityMillis,
+                    deviceName = record.metadata.device?.manufacturer
+                )
+            }
+            currentToken = response.nextChangesToken
+            hasMore = response.hasMore
+        }
+        return records to currentToken
     }
 
     companion object {

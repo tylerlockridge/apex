@@ -25,4 +25,13 @@ object SyncPrefsKeys {
 
     /** JSON array of last 10 sync events — `[{"t":<ms>,"ok":<bool>},...]` newest first. */
     const val SYNC_HISTORY           = "sync_history"
+
+    // Health Connect change tokens — one per data type.
+    // Stored after each successful HC read; cleared on token expiry.
+    const val CHANGE_TOKEN_BP        = "change_token_bp"
+    const val CHANGE_TOKEN_SLEEP     = "change_token_sleep"
+    const val CHANGE_TOKEN_HRV       = "change_token_hrv"
+
+    /** Server URL set by QR onboarding. Falls back to Config.SERVER_URL_DEFAULT if absent. */
+    const val SERVER_URL             = "server_url"
 }

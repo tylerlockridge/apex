@@ -88,6 +88,8 @@ data class HrvReadingResponse(
     val device_name: String?
 )
 
+data class ServerVersionResponse(val version: String)
+
 // ---------------------------------------------------------------------------
 // Retrofit interface
 // ---------------------------------------------------------------------------
@@ -126,6 +128,9 @@ interface ServerReadApi {
 
     @POST("api/sync/hevy/workouts")
     suspend fun triggerHevySync(@Body body: RequestBody): HevySyncResult
+
+    @GET("api/version")
+    suspend fun getServerVersion(): ServerVersionResponse
 }
 
 // ---------------------------------------------------------------------------
@@ -222,6 +227,15 @@ class ServerApiClient(private val apiKey: String) {
         return try {
             val body = "{}".toRequestBody("application/json".toMediaType())
             Result.success(api.triggerHevySync(body))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Returns the server version string (e.g. "1.2.3"), or failure if endpoint doesn't exist. */
+    suspend fun getServerVersion(): Result<String> {
+        return try {
+            Result.success(api.getServerVersion().version)
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -90,6 +90,9 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
+    // Adaptive navigation suite (NavigationSuiteScaffold — auto bottom bar vs rail vs drawer)
+    implementation("androidx.compose.material3:material3-adaptive-navigation-suite:1.3.1")
+
     // ViewModel + Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
@@ -136,6 +139,13 @@ dependencies {
 
     // Splash screen
     implementation("androidx.core:core-splashscreen:1.0.1")
+
+    // CameraX + ML Kit Barcode Scanning (QR code onboarding)
+    val cameraVersion = "1.3.4"
+    implementation("androidx.camera:camera-camera2:$cameraVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraVersion")
+    implementation("androidx.camera:camera-view:$cameraVersion")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
 
     // Testing — unit
     testImplementation("junit:junit:4.13.2")

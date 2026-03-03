@@ -47,6 +47,7 @@ import java.util.*
 fun SettingsScreen(
     onRequestPermissions: () -> Unit,
     onLock: (() -> Unit)? = null,
+    onScanQr: (() -> Unit)? = null,
     settingsViewModel: SettingsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -333,6 +334,23 @@ fun SettingsScreen(
             // D — Server API Key
             // ----------------------------------------------------------------
             SettingsCard(title = "Server") {
+                if (onScanQr != null) {
+                    OutlinedButton(
+                        onClick = { haptic.click(); onScanQr() },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.QrCodeScanner,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Scan QR Code")
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
+                }
                 Text(
                     text = "API Key",
                     style = MaterialTheme.typography.bodyMedium,
@@ -473,6 +491,31 @@ fun SettingsScreen(
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
+
+                if (serverState.serverVersionOk == false) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(ApexStatusRed.copy(alpha = 0.12f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Warning,
+                            contentDescription = "Outdated server",
+                            tint = ApexStatusRed,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Server version is outdated. Update Health Platform Desktop for best results.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ApexStatusRed
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
                 Text(
                     text = "Apex v${BuildConfig.VERSION_NAME} — Peak health, always.",
                     style = MaterialTheme.typography.bodySmall,

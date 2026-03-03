@@ -133,7 +133,8 @@ fun DashboardScreen(
                     item {
                         AnimatedVisibility(
                             visible = card0Visible,
-                            enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 3 }
+                            enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                            slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 3 }
                         ) {
                             BloodPressureCard(
                                 systolic = state.lastBpSystolic,
@@ -145,7 +146,8 @@ fun DashboardScreen(
                     item {
                         AnimatedVisibility(
                             visible = card1Visible,
-                            enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 3 }
+                            enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                            slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 3 }
                         ) {
                             SleepCard(
                                 durationMin = state.lastSleepDurationMin,
@@ -158,7 +160,8 @@ fun DashboardScreen(
                     item {
                         AnimatedVisibility(
                             visible = card2Visible,
-                            enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 3 }
+                            enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                            slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 3 }
                         ) {
                             WeightCard(
                                 weightKg = state.lastWeightKg,
@@ -169,7 +172,8 @@ fun DashboardScreen(
                     item {
                         AnimatedVisibility(
                             visible = card3Visible,
-                            enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 3 }
+                            enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                            slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 3 }
                         ) {
                             HrvCard(
                                 hrvMs = state.lastHrvMs,
