@@ -248,8 +248,6 @@ fun SettingsScreen(
                     onClick = {
                         haptic.confirm()
                         SyncWorker.runOnce(context)
-                        lastSyncMs = System.currentTimeMillis()
-                        prefs.edit().putLong(SyncPrefsKeys.LAST_SYNC, lastSyncMs).apply()
                         scope.launch { snackbarHostState.showSnackbar("Sync started") }
                     },
                     modifier = Modifier.fillMaxWidth(),

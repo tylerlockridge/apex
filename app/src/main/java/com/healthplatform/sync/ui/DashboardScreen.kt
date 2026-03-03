@@ -182,6 +182,7 @@ fun DashboardScreen(
                     onRequestPermissions = { haptic.click(); onRequestPermissions() }
                 )
                 QuickActionsRow(
+                    isSyncing = state.isSyncing,
                     onSyncBp = { haptic.click(); viewModel.triggerBpSync() },
                     onSyncSleep = { haptic.click(); viewModel.triggerSleepSync() }
                 )
@@ -683,6 +684,7 @@ private fun HealthConnectStatusCard(
 
 @Composable
 private fun QuickActionsRow(
+    isSyncing: Boolean,
     onSyncBp: () -> Unit,
     onSyncSleep: () -> Unit
 ) {
@@ -692,9 +694,13 @@ private fun QuickActionsRow(
     ) {
         OutlinedButton(
             onClick = onSyncBp,
+            enabled = !isSyncing,
             modifier = Modifier.weight(1f),
             border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = ApexPrimary,
+                disabledContentColor = ApexOnSurfaceVariant
+            )
         ) {
             Icon(imageVector = Icons.Rounded.Favorite, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
@@ -702,9 +708,13 @@ private fun QuickActionsRow(
         }
         OutlinedButton(
             onClick = onSyncSleep,
+            enabled = !isSyncing,
             modifier = Modifier.weight(1f),
             border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = ApexPrimary,
+                disabledContentColor = ApexOnSurfaceVariant
+            )
         ) {
             Icon(imageVector = Icons.Rounded.Bedtime, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))

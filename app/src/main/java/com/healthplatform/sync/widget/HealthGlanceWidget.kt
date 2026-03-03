@@ -22,6 +22,7 @@ import androidx.glance.unit.ColorProvider
 import com.healthplatform.sync.SyncPrefsKeys
 import com.healthplatform.sync.ui.MainActivity
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -41,8 +42,19 @@ class HealthGlanceWidget : GlanceAppWidget() {
         val lastSyncMs     = prefs.getLong(SyncPrefsKeys.LAST_SYNC, 0L)
 
         val lastSyncLabel = if (lastSyncMs > 0) {
-            val df = SimpleDateFormat("h:mm a", Locale.getDefault())
-            "Synced ${df.format(Date(lastSyncMs))}"
+            val syncDate = Calendar.getInstance().apply { timeInMillis = lastSyncMs }
+            val today = Calendar.getInstance()
+            val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+            val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
+            val timeStr = timeFmt.format(Date(lastSyncMs))
+            val prefix = when {
+                syncDate.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                        syncDate.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) -> "Today"
+                syncDate.get(Calendar.YEAR) == yesterday.get(Calendar.YEAR) &&
+                        syncDate.get(Calendar.DAY_OF_YEAR) == yesterday.get(Calendar.DAY_OF_YEAR) -> "Yesterday"
+                else -> SimpleDateFormat("EEE", Locale.getDefault()).format(Date(lastSyncMs))
+            }
+            "Synced $prefix $timeStr"
         } else {
             "Never synced"
         }

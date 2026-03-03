@@ -147,13 +147,14 @@ class HealthConnectReader(private val context: Context) {
             pageToken = response.pageToken
         } while (pageToken != null)
 
-        // Combine by matching timestamps (within 1 hour)
+        // Combine by matching timestamps (within 1 hour = 3600 seconds).
+        // Using SECONDS avoids the HOURS truncation bug where 1h59m returns 1 (in -1..1).
         return weightRecords.map { weight ->
             val bodyFat = bodyFatRecords.find {
-                ChronoUnit.HOURS.between(it.time, weight.time).let { diff -> diff in -1..1 }
+                Math.abs(ChronoUnit.SECONDS.between(it.time, weight.time)) <= 3600
             }
             val leanMass = leanMassRecords.find {
-                ChronoUnit.HOURS.between(it.time, weight.time).let { diff -> diff in -1..1 }
+                Math.abs(ChronoUnit.SECONDS.between(it.time, weight.time)) <= 3600
             }
 
             BodyMeasurementData(

@@ -32,11 +32,16 @@ class SyncWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
+            val apiKey = SecurePrefs.getApiKey(applicationContext)
+            if (apiKey.isBlank()) {
+                Log.w(TAG, "No API key configured — skipping sync")
+                return@withContext Result.failure()
+            }
+
             val prefs = applicationContext
                 .getSharedPreferences(SyncPrefsKeys.FILE_NAME, Context.MODE_PRIVATE)
 
             val reader = HealthConnectReader(applicationContext)
-            val apiKey = SecurePrefs.getApiKey(applicationContext)
             val api = ApiService.get(Config.SERVER_URL, Config.DEVICE_SECRET, apiKey)
             val dao = ApexDatabase.get(applicationContext).syncQueueDao()
 
@@ -203,7 +208,9 @@ class SyncWorker(
                 }
             }
 
-            prefs.edit().putLong(SyncPrefsKeys.LAST_SYNC, System.currentTimeMillis()).apply()
+            if (!anyFailure) {
+                prefs.edit().putLong(SyncPrefsKeys.LAST_SYNC, System.currentTimeMillis()).apply()
+            }
 
             recordSyncHistory(prefs, !anyFailure)
             HealthGlanceWidget().updateAll(applicationContext)

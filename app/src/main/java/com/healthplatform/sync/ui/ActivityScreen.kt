@@ -151,10 +151,26 @@ fun ActivityScreen(
                                         color = ApexOnSurfaceVariant
                                     )
                                     Text(
-                                        text = "Sync Hevy workouts to see them here",
+                                        text = "Pull your workouts from Hevy to see them here",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = ApexOnSurfaceVariant
                                     )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = { haptic.confirm(); viewModel.triggerHevySync() },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = ApexPrimary,
+                                            contentColor = ApexOnPrimary
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Sync,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Sync Hevy")
+                                    }
                                 }
                             }
                         } else {
