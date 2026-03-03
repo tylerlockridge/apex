@@ -40,7 +40,7 @@ Tracks all features that are called for in the PRD or referenced in code (stub b
 | Feature | Gap | Location |
 |---------|-----|---------|
 | ~~**Certificate pinning**~~ | ✅ **Implemented 2026-03-02.** ISRG Root X1 + Root X2 pins added to both `ApiService` and `ServerApiClient` `OkHttpClient` builders via `CertificatePinner`. | Closed |
-| ~~**HMAC request signing**~~ | ✅ **Implemented 2026-03-02.** `ApiService.kt` OkHttp interceptor computes `HMAC-SHA256(deviceSecret, body)` and adds `X-Signature: sha256=<hex>`. Server `verifyHmac` middleware checks it (optional by default; set `REQUIRE_HMAC=true` to enforce). | Closed |
+| ~~**HMAC request signing**~~ | ✅ **Implemented + hardened 2026-03-02.** HMAC-SHA256 signing with replay protection. Client sends `X-Signature: sha256=HMAC(secret, "${ts}\n${body}")` and `X-Timestamp: <unix seconds>`. Server enforces both headers (no fallback), validates ±5 min timestamp freshness, fails closed if `DEVICE_SECRET` not set. `device_secret` removed from request body entirely. | Closed |
 
 ### Server Compatibility
 

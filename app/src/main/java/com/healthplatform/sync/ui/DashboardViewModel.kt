@@ -144,15 +144,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
      */
     fun triggerSync(dataTypeFilter: String? = null) {
         if (_state.value.isSyncing) return
+        // Set synchronously so the debounce guard is effective on immediate re-calls.
+        _state.update { it.copy(isSyncing = true, syncError = null) }
+
         viewModelScope.launch {
             // Avoid double-upload if the 15-min periodic worker is already running.
             val periodicRunning = workManager
                 .getWorkInfosForUniqueWorkFlow(SyncWorker.WORK_NAME)
                 .first()
                 .any { it.state == WorkInfo.State.RUNNING }
-            if (periodicRunning) return@launch
+            if (periodicRunning) {
+                _state.update { it.copy(isSyncing = false) }
+                return@launch
+            }
 
-            _state.update { it.copy(isSyncing = true, syncError = null) }
             val workId = SyncWorker.runOnce(getApplication(), dataTypeFilter)
             workManager.getWorkInfoByIdFlow(workId)
                 .filter { info -> info?.state?.isFinished == true }
