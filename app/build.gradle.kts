@@ -146,6 +146,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraVersion")
     implementation("androidx.camera:camera-view:$cameraVersion")
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    implementation("androidx.concurrent:concurrent-futures-ktx:1.1.0")
 
     // Testing — unit
     testImplementation("junit:junit:4.13.2")

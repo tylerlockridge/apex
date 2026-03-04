@@ -1,6 +1,7 @@
 package com.healthplatform.sync.ui
 
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.statusBarsPadding

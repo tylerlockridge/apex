@@ -233,6 +233,24 @@ private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
+    // Hoisted here (composable scope) — NavigationBarItemDefaults.colors() is @Composable
+    val navItemColors = NavigationSuiteDefaults.itemColors(
+        navigationBarItemColors = NavigationBarItemDefaults.colors(
+            selectedIconColor = ApexPrimary,
+            selectedTextColor = ApexPrimary,
+            unselectedIconColor = ApexOnSurfaceVariant,
+            unselectedTextColor = ApexOnSurfaceVariant,
+            indicatorColor = ApexSurfaceVariant
+        ),
+        navigationRailItemColors = NavigationRailItemDefaults.colors(
+            selectedIconColor = ApexPrimary,
+            selectedTextColor = ApexPrimary,
+            unselectedIconColor = ApexOnSurfaceVariant,
+            unselectedTextColor = ApexOnSurfaceVariant,
+            indicatorColor = ApexSurfaceVariant
+        )
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -260,22 +278,7 @@ private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
                         },
                         icon = { Icon(imageVector = dest.icon, contentDescription = dest.label) },
                         label = { Text(dest.label) },
-                        colors = NavigationSuiteDefaults.itemColors(
-                            navigationBarItemColors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = ApexPrimary,
-                                selectedTextColor = ApexPrimary,
-                                unselectedIconColor = ApexOnSurfaceVariant,
-                                unselectedTextColor = ApexOnSurfaceVariant,
-                                indicatorColor = ApexSurfaceVariant
-                            ),
-                            navigationRailItemColors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = ApexPrimary,
-                                selectedTextColor = ApexPrimary,
-                                unselectedIconColor = ApexOnSurfaceVariant,
-                                unselectedTextColor = ApexOnSurfaceVariant,
-                                indicatorColor = ApexSurfaceVariant
-                            )
-                        )
+                        colors = navItemColors
                     )
                 }
             },

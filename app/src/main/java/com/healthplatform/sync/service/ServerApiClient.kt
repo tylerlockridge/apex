@@ -167,7 +167,7 @@ class ServerApiClient(private val apiKey: String) {
             .build()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("${Config.SERVER_URL}/")
+            .baseUrl("${Config.SERVER_URL_DEFAULT}/")
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
