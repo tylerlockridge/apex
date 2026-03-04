@@ -198,43 +198,42 @@ private fun CameraPreview(onBarcodeDetected: (Barcode) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    val previewView = remember { PreviewView(context) }
 
     DisposableEffect(cameraExecutor) {
         onDispose { cameraExecutor.shutdown() }
     }
 
+    // awaitInstance() is a suspend fun in camera-lifecycle — avoids ListenableFuture entirely.
+    LaunchedEffect(previewView) {
+        val cameraProvider = ProcessCameraProvider.awaitInstance(context)
+        val preview = Preview.Builder().build().also {
+            it.setSurfaceProvider(previewView.surfaceProvider)
+        }
+        val scanner = BarcodeScanning.getClient()
+        val imageAnalysis = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+            .also { analysis ->
+                analysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                    processImageProxy(scanner, imageProxy, onBarcodeDetected)
+                }
+            }
+        try {
+            cameraProvider.unbindAll()
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                preview,
+                imageAnalysis
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("QrScanScreen", "Camera binding failed", e)
+        }
+    }
+
     AndroidView(
-        factory = { ctx ->
-            val previewView = PreviewView(ctx)
-            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-            cameraProviderFuture.addListener({
-                val cameraProvider = cameraProviderFuture.get()
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
-                val scanner = BarcodeScanning.getClient()
-                val imageAnalysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also { analysis ->
-                        analysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                            processImageProxy(scanner, imageProxy, onBarcodeDetected)
-                        }
-                    }
-                try {
-                    cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
-                        lifecycleOwner,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview,
-                        imageAnalysis
-                    )
-                } catch (e: Exception) {
-                    android.util.Log.e("QrScanScreen", "Camera binding failed", e)
-                }
-            }, ContextCompat.getMainExecutor(ctx))
-            previewView
-        },
+        factory = { previewView },
         modifier = Modifier.fillMaxSize()
     )
 }
