@@ -350,7 +350,7 @@ class HealthConnectReaderTest {
     }
 
     @Suppress("UNCHECKED_CAST")
-    internal fun <T : Any> mockResponse(records: List<T>, pageToken: String?): ReadRecordsResponse<T> {
+    internal fun <T : androidx.health.connect.client.records.Record> mockResponse(records: List<T>, pageToken: String?): ReadRecordsResponse<T> {
         val response = mockk<ReadRecordsResponse<T>>()
         every { response.records } returns records
         every { response.pageToken } returns pageToken
