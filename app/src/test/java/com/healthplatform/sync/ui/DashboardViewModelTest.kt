@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -122,6 +123,69 @@ class DashboardViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(now, vm.state.value.lastSyncMs)
+    }
+
+    // -------------------------------------------------------------------------
+    // computeReadiness
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `readiness good to go when all metrics optimal`() = runTest {
+        prefs().edit()
+            .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, 115)
+            .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, 480) // 8h
+            .putFloat(SyncPrefsKeys.LAST_HRV_MS, 65f)
+            .apply()
+
+        val vm = DashboardViewModel(app)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Good to go", vm.state.value.readinessLabel)
+        assertEquals("All metrics looking good", vm.state.value.readinessReason)
+    }
+
+    @Test
+    fun `readiness take it easy with moderate metrics`() = runTest {
+        // BP 125 => +1, sleep 390min (6.5h) => +1 + concern, HRV 45 => +1  => score=3 >= 2
+        prefs().edit()
+            .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, 125)
+            .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, 390)
+            .putFloat(SyncPrefsKeys.LAST_HRV_MS, 45f)
+            .apply()
+
+        val vm = DashboardViewModel(app)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Take it easy", vm.state.value.readinessLabel)
+        assertTrue(vm.state.value.readinessReason!!.contains("Under 7h sleep"))
+    }
+
+    @Test
+    fun `readiness recovery day with poor metrics`() = runTest {
+        // BP 145 => -1, sleep 300min (5h) => -1, HRV 20 => -1 => score=-3
+        prefs().edit()
+            .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, 145)
+            .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, 300)
+            .putFloat(SyncPrefsKeys.LAST_HRV_MS, 20f)
+            .apply()
+
+        val vm = DashboardViewModel(app)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Recovery day", vm.state.value.readinessLabel)
+        assertTrue(vm.state.value.readinessReason!!.contains("BP high"))
+        assertTrue(vm.state.value.readinessReason!!.contains("Low sleep"))
+        assertTrue(vm.state.value.readinessReason!!.contains("Low HRV"))
+    }
+
+    @Test
+    fun `readiness null when all three metrics null`() = runTest {
+        // No prefs set => all null
+        val vm = DashboardViewModel(app)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(vm.state.value.readinessLabel)
+        assertNull(vm.state.value.readinessReason)
     }
 
     // -------------------------------------------------------------------------
