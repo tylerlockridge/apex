@@ -36,6 +36,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.healthplatform.sync.ui.theme.*
 import org.json.JSONObject
+import androidx.concurrent.futures.await
 import java.util.concurrent.Executors
 
 // ---------------------------------------------------------------------------
@@ -204,9 +205,9 @@ private fun CameraPreview(onBarcodeDetected: (Barcode) -> Unit) {
         onDispose { cameraExecutor.shutdown() }
     }
 
-    // awaitInstance() is a suspend fun in camera-lifecycle — avoids ListenableFuture entirely.
+    // getInstance().await() from concurrent-futures-ktx — suspend-friendly CameraX init.
     LaunchedEffect(previewView) {
-        val cameraProvider = ProcessCameraProvider.awaitInstance(context)
+        val cameraProvider = ProcessCameraProvider.getInstance(context).await()
         val preview = Preview.Builder().build().also {
             it.setSurfaceProvider(previewView.surfaceProvider)
         }
