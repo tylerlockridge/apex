@@ -93,7 +93,7 @@ class SyncWorkerTest {
         mockkConstructor(androidx.glance.appwidget.GlanceAppWidgetManager::class)
         coEvery {
             anyConstructed<androidx.glance.appwidget.GlanceAppWidgetManager>()
-                .getGlanceIds(any<Class<*>>())
+                .getGlanceIds(any<Class<androidx.glance.appwidget.GlanceAppWidget>>())
         } returns emptyList<androidx.glance.GlanceId>()
     }
 
