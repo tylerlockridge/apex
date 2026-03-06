@@ -147,7 +147,7 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraVersion")
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
     implementation("androidx.concurrent:concurrent-futures-ktx:1.1.0")
-    implementation("com.google.guava:listenablefuture:1.0")
+    implementation("com.google.guava:guava:32.1.3-android")
 
     // Testing — unit
     testImplementation("junit:junit:4.13.2")

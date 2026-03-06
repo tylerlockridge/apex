@@ -17,8 +17,6 @@ import androidx.test.core.app.ApplicationProvider
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkAll
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -39,16 +37,8 @@ class HealthConnectReaderTest {
     @Before
     fun setUp() {
         mockHcClient = mockk()
-        mockkStatic(HealthConnectClient.Companion::class)
-        every { HealthConnectClient.getOrCreate(any()) } returns mockHcClient
-
         val context = ApplicationProvider.getApplicationContext<Context>()
-        reader = HealthConnectReader(context)
-    }
-
-    @After
-    fun tearDown() {
-        unmockkAll()
+        reader = HealthConnectReader(context, client = mockHcClient)
     }
 
     // -------------------------------------------------------------------------

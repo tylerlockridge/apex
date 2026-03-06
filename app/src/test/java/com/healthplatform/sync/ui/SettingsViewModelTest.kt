@@ -8,7 +8,6 @@ import com.healthplatform.sync.data.HealthConnectReader
 import com.healthplatform.sync.security.SecurePrefs
 import io.mockk.every
 import io.mockk.mockkObject
-import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,7 +40,7 @@ class SettingsViewModelTest {
         mockkObject(SecurePrefs)
         every { SecurePrefs.getApiKey(any()) } returns "test-key"
 
-        mockkStatic(HealthConnectReader::class)
+        mockkObject(HealthConnectReader.Companion)
         every { HealthConnectReader.isAvailable(any()) } returns false
 
         mockServer = MockWebServer()

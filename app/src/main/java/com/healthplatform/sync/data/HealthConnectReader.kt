@@ -16,9 +16,12 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-class HealthConnectReader(private val context: Context) {
+class HealthConnectReader(
+    private val context: Context,
+    client: HealthConnectClient? = null,
+) {
 
-    private val healthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
+    private val healthConnectClient by lazy { client ?: HealthConnectClient.getOrCreate(context) }
 
     val requiredPermissions = setOf(
         HealthPermission.getReadPermission(BloodPressureRecord::class),
