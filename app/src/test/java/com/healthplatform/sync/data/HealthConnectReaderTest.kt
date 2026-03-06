@@ -17,6 +17,7 @@ import androidx.test.core.app.ApplicationProvider
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlin.reflect.KClass
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -95,15 +96,13 @@ class HealthConnectReaderTest {
 
     @Test
     fun `readWeight 3 pages concatenated`() = runTest {
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<WeightRecord>>()) } returnsMany listOf(
+        stubReadRecords(WeightRecord::class,
             mockResponse(listOf(makeWeightRecord(80.0, "2026-03-01T07:00:00Z")), "p2"),
             mockResponse(listOf(makeWeightRecord(80.5, "2026-03-02T07:00:00Z")), "p3"),
             mockResponse(listOf(makeWeightRecord(81.0, "2026-03-03T07:00:00Z")), null),
         )
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<BodyFatRecord>>()) } returns
-            mockResponse(emptyList<BodyFatRecord>(), null)
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<LeanBodyMassRecord>>()) } returns
-            mockResponse(emptyList<LeanBodyMassRecord>(), null)
+        stubReadRecords(BodyFatRecord::class, mockResponse(emptyList<BodyFatRecord>(), null))
+        stubReadRecords(LeanBodyMassRecord::class, mockResponse(emptyList<LeanBodyMassRecord>(), null))
 
         val result = reader.readWeight(Instant.parse("2026-03-01T00:00:00Z"))
 
@@ -181,12 +180,9 @@ class HealthConnectReaderTest {
     @Test
     fun `readWeight body match at 0s offset matches`() = runTest {
         val weightTime = "2026-03-01T07:00:00Z"
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<WeightRecord>>()) } returns
-            mockResponse(listOf(makeWeightRecord(80.0, weightTime)), null)
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<BodyFatRecord>>()) } returns
-            mockResponse(listOf(makeBodyFatRecord(20.0, weightTime)), null)
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<LeanBodyMassRecord>>()) } returns
-            mockResponse(emptyList<LeanBodyMassRecord>(), null)
+        stubReadRecords(WeightRecord::class, mockResponse(listOf(makeWeightRecord(80.0, weightTime)), null))
+        stubReadRecords(BodyFatRecord::class, mockResponse(listOf(makeBodyFatRecord(20.0, weightTime)), null))
+        stubReadRecords(LeanBodyMassRecord::class, mockResponse(emptyList<LeanBodyMassRecord>(), null))
 
         val result = reader.readWeight(Instant.parse("2026-03-01T00:00:00Z"))
 
@@ -196,13 +192,9 @@ class HealthConnectReaderTest {
 
     @Test
     fun `readWeight body match at 3600s offset matches`() = runTest {
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<WeightRecord>>()) } returns
-            mockResponse(listOf(makeWeightRecord(80.0, "2026-03-01T07:00:00Z")), null)
-        // Exactly 1 hour later
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<BodyFatRecord>>()) } returns
-            mockResponse(listOf(makeBodyFatRecord(18.5, "2026-03-01T08:00:00Z")), null)
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<LeanBodyMassRecord>>()) } returns
-            mockResponse(emptyList<LeanBodyMassRecord>(), null)
+        stubReadRecords(WeightRecord::class, mockResponse(listOf(makeWeightRecord(80.0, "2026-03-01T07:00:00Z")), null))
+        stubReadRecords(BodyFatRecord::class, mockResponse(listOf(makeBodyFatRecord(18.5, "2026-03-01T08:00:00Z")), null))
+        stubReadRecords(LeanBodyMassRecord::class, mockResponse(emptyList<LeanBodyMassRecord>(), null))
 
         val result = reader.readWeight(Instant.parse("2026-03-01T00:00:00Z"))
 
@@ -212,13 +204,9 @@ class HealthConnectReaderTest {
 
     @Test
     fun `readWeight body match at 3601s offset NOT matched`() = runTest {
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<WeightRecord>>()) } returns
-            mockResponse(listOf(makeWeightRecord(80.0, "2026-03-01T07:00:00Z")), null)
-        // 1 hour + 1 second later
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<BodyFatRecord>>()) } returns
-            mockResponse(listOf(makeBodyFatRecord(18.5, "2026-03-01T08:00:01Z")), null)
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<LeanBodyMassRecord>>()) } returns
-            mockResponse(emptyList<LeanBodyMassRecord>(), null)
+        stubReadRecords(WeightRecord::class, mockResponse(listOf(makeWeightRecord(80.0, "2026-03-01T07:00:00Z")), null))
+        stubReadRecords(BodyFatRecord::class, mockResponse(listOf(makeBodyFatRecord(18.5, "2026-03-01T08:00:01Z")), null))
+        stubReadRecords(LeanBodyMassRecord::class, mockResponse(emptyList<LeanBodyMassRecord>(), null))
 
         val result = reader.readWeight(Instant.parse("2026-03-01T00:00:00Z"))
 
@@ -228,12 +216,9 @@ class HealthConnectReaderTest {
 
     @Test
     fun `readWeight no body comp returns null fields`() = runTest {
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<WeightRecord>>()) } returns
-            mockResponse(listOf(makeWeightRecord(80.0, "2026-03-01T07:00:00Z")), null)
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<BodyFatRecord>>()) } returns
-            mockResponse(emptyList<BodyFatRecord>(), null)
-        coEvery { mockHcClient.readRecords(any<ReadRecordsRequest<LeanBodyMassRecord>>()) } returns
-            mockResponse(emptyList<LeanBodyMassRecord>(), null)
+        stubReadRecords(WeightRecord::class, mockResponse(listOf(makeWeightRecord(80.0, "2026-03-01T07:00:00Z")), null))
+        stubReadRecords(BodyFatRecord::class, mockResponse(emptyList<BodyFatRecord>(), null))
+        stubReadRecords(LeanBodyMassRecord::class, mockResponse(emptyList<LeanBodyMassRecord>(), null))
 
         val result = reader.readWeight(Instant.parse("2026-03-01T00:00:00Z"))
 
@@ -337,6 +322,26 @@ class HealthConnectReaderTest {
         every { record.time } returns Instant.parse(time)
         every { record.metadata } returns metadata
         return record
+    }
+
+    /**
+     * Stubs readRecords calls by matching on recordType to avoid type erasure issues.
+     * Single response variant.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun <T : androidx.health.connect.client.records.Record> stubReadRecords(
+        type: KClass<T>,
+        vararg responses: ReadRecordsResponse<T>,
+    ) {
+        if (responses.size == 1) {
+            coEvery {
+                mockHcClient.readRecords(match<ReadRecordsRequest<T>> { it.recordType == type })
+            } returns responses[0]
+        } else {
+            coEvery {
+                mockHcClient.readRecords(match<ReadRecordsRequest<T>> { it.recordType == type })
+            } returnsMany responses.toList()
+        }
     }
 
     @Suppress("UNCHECKED_CAST")

@@ -68,9 +68,12 @@ class SettingsViewModelTest {
      * to give the continuation time to post back to the test scheduler.
      */
     private fun drainAll() {
-        // Allow IO-dispatched HTTP calls to complete and post continuations
-        Thread.sleep(300)
-        testDispatcher.scheduler.advanceUntilIdle()
+        // checkAll() runs HC check → server check → version check sequentially.
+        // Each check uses withContext(Dispatchers.IO) so we need multiple drain passes.
+        repeat(3) {
+            Thread.sleep(500)
+            testDispatcher.scheduler.advanceUntilIdle()
+        }
     }
 
     @Test

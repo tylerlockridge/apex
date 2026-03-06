@@ -43,6 +43,12 @@ class DashboardViewModelTest {
 
     private fun prefs() = app.getSharedPreferences(SyncPrefsKeys.FILE_NAME, Context.MODE_PRIVATE)
 
+    /** Drain IO-dispatched work back to the test scheduler. */
+    private fun drainAll() {
+        Thread.sleep(500)
+        testDispatcher.scheduler.advanceUntilIdle()
+    }
+
     // -------------------------------------------------------------------------
     // loadFromPrefs — BP
     // -------------------------------------------------------------------------
@@ -56,7 +62,7 @@ class DashboardViewModelTest {
             .apply()
 
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         val state = vm.state.value
         assertEquals(122, state.lastBpSystolic)
@@ -67,7 +73,7 @@ class DashboardViewModelTest {
     @Test
     fun `loadFromPrefs returns null BP when prefs are empty`() = runTest {
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         assertNull(vm.state.value.lastBpSystolic)
         assertNull(vm.state.value.lastBpDiastolic)
@@ -86,7 +92,7 @@ class DashboardViewModelTest {
             .apply()
 
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         val state = vm.state.value
         assertEquals(450, state.lastSleepDurationMin)
@@ -105,7 +111,7 @@ class DashboardViewModelTest {
             .apply()
 
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         assertEquals(54.2, vm.state.value.lastHrvMs!!, 0.1)
     }
@@ -120,7 +126,7 @@ class DashboardViewModelTest {
         prefs().edit().putLong(SyncPrefsKeys.LAST_SYNC, now).apply()
 
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         assertEquals(now, vm.state.value.lastSyncMs)
     }
@@ -138,7 +144,7 @@ class DashboardViewModelTest {
             .apply()
 
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         assertEquals("Good to go", vm.state.value.readinessLabel)
         assertEquals("All metrics looking good", vm.state.value.readinessReason)
@@ -154,7 +160,7 @@ class DashboardViewModelTest {
             .apply()
 
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         assertEquals("Take it easy", vm.state.value.readinessLabel)
         assertTrue(vm.state.value.readinessReason!!.contains("Under 7h sleep"))
@@ -170,7 +176,7 @@ class DashboardViewModelTest {
             .apply()
 
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         assertEquals("Recovery day", vm.state.value.readinessLabel)
         assertTrue(vm.state.value.readinessReason!!.contains("BP high"))
@@ -182,7 +188,7 @@ class DashboardViewModelTest {
     fun `readiness null when all three metrics null`() = runTest {
         // No prefs set => all null
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         assertNull(vm.state.value.readinessLabel)
         assertNull(vm.state.value.readinessReason)
@@ -195,7 +201,7 @@ class DashboardViewModelTest {
     @Test
     fun `triggerSync is debounced — second call while syncing is no-op`() = runTest {
         val vm = DashboardViewModel(app)
-        testDispatcher.scheduler.advanceUntilIdle()
+        drainAll()
 
         vm.state.test {
             awaitItem() // initial loaded state
