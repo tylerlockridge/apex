@@ -4,10 +4,15 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.work.testing.TestListenableWorkerBuilder
+import androidx.work.testing.WorkManagerTestInitHelper
 import com.healthplatform.sync.Config
 import com.healthplatform.sync.SyncPrefsKeys
+import com.google.gson.Gson
 import com.healthplatform.sync.data.BloodPressureData
+import com.healthplatform.sync.data.BodyMeasurementData
 import com.healthplatform.sync.data.HealthConnectReader
 import com.healthplatform.sync.data.HrvData
 import com.healthplatform.sync.data.SleepData
@@ -35,6 +40,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class SyncWorkerTest {
 
+    private val gson = Gson()
     private lateinit var context: Context
     private lateinit var mockApi: ApiService
     private lateinit var db: ApexDatabase
@@ -230,5 +236,125 @@ class SyncWorkerTest {
         val result = worker.doWork()
 
         assertEquals(ListenableWorker.Result.failure(), result)
+    }
+
+    // -------------------------------------------------------------------------
+    // US-005: Queue entity builders (tested via doWork Phase 1 → DAO capture)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `BP toQueueEntity sets dataType to blood_pressure`() = runTest {
+        val bp = BloodPressureData(systolic = 120, diastolic = 80, measuredAt = "2026-03-01T08:00:00Z")
+        coEvery { anyConstructed<HealthConnectReader>().readBloodPressure(any()) } returns listOf(bp)
+
+        val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
+        worker.doWork()
+
+        val pending = dao.getPending(SyncWorker.DATA_TYPE_BP)
+        assertEquals(1, pending.size)
+        assertEquals("blood_pressure", pending[0].dataType)
+        // Deserialize payload and verify fields
+        val parsed = gson.fromJson(pending[0].payload, BloodPressureData::class.java)
+        assertEquals(120, parsed.systolic)
+        assertEquals(80, parsed.diastolic)
+    }
+
+    @Test
+    fun `Sleep toQueueEntity uses sleepStart as measuredAt`() = runTest {
+        val sleep = SleepData(
+            sleepStart = "2026-03-01T23:00:00Z",
+            sleepEnd = "2026-03-02T07:00:00Z",
+            durationMinutes = 480
+        )
+        coEvery { anyConstructed<HealthConnectReader>().readSleep(any()) } returns listOf(sleep)
+
+        val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
+        worker.doWork()
+
+        val pending = dao.getPending(SyncWorker.DATA_TYPE_SLEEP)
+        assertEquals(1, pending.size)
+        assertEquals("2026-03-01T23:00:00Z", pending[0].measuredAt)
+    }
+
+    @Test
+    fun `Body toQueueEntity maps weight bodyFat and leanMass`() = runTest {
+        val body = BodyMeasurementData(
+            measuredAt = "2026-03-01T07:00:00Z",
+            weightKg = 80.0,
+            bodyFatPercent = 18.5,
+            muscleMassKg = 32.0
+        )
+        coEvery { anyConstructed<HealthConnectReader>().readWeight(any()) } returns listOf(body)
+
+        val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
+        worker.doWork()
+
+        val pending = dao.getPending(SyncWorker.DATA_TYPE_BODY)
+        assertEquals(1, pending.size)
+        val parsed = gson.fromJson(pending[0].payload, BodyMeasurementData::class.java)
+        assertEquals(80.0, parsed.weightKg!!, 0.01)
+        assertEquals(18.5, parsed.bodyFatPercent!!, 0.01)
+        assertEquals(32.0, parsed.muscleMassKg!!, 0.01)
+    }
+
+    @Test
+    fun `HRV toQueueEntity maps hrvMs and deviceName`() = runTest {
+        val hrv = HrvData(measuredAt = "2026-03-01T06:00:00Z", hrvMs = 55.3, deviceName = "Oura Ring")
+        coEvery { anyConstructed<HealthConnectReader>().readHeartRateVariability(any()) } returns listOf(hrv)
+
+        val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
+        worker.doWork()
+
+        val pending = dao.getPending(SyncWorker.DATA_TYPE_HRV)
+        assertEquals(1, pending.size)
+        val parsed = gson.fromJson(pending[0].payload, HrvData::class.java)
+        assertEquals(55.3, parsed.hrvMs, 0.01)
+        assertEquals("Oura Ring", parsed.deviceName)
+    }
+
+    // -------------------------------------------------------------------------
+    // US-005: Schedule and cancel
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `schedule enqueues periodic work`() = runTest {
+        val config = androidx.work.Configuration.Builder()
+            .setMinimumLoggingLevel(android.util.Log.DEBUG)
+            .build()
+        try {
+            WorkManagerTestInitHelper.initializeTestWorkManager(context, config)
+        } catch (_: IllegalStateException) {
+            // Already initialized
+        }
+
+        SyncWorker.schedule(context)
+        val workInfos = WorkManager.getInstance(context)
+            .getWorkInfosForUniqueWork(SyncWorker.WORK_NAME)
+            .get()
+
+        assertTrue(workInfos.isNotEmpty())
+        assertEquals(WorkInfo.State.ENQUEUED, workInfos[0].state)
+    }
+
+    @Test
+    fun `cancel removes scheduled work`() = runTest {
+        val config = androidx.work.Configuration.Builder()
+            .setMinimumLoggingLevel(android.util.Log.DEBUG)
+            .build()
+        try {
+            WorkManagerTestInitHelper.initializeTestWorkManager(context, config)
+        } catch (_: IllegalStateException) {
+            // Already initialized
+        }
+
+        SyncWorker.schedule(context)
+        SyncWorker.cancel(context)
+
+        val workInfos = WorkManager.getInstance(context)
+            .getWorkInfosForUniqueWork(SyncWorker.WORK_NAME)
+            .get()
+
+        // After cancel, work should be cancelled
+        assertTrue(workInfos.all { it.state == WorkInfo.State.CANCELLED })
     }
 }
