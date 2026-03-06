@@ -36,8 +36,10 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.healthplatform.sync.ui.theme.*
 import org.json.JSONObject
-import androidx.concurrent.futures.await
 import java.util.concurrent.Executors
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 // ---------------------------------------------------------------------------
 // QR onboarding screen
@@ -205,9 +207,15 @@ private fun CameraPreview(onBarcodeDetected: (Barcode) -> Unit) {
         onDispose { cameraExecutor.shutdown() }
     }
 
-    // getInstance().await() from concurrent-futures-ktx — suspend-friendly CameraX init.
+    // Suspend-friendly CameraX init via suspendCancellableCoroutine.
     LaunchedEffect(previewView) {
-        val cameraProvider = ProcessCameraProvider.getInstance(context).await()
+        val cameraProvider = suspendCancellableCoroutine { cont ->
+            val future = ProcessCameraProvider.getInstance(context)
+            future.addListener({
+                try { cont.resume(future.get()) }
+                catch (e: Exception) { cont.resumeWithException(e) }
+            }, ContextCompat.getMainExecutor(context))
+        }
         val preview = Preview.Builder().build().also {
             it.setSurfaceProvider(previewView.surfaceProvider)
         }
