@@ -37,6 +37,18 @@ android {
         )
     }
 
+    signingConfigs {
+        create("release") {
+            val keystorePath = localProps.getProperty("KEYSTORE_PATH")
+            if (keystorePath != null) {
+                storeFile = rootProject.file(keystorePath)
+                storePassword = localProps.getProperty("KEYSTORE_PASSWORD")
+                keyAlias = localProps.getProperty("KEY_ALIAS")
+                keyPassword = localProps.getProperty("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -44,6 +56,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
