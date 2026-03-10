@@ -75,9 +75,9 @@ class SyncQueueDaoTest {
     @Test
     fun `getPending returns sorted ASC by measuredAt`() = runTest {
         val records = listOf(
-            entity("blood_pressure", "2026-03-03T08:00:00Z", "{}"),
-            entity("blood_pressure", "2026-03-01T08:00:00Z", "{}"),
-            entity("blood_pressure", "2026-03-02T08:00:00Z", "{}"),
+            entity("blood_pressure", "2026-03-03T08:00:00Z", """{"systolic":122}"""),
+            entity("blood_pressure", "2026-03-01T08:00:00Z", """{"systolic":120}"""),
+            entity("blood_pressure", "2026-03-02T08:00:00Z", """{"systolic":121}"""),
         )
         dao.insertAll(records)
 
