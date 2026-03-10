@@ -35,6 +35,12 @@ android {
             "DEVICE_SECRET",
             "\"${localProps.getProperty("device.secret", "")}\""
         )
+        // Inject API key — auto-seeded into SecurePrefs on first launch
+        buildConfigField(
+            "String",
+            "API_KEY",
+            "\"${localProps.getProperty("api.key", "")}\""
+        )
     }
 
     signingConfigs {

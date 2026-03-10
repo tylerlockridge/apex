@@ -30,6 +30,7 @@ jobs:
         run: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
           echo "device.secret=${{ secrets.DEVICE_SECRET }}" >> local.properties
+          echo "api.key=${{ secrets.API_KEY }}" >> local.properties
           echo "KEYSTORE_PATH=keys/release.keystore" >> local.properties
           echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> local.properties
           echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> local.properties

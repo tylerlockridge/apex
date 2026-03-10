@@ -36,6 +36,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.healthplatform.sync.BuildConfig
 import com.healthplatform.sync.data.HealthConnectReader
 import com.healthplatform.sync.security.BiometricLockManager
 import com.healthplatform.sync.security.SecurePrefs
@@ -92,6 +93,11 @@ class MainActivity : FragmentActivity() {
 
         healthConnectReader = HealthConnectReader(this)
         biometricLockManager = BiometricLockManager(this)
+
+        // Auto-seed API key from BuildConfig on first install — no manual entry needed.
+        if (SecurePrefs.getApiKey(this).isBlank() && BuildConfig.API_KEY.isNotBlank()) {
+            SecurePrefs.setApiKey(this, BuildConfig.API_KEY)
+        }
 
         setContent {
             ApexTheme {
