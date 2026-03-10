@@ -201,7 +201,8 @@ class HealthConnectReader(
         val records = if (ouraRecords.isNotEmpty()) {
             ouraRecords + otherRecords.filter { other ->
                 ouraRecords.none { oura ->
-                    Math.abs(ChronoUnit.HOURS.between(other.time, oura.time)) < 4
+                    // Use MINUTES to avoid HOURS truncation (e.g. 4h59m truncates to 4 not 5)
+                    Math.abs(ChronoUnit.MINUTES.between(other.time, oura.time)) < 240
                 }
             }
         } else allRecords
@@ -330,7 +331,8 @@ class HealthConnectReader(
         val toProcess = if (ouraRecords.isNotEmpty()) {
             ouraRecords + otherRecords.filter { other ->
                 ouraRecords.none { oura ->
-                    Math.abs(ChronoUnit.HOURS.between(other.time, oura.time)) < 4
+                    // Use MINUTES to avoid HOURS truncation (e.g. 4h59m truncates to 4 not 5)
+                    Math.abs(ChronoUnit.MINUTES.between(other.time, oura.time)) < 240
                 }
             }
         } else allRecords

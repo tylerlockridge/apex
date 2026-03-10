@@ -3,6 +3,7 @@ package com.healthplatform.sync.ui
 import android.content.Context
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.animation.AnimatedVisibility
@@ -82,6 +83,12 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Prevent health data from appearing in Recents thumbnails or screenshots.
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        )
 
         healthConnectReader = HealthConnectReader(this)
         biometricLockManager = BiometricLockManager(this)

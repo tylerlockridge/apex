@@ -81,7 +81,10 @@ class TrendsViewModel(
     constructor(application: Application, savedStateHandle: SavedStateHandle) : this(
         application,
         savedStateHandle,
-        { ServerApiClient(SecurePrefs.getApiKey(application)) }
+        {
+            val serverUrl = com.healthplatform.sync.Config.getServerUrl(application)
+            ServerApiClient(SecurePrefs.getApiKey(application), serverUrl)
+        }
     )
 
     // Used by unit tests — no SavedStateHandle required.

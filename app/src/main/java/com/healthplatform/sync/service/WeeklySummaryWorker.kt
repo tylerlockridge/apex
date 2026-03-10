@@ -52,11 +52,20 @@ class WeeklySummaryWorker(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Public version shown on lock screen — no raw health values.
+        val publicNotification = NotificationCompat.Builder(applicationContext, NotificationChannels.WEEKLY_SUMMARY)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Weekly Health Summary")
+            .setContentText("Open Apex to review your summary")
+            .build()
+
         val notification = NotificationCompat.Builder(applicationContext, NotificationChannels.WEEKLY_SUMMARY)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Weekly Health Summary")
-            .setContentText(lines.first())
+            .setContentText("Your weekly health summary is ready in Apex")
             .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicNotification)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)

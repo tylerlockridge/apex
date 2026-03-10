@@ -167,7 +167,13 @@ class ApiService private constructor(
         if (response.isSuccessful) {
             Result.success(response.body() ?: throw Exception("Empty sync response body"))
         } else {
-            Result.failure(Exception("Sync failed: ${response.code()}"))
+            // 4xx (except 429) are permanent — bad auth, malformed payload, server rejected.
+            // 5xx and 429 are transient — server error or rate limit, safe to retry.
+            val e = when (response.code()) {
+                400, 401, 403, 404, 422 -> PermanentSyncFailure("Sync rejected: HTTP ${response.code()}")
+                else -> Exception("Sync failed: ${response.code()}")
+            }
+            Result.failure(e)
         }
     } catch (e: Exception) {
         Result.failure(e)
@@ -178,6 +184,12 @@ class ApiService private constructor(
     // -------------------------------------------------------------------------
 
     companion object {
+        /**
+         * Thrown when the server returns a non-retryable HTTP error (400/401/403/404/422).
+         * [SyncWorker] maps this to [Result.failure] so WorkManager stops retrying.
+         */
+        class PermanentSyncFailure(message: String) : Exception(message)
+
         /**
          * Shared Gson instance — thread-safe and expensive to construct.
          * Used by both [ApiService] and [SyncWorker] serialisation.

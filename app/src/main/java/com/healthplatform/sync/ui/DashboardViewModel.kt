@@ -102,7 +102,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             // unavailable in unit test environments. Null serverClient means loadRecentWorkout()
             // no-ops rather than crashing; health-metric state still loads from regular prefs.
             serverClient = try {
-                ServerApiClient(SecurePrefs.getApiKey(context))
+                val serverUrl = com.healthplatform.sync.Config.getServerUrl(context)
+                ServerApiClient(SecurePrefs.getApiKey(context), serverUrl)
             } catch (_: Exception) { null }
 
             val (readinessLabel, readinessReason) = computeReadiness(bpSystolic, sleepDurationMin, hrvMs)

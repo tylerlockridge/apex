@@ -46,17 +46,24 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _serverState = MutableStateFlow(SettingsServerState())
     val serverState: StateFlow<SettingsServerState> = _serverState.asStateFlow()
 
-    // Built once — reused for every ping triggered while this ViewModel is alive.
-    private val pingClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(4, TimeUnit.SECONDS)
-        .readTimeout(4, TimeUnit.SECONDS)
-        .certificatePinner(
-            CertificatePinner.Builder()
-                .add("tyler-health.duckdns.org", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
-                .add("tyler-health.duckdns.org", "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
-                .build()
-        )
-        .build()
+    // Built lazily using the runtime server URL so cert pinning targets the correct
+    // hostname even after QR onboarding to a non-default server.
+    private val pingClient: OkHttpClient by lazy {
+        val serverUrl = Config.getServerUrl(getApplication())
+        val host = serverUrl
+            .removePrefix("https://").removePrefix("http://")
+            .substringBefore("/").substringBefore(":")
+        OkHttpClient.Builder()
+            .connectTimeout(4, TimeUnit.SECONDS)
+            .readTimeout(4, TimeUnit.SECONDS)
+            .certificatePinner(
+                CertificatePinner.Builder()
+                    .add(host, "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
+                    .add(host, "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
+                    .build()
+            )
+            .build()
+    }
 
     init {
         checkAll()

@@ -1,3 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Exclude all app data from backup — health data, encrypted prefs, and Room DB
+     must never leave the device via cloud backup or device transfer. -->
 <full-backup-content>
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="files" path="." />
+    <exclude domain="no_backup" path="." />
+    <exclude domain="root" path="." />
 </full-backup-content>

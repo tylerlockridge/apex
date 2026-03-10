@@ -137,14 +137,22 @@ interface ServerReadApi {
 // Client
 // ---------------------------------------------------------------------------
 
-class ServerApiClient(private val apiKey: String) {
+class ServerApiClient(
+    private val apiKey: String,
+    baseUrl: String = Config.SERVER_URL_DEFAULT,
+) {
 
     private val api: ServerReadApi
 
     init {
+        // Extract the hostname from the runtime URL for cert pinning, so a QR-configured
+        // custom server URL is pinned to the correct host rather than always the default.
+        val host = baseUrl.removePrefix("https://").removePrefix("http://")
+            .substringBefore("/").substringBefore(":")
+
         val certificatePinner = CertificatePinner.Builder()
-            .add("tyler-health.duckdns.org", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
-            .add("tyler-health.duckdns.org", "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
+            .add(host, "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
+            .add(host, "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
             .build()
 
         val client = OkHttpClient.Builder()
@@ -167,7 +175,7 @@ class ServerApiClient(private val apiKey: String) {
             .build()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("${Config.SERVER_URL_DEFAULT}/")
+            .baseUrl(if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/")
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

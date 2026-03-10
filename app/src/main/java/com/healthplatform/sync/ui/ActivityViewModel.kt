@@ -57,7 +57,8 @@ class ActivityViewModel(
 ) : AndroidViewModel(application) {
 
     constructor(application: Application) : this(application, {
-        ServerApiClient(SecurePrefs.getApiKey(application))
+        val serverUrl = com.healthplatform.sync.Config.getServerUrl(application)
+        ServerApiClient(SecurePrefs.getApiKey(application), serverUrl)
     })
 
     private val _state = MutableStateFlow(ActivityState())

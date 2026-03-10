@@ -19,6 +19,7 @@ import com.healthplatform.sync.data.HrvData
 import com.healthplatform.sync.data.SleepData
 import com.healthplatform.sync.data.db.ApexDatabase
 import com.healthplatform.sync.data.db.SyncQueueEntity
+import com.healthplatform.sync.data.db.computeRecordHash
 import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.widget.HealthGlanceWidget
 import kotlinx.coroutines.Dispatchers
@@ -169,7 +170,8 @@ class SyncWorker(
             // in place; WorkManager's exponential backoff will retry.
             // ----------------------------------------------------------------
 
-            var anyFailure = false
+            var anyTransientFailure = false
+            var anyPermanentFailure = false
 
             // ---- Blood Pressure ----
             if (filter == null || filter == DATA_TYPE_BP) {
@@ -194,7 +196,8 @@ class SyncWorker(
                         },
                         onFailure = { e ->
                             Log.e(TAG, "BP sync failed — ${pending.size} records kept in queue", e)
-                            anyFailure = true
+                            if (e is ApiService.PermanentSyncFailure) anyPermanentFailure = true
+                            else anyTransientFailure = true
                         }
                     )
                 }
@@ -219,7 +222,8 @@ class SyncWorker(
                         },
                         onFailure = { e ->
                             Log.e(TAG, "Sleep sync failed — ${pending.size} records kept in queue", e)
-                            anyFailure = true
+                            if (e is ApiService.PermanentSyncFailure) anyPermanentFailure = true
+                            else anyTransientFailure = true
                         }
                     )
                 }
@@ -244,7 +248,8 @@ class SyncWorker(
                         },
                         onFailure = { e ->
                             Log.e(TAG, "Body sync failed — ${pending.size} records kept in queue", e)
-                            anyFailure = true
+                            if (e is ApiService.PermanentSyncFailure) anyPermanentFailure = true
+                            else anyTransientFailure = true
                         }
                     )
                 }
@@ -267,12 +272,14 @@ class SyncWorker(
                         },
                         onFailure = { e ->
                             Log.e(TAG, "HRV sync failed — ${pending.size} records kept in queue", e)
-                            anyFailure = true
+                            if (e is ApiService.PermanentSyncFailure) anyPermanentFailure = true
+                            else anyTransientFailure = true
                         }
                     )
                 }
             }
 
+            val anyFailure = anyTransientFailure || anyPermanentFailure
             if (!anyFailure) {
                 prefs.edit().putLong(SyncPrefsKeys.LAST_SYNC, System.currentTimeMillis()).apply()
             }
@@ -286,7 +293,13 @@ class SyncWorker(
                 HealthGlanceWidget().updateAll(applicationContext)
             }
 
-            if (anyFailure) Result.retry() else Result.success()
+            // Permanent failures (401/403/400) must not be retried — stop WorkManager.
+            // Transient failures (5xx, network) should be retried with exponential backoff.
+            when {
+                anyPermanentFailure -> Result.failure()
+                anyTransientFailure -> Result.retry()
+                else -> Result.success()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Sync failed", e)
             Result.retry()
@@ -297,29 +310,29 @@ class SyncWorker(
     // Queue entity builders — map typed data classes → SyncQueueEntity
     // -------------------------------------------------------------------------
 
-    private fun BloodPressureData.toQueueEntity() = SyncQueueEntity(
-        dataType = DATA_TYPE_BP,
-        measuredAt = measuredAt,
-        payload = gson.toJson(this)
-    )
+    private fun BloodPressureData.toQueueEntity(): SyncQueueEntity {
+        val payload = gson.toJson(this)
+        return SyncQueueEntity(dataType = DATA_TYPE_BP, measuredAt = measuredAt,
+            payload = payload, recordHash = computeRecordHash(DATA_TYPE_BP, payload))
+    }
 
-    private fun SleepData.toQueueEntity() = SyncQueueEntity(
-        dataType = DATA_TYPE_SLEEP,
-        measuredAt = sleepStart,   // sleepStart is the unique identifier for a session
-        payload = gson.toJson(this)
-    )
+    private fun SleepData.toQueueEntity(): SyncQueueEntity {
+        val payload = gson.toJson(this)
+        return SyncQueueEntity(dataType = DATA_TYPE_SLEEP, measuredAt = sleepStart,
+            payload = payload, recordHash = computeRecordHash(DATA_TYPE_SLEEP, payload))
+    }
 
-    private fun BodyMeasurementData.toQueueEntity() = SyncQueueEntity(
-        dataType = DATA_TYPE_BODY,
-        measuredAt = measuredAt,
-        payload = gson.toJson(this)
-    )
+    private fun BodyMeasurementData.toQueueEntity(): SyncQueueEntity {
+        val payload = gson.toJson(this)
+        return SyncQueueEntity(dataType = DATA_TYPE_BODY, measuredAt = measuredAt,
+            payload = payload, recordHash = computeRecordHash(DATA_TYPE_BODY, payload))
+    }
 
-    private fun HrvData.toQueueEntity() = SyncQueueEntity(
-        dataType = DATA_TYPE_HRV,
-        measuredAt = measuredAt,
-        payload = gson.toJson(this)
-    )
+    private fun HrvData.toQueueEntity(): SyncQueueEntity {
+        val payload = gson.toJson(this)
+        return SyncQueueEntity(dataType = DATA_TYPE_HRV, measuredAt = measuredAt,
+            payload = payload, recordHash = computeRecordHash(DATA_TYPE_HRV, payload))
+    }
 
     private fun postBpAnomalyNotification(systolic: Int, diastolic: Int) {
         val intent = applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
@@ -327,10 +340,21 @@ class SyncWorker(
             applicationContext, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        // Public version shown on lock screen — no raw health values.
+        val publicNotification = NotificationCompat.Builder(applicationContext, NotificationChannels.BP_ANOMALY)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Health alert")
+            .setContentText("Open Apex to review a new alert")
+            .build()
+
         val notification = NotificationCompat.Builder(applicationContext, NotificationChannels.BP_ANOMALY)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Elevated blood pressure")
-            .setContentText("$systolic/$diastolic mmHg — tap to review your trends in Apex")
+            .setContentText("A new blood pressure alert is available in Apex")
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText("Your latest reading was $systolic/$diastolic mmHg. Open Apex to review your trends."))
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicNotification)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
