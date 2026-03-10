@@ -43,6 +43,14 @@ val ApexStatusYellow = Color(0xFFFBBF24)  // amber
 val ApexStatusRed    = Color(0xFFFF6B6B)  // coral red
 
 // ---------------------------------------------------------------------------
+// Per-metric accent colors — each health metric has its own identity
+// ---------------------------------------------------------------------------
+val ApexBpAccent     = Color(0xFFF87171)  // coral red  — blood pressure urgency
+val ApexSleepAccent  = Color(0xFF818CF8)  // indigo     — rest / night
+val ApexWeightAccent = Color(0xFF34D399)  // emerald    — body composition
+val ApexHrvAccent    = Color(0xFFFBBF24)  // amber      — HRV / readiness
+
+// ---------------------------------------------------------------------------
 // Sleep-stage chart color (replaces hardcoded 0xFF3D4451)
 // ---------------------------------------------------------------------------
 val ApexSleepLight = Color(0xFF3A5A80)   // blue-tinted mid-tone for light sleep

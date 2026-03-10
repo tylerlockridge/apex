@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -121,11 +122,7 @@ fun DashboardScreen(
                     )
                 }
 
-                Text(
-                    text = "Health Metrics",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = ApexPrimary
-                )
+                SectionLabel(text = "Health Metrics")
 
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -213,19 +210,81 @@ fun DashboardScreen(
 
 @Composable
 private fun DashboardHeader() {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = "Apex",
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 38.sp
-            ),
-            color = ApexOnBackground
+    val greeting = remember {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        when {
+            hour < 12 -> "Good morning"
+            hour < 17 -> "Good afternoon"
+            else      -> "Good evening"
+        }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = greeting.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    letterSpacing = 1.5.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                color = ApexOnSurfaceVariant
+            )
+            Text(
+                text = "Apex",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 38.sp
+                ),
+                color = ApexOnBackground
+            )
+        }
+        // Date chip
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(ApexSurfaceVariant)
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = remember {
+                    java.time.LocalDate.now().format(
+                        java.time.format.DateTimeFormatter.ofPattern("MMM d")
+                    )
+                },
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = ApexOnSurfaceVariant
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Section label with left accent mark
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun SectionLabel(text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(14.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(ApexPrimary)
         )
         Text(
-            text = "Peak health, always.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = ApexPrimary
+            text = text.uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(
+                letterSpacing = 1.2.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = ApexOnSurfaceVariant
         )
     }
 }
@@ -447,26 +506,39 @@ private fun SyncFab(isSyncing: Boolean, onSync: () -> Unit) {
 private fun MetricCard(
     title: String,
     icon: ImageVector,
+    accentColor: Color = ApexPrimary,
     sparklinePoints: List<Float> = emptyList(),
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
-        modifier = Modifier.width(160.dp),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.width(168.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = ApexSurfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = accentColor.copy(alpha = 0.18f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            // Teal left border
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Metric color accent bar at top
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(ApexPrimary)
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                accentColor.copy(alpha = 0.9f),
+                                accentColor.copy(alpha = 0.3f)
+                            )
+                        )
+                    )
             )
             Column(
                 modifier = Modifier
-                    .padding(12.dp)
+                    .padding(horizontal = 14.dp)
+                    .padding(top = 12.dp, bottom = 14.dp)
                     .fillMaxWidth()
             ) {
                 Row(
@@ -476,25 +548,28 @@ private fun MetricCard(
                     Icon(
                         imageVector = icon,
                         contentDescription = title,
-                        tint = ApexPrimary,
-                        modifier = Modifier.size(16.dp)
+                        tint = accentColor,
+                        modifier = Modifier.size(15.dp)
                     )
                     Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelMedium,
+                        text = title.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 0.8.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
                         color = ApexOnSurfaceVariant
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 content()
                 if (sparklinePoints.size >= 2) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     SparklineChart(
                         points = sparklinePoints,
-                        color = ApexPrimary.copy(alpha = 0.7f),
+                        color = accentColor.copy(alpha = 0.6f),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(30.dp)
+                            .height(28.dp)
                     )
                 }
             }
@@ -510,12 +585,16 @@ private fun BloodPressureCard(
 ) {
     MetricCard(
         title = "Blood Pressure",
-        icon = Icons.Rounded.Favorite
+        icon = Icons.Rounded.Favorite,
+        accentColor = ApexBpAccent
     ) {
         if (systolic != null && diastolic != null) {
             Text(
                 text = "$systolic/$diastolic",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 26.sp
+                ),
                 color = ApexOnSurface
             )
             Text(
@@ -524,7 +603,7 @@ private fun BloodPressureCard(
                 color = ApexOnSurfaceVariant
             )
             if (time != null) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = formatIsoTime(time),
                     style = MaterialTheme.typography.labelSmall,
@@ -532,8 +611,7 @@ private fun BloodPressureCard(
                 )
             }
         } else {
-            Text(text = "—", style = MaterialTheme.typography.headlineSmall, color = ApexOnSurfaceVariant)
-            Text(text = "No data", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
+            MetricEmptyState()
         }
     }
 }
@@ -547,32 +625,35 @@ private fun SleepCard(
 ) {
     MetricCard(
         title = "Sleep",
-        icon = Icons.Rounded.Bedtime
+        icon = Icons.Rounded.Bedtime,
+        accentColor = ApexSleepAccent
     ) {
         if (durationMin != null) {
             val score = sleepScore(durationMin, deepMin ?: 0, remMin ?: 0)
-            SleepArcGauge(score = score, modifier = Modifier.size(64.dp))
-            Spacer(modifier = Modifier.height(4.dp))
+            SleepArcGauge(score = score, accentColor = ApexSleepAccent, modifier = Modifier.size(68.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             val h = durationMin / 60
             val m = durationMin % 60
             Text(
                 text = "${h}h ${m}m",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 18.sp
+                ),
                 color = ApexOnSurface
             )
             if (time != null) {
                 Text(text = formatIsoTime(time), style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             }
         } else {
-            Text(text = "—", style = MaterialTheme.typography.headlineSmall, color = ApexOnSurfaceVariant)
-            Text(text = "No data", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
+            MetricEmptyState()
         }
     }
 }
 
 /** Arc gauge spanning 240° showing sleep quality score (0–100). */
 @Composable
-private fun SleepArcGauge(score: Int, modifier: Modifier = Modifier) {
+private fun SleepArcGauge(score: Int, accentColor: Color = ApexSleepAccent, modifier: Modifier = Modifier) {
     val arcColor = when {
         score >= 80 -> ApexStatusGreen
         score >= 60 -> ApexStatusYellow
@@ -643,22 +724,25 @@ private fun WeightCard(
 ) {
     MetricCard(
         title = "Weight",
-        icon = Icons.Rounded.Scale
+        icon = Icons.Rounded.Scale,
+        accentColor = ApexWeightAccent
     ) {
         if (weightKg != null) {
             Text(
                 text = "%.1f".format(weightKg),
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 26.sp
+                ),
                 color = ApexOnSurface
             )
             Text(text = "kg", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             if (time != null) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(text = formatIsoTime(time), style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             }
         } else {
-            Text(text = "—", style = MaterialTheme.typography.headlineSmall, color = ApexOnSurfaceVariant)
-            Text(text = "No data", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
+            MetricEmptyState()
         }
     }
 }
@@ -670,23 +754,43 @@ private fun HrvCard(
 ) {
     MetricCard(
         title = "HRV",
-        icon = Icons.Rounded.MonitorHeart
+        icon = Icons.Rounded.MonitorHeart,
+        accentColor = ApexHrvAccent
     ) {
         if (hrvMs != null) {
             Text(
                 text = "%.0f".format(hrvMs),
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 26.sp
+                ),
                 color = ApexOnSurface
             )
             Text(text = "ms", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             if (time != null) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(text = formatIsoTime(time), style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             }
         } else {
-            Text(text = "—", style = MaterialTheme.typography.headlineSmall, color = ApexOnSurfaceVariant)
-            Text(text = "No data", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
+            MetricEmptyState()
         }
+    }
+}
+
+// Empty state for metric cards — consistent across all four metrics
+@Composable
+private fun MetricEmptyState() {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "—",
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Light),
+            color = ApexOnSurfaceVariant.copy(alpha = 0.5f)
+        )
+        Text(
+            text = "No data",
+            style = MaterialTheme.typography.labelSmall,
+            color = ApexOnSurfaceVariant.copy(alpha = 0.6f)
+        )
     }
 }
 
@@ -817,37 +921,65 @@ private fun QuickActionsRow(
     onSyncBp: () -> Unit,
     onSyncSleep: () -> Unit
 ) {
+    SectionLabel(text = "Quick Actions")
+    Spacer(modifier = Modifier.height(8.dp))
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        OutlinedButton(
+        QuickActionChip(
+            label = "Sync BP",
+            icon = Icons.Rounded.Favorite,
+            accentColor = ApexBpAccent,
+            enabled = !isSyncing,
             onClick = onSyncBp,
+            modifier = Modifier.weight(1f)
+        )
+        QuickActionChip(
+            label = "Sync Sleep",
+            icon = Icons.Rounded.Bedtime,
+            accentColor = ApexSleepAccent,
             enabled = !isSyncing,
-            modifier = Modifier.weight(1f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = ApexPrimary,
-                disabledContentColor = ApexOnSurfaceVariant
-            )
-        ) {
-            Icon(imageVector = Icons.Rounded.Favorite, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Sync BP")
-        }
-        OutlinedButton(
             onClick = onSyncSleep,
-            enabled = !isSyncing,
-            modifier = Modifier.weight(1f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = ApexPrimary,
-                disabledContentColor = ApexOnSurfaceVariant
-            )
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun QuickActionChip(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    accentColor: Color,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val containerColor = if (enabled) accentColor.copy(alpha = 0.12f) else ApexSurfaceVariant.copy(alpha = 0.5f)
+    val contentColor   = if (enabled) accentColor else ApexOnSurfaceVariant.copy(alpha = 0.4f)
+    val borderColor    = if (enabled) accentColor.copy(alpha = 0.35f) else ApexOutline.copy(alpha = 0.3f)
+    Surface(
+        onClick = { if (enabled) onClick() },
+        modifier = modifier,
+        enabled = enabled,
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp, horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
-            Icon(imageVector = Icons.Rounded.Bedtime, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(15.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text("Sync Sleep")
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = contentColor
+            )
         }
     }
 }

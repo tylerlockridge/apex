@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.healthplatform.sync.ui.theme.*
@@ -63,7 +65,10 @@ fun ActivityScreen(
             ) {
                 Text(
                     text = "Activity",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 38.sp
+                    ),
                     color = ApexOnBackground
                 )
                 if (state.isSyncing) {
@@ -135,6 +140,30 @@ fun ActivityScreen(
                             }
 
                             // Workout list
+                            // Stats section label
+                            state.stats?.let {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(3.dp)
+                                            .height(14.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(ApexPrimary)
+                                    )
+                                    Text(
+                                        text = "OVERVIEW",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            letterSpacing = 1.2.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        color = ApexOnSurfaceVariant
+                                    )
+                                }
+                            }
+
                             if (state.workouts.isEmpty()) {
                                 Box(
                                     modifier = Modifier
@@ -174,11 +203,26 @@ fun ActivityScreen(
                                     }
                                 }
                             } else {
-                                Text(
-                                    text = "Recent Workouts",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = ApexPrimary
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(3.dp)
+                                            .height(14.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(ApexPrimary)
+                                    )
+                                    Text(
+                                        text = "RECENT WORKOUTS",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            letterSpacing = 1.2.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        color = ApexOnSurfaceVariant
+                                    )
+                                }
                                 state.workouts.forEach { workout ->
                                     WorkoutCard(workout)
                                 }
@@ -285,7 +329,7 @@ private fun WorkoutCard(workout: WorkoutSession) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            // Teal left accent bar
+            // Primary accent left bar
             Box(
                 modifier = Modifier
                     .width(4.dp)

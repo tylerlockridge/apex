@@ -3,6 +3,7 @@ package com.healthplatform.sync.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -31,6 +32,19 @@ fun ApexWatermarkCanvas(modifier: Modifier = Modifier) {
 }
 
 private fun DrawScope.drawApexWatermark() {
+    // Subtle radial glow in the upper-center — adds atmospheric depth on OLED screens.
+    // Steel blue at ~4% opacity fades to transparent over ~45% of the screen height.
+    drawRect(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color(0xFF5B9BD5).copy(alpha = 0.04f),
+                Color.Transparent
+            ),
+            center = androidx.compose.ui.geometry.Offset(size.width / 2f, 0f),
+            radius = size.height * 0.55f
+        ),
+        size = size
+    )
     // Scale the icon to ~58% of the shorter screen dimension
     val iconSize = minOf(size.width, size.height) * 0.58f
 

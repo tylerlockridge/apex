@@ -18,9 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.healthplatform.sync.ui.charts.LineChart
@@ -53,22 +55,27 @@ fun TrendsScreen(
     ) {
         Text(
             text = "Trends",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 38.sp
+            ),
             color = ApexOnBackground
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Sub-tab row: BP | Sleep | Body | HRV
+        // Sub-tab row: BP | Sleep | Body | HRV — each tab uses its metric accent color
         val tabLabels = listOf("BP", "Sleep", "Body", "HRV")
+        val tabAccentColors = listOf(ApexBpAccent, ApexSleepAccent, ApexWeightAccent, ApexHrvAccent)
+        val currentAccent = tabAccentColors[state.selectedTab]
         ScrollableTabRow(
             selectedTabIndex = state.selectedTab,
             containerColor = ApexSurface,
-            contentColor = ApexPrimary,
+            contentColor = currentAccent,
             edgePadding = 0.dp,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[state.selectedTab]),
-                    color = ApexPrimary
+                    color = currentAccent
                 )
             }
         ) {
@@ -79,7 +86,10 @@ fun TrendsScreen(
                     text = {
                         Text(
                             text = label,
-                            color = if (state.selectedTab == index) ApexPrimary else ApexOnSurfaceVariant
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = if (state.selectedTab == index) FontWeight.SemiBold else FontWeight.Normal
+                            ),
+                            color = if (state.selectedTab == index) tabAccentColors[index] else ApexOnSurfaceVariant
                         )
                     }
                 )
@@ -170,6 +180,7 @@ fun TrendsScreen(
 @Composable
 private fun RangeSelector(
     selectedDays: Int,
+    accentColor: Color = ApexPrimary,
     onSelect: (Int) -> Unit
 ) {
     val haptic = rememberApexHaptic()
@@ -181,15 +192,15 @@ private fun RangeSelector(
                 onClick = { haptic.tick(); onSelect(days) },
                 label = { Text(if (days == 90) "90d" else "${days}d") },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = ApexPrimary.copy(alpha = 0.2f),
-                    selectedLabelColor = ApexPrimary,
+                    selectedContainerColor = accentColor.copy(alpha = 0.18f),
+                    selectedLabelColor = accentColor,
                     containerColor = ApexSurface,
                     labelColor = ApexOnSurfaceVariant
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = selected,
-                    selectedBorderColor = ApexPrimary,
+                    selectedBorderColor = accentColor,
                     borderColor = ApexOutline
                 )
             )
@@ -203,7 +214,7 @@ private fun RangeSelector(
 
 @Composable
 private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
-    RangeSelector(state.selectedRange) { viewModel.selectRange(it) }
+    RangeSelector(state.selectedRange, accentColor = ApexBpAccent) { viewModel.selectRange(it) }
 
     val readings = state.bpReadings
 
@@ -238,10 +249,10 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         Triple(129f, 200f, ApexStatusRed)         // high
     )
 
-    TrendsCard(title = "Systolic (mmHg)") {
+    TrendsCard(title = "Systolic (mmHg)", accentColor = ApexBpAccent) {
         LineChart(
             dataPoints = systolicPoints,
-            lineColor = ApexPrimary,
+            lineColor = ApexBpAccent,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp),
@@ -251,10 +262,10 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         )
     }
 
-    TrendsCard(title = "Diastolic (mmHg)") {
+    TrendsCard(title = "Diastolic (mmHg)", accentColor = ApexBpAccent) {
         LineChart(
             dataPoints = diastolicPoints,
-            lineColor = ApexSecondary,
+            lineColor = ApexBpAccent.copy(alpha = 0.6f),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp),
@@ -268,18 +279,19 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     val minSys = remember(readings) { readings.minOf { it.systolic } }
     val maxSys = remember(readings) { readings.maxOf { it.systolic } }
     StatsRow(
-        listOf(
+        items = listOf(
             "Avg Sys" to "%.0f".format(avgSys),
             "Avg Dia" to "%.0f".format(avgDia),
             "Min Sys" to "$minSys",
             "Max Sys" to "$maxSys"
-        )
+        ),
+        accentColor = ApexBpAccent
     )
 
     // Anomaly list (systolic >= 130 or diastolic >= 80)
     val anomalies = remember(readings) { readings.filter { it.systolic >= 130 || it.diastolic >= 80 } }
     if (anomalies.isNotEmpty()) {
-        TrendsCard(title = "Elevated Readings") {
+        TrendsCard(title = "Elevated Readings", accentColor = ApexStatusRed) {
             anomalies.take(5).forEach { r ->
                 Row(
                     modifier = Modifier
@@ -311,7 +323,7 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
 
 @Composable
 private fun SleepTabContent(state: TrendsState, viewModel: TrendsViewModel) {
-    RangeSelector(state.selectedRange) { viewModel.selectRange(it) }
+    RangeSelector(state.selectedRange, accentColor = ApexSleepAccent) { viewModel.selectRange(it) }
 
     val sessions = state.sleepSessions
 
@@ -335,7 +347,7 @@ private fun SleepTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         }
     }
 
-    TrendsCard(title = "Sleep Stages per Night") {
+    TrendsCard(title = "Sleep Stages per Night", accentColor = ApexSleepAccent) {
         // Legend row
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             LegendDot("Deep", ApexPrimary)
@@ -370,11 +382,12 @@ private fun SleepTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     }
 
     StatsRow(
-        listOf(
+        items = listOf(
             "Avg Sleep" to "%.1fh".format(avgDurationH),
             "Avg Deep" to if (avgDeepPct != null) "%.0f%%".format(avgDeepPct) else "—",
             "Avg REM" to if (avgRemPct != null) "%.0f%%".format(avgRemPct) else "—"
-        )
+        ),
+        accentColor = ApexSleepAccent
     )
 }
 
@@ -384,7 +397,7 @@ private fun SleepTabContent(state: TrendsState, viewModel: TrendsViewModel) {
 
 @Composable
 private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
-    RangeSelector(state.selectedRange) { viewModel.selectRange(it) }
+    RangeSelector(state.selectedRange, accentColor = ApexWeightAccent) { viewModel.selectRange(it) }
 
     val measurements = state.bodyMeasurements
 
@@ -404,10 +417,10 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     }
 
     if (weightPoints.isNotEmpty()) {
-        TrendsCard(title = "Weight (kg)") {
+        TrendsCard(title = "Weight (kg)", accentColor = ApexWeightAccent) {
             LineChart(
                 dataPoints = weightPoints,
-                lineColor = ApexPrimary,
+                lineColor = ApexWeightAccent,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp),
@@ -427,10 +440,10 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     }
 
     if (fatPoints.isNotEmpty()) {
-        TrendsCard(title = "Body Fat (%)") {
+        TrendsCard(title = "Body Fat (%)", accentColor = ApexWeightAccent) {
             LineChart(
                 dataPoints = fatPoints,
-                lineColor = ApexSecondary,
+                lineColor = ApexWeightAccent.copy(alpha = 0.65f),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp),
@@ -451,12 +464,13 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     }
 
     StatsRow(
-        listOf(
+        items = listOf(
             "Current" to if (currentWeight != null) "%.1f kg".format(currentWeight) else "—",
             "Start" to if (startWeight != null) "%.1f kg".format(startWeight) else "—",
             "Change" to if (change != null) "%+.1f kg".format(change) else "—",
             "Rate/wk" to if (ratePerWeek != null) "%+.2f kg".format(ratePerWeek) else "—"
-        )
+        ),
+        accentColor = ApexWeightAccent
     )
 }
 
@@ -466,7 +480,7 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
 
 @Composable
 private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
-    RangeSelector(state.selectedRange) { viewModel.selectRange(it) }
+    RangeSelector(state.selectedRange, accentColor = ApexHrvAccent) { viewModel.selectRange(it) }
 
     val readings = state.hrvReadings
 
@@ -499,10 +513,10 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         Triple(60f, 200f, ApexStatusGreen)    // good
     )
 
-    TrendsCard(title = "HRV — RMSSD (ms)") {
+    TrendsCard(title = "HRV — RMSSD (ms)", accentColor = ApexHrvAccent) {
         LineChart(
             dataPoints = points,
-            lineColor = ApexPrimary,
+            lineColor = ApexHrvAccent,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp),
@@ -510,12 +524,12 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
             showBaselines = true,
             baselines = hrvBaselines,
             overlayPoints = rollingAvgPoints,
-            overlayColor = ApexSecondary.copy(alpha = 0.7f)
+            overlayColor = ApexHrvAccent.copy(alpha = 0.5f)
         )
         Spacer(modifier = Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            ChartLegendItem(color = ApexPrimary, label = "HRV")
-            ChartLegendItem(color = ApexSecondary.copy(alpha = 0.7f), label = "7d avg", dashed = true)
+            ChartLegendItem(color = ApexHrvAccent, label = "HRV")
+            ChartLegendItem(color = ApexHrvAccent.copy(alpha = 0.5f), label = "7d avg", dashed = true)
         }
     }
 
@@ -527,12 +541,13 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     }
 
     StatsRow(
-        listOf(
+        items = listOf(
             "Avg" to "%.1f ms".format(avgHrv),
             "Min" to "%.1f ms".format(minHrv),
             "Max" to "%.1f ms".format(maxHrv),
             "Trend" to if (trend != null) "%+.1f".format(trend) else "—"
-        )
+        ),
+        accentColor = ApexHrvAccent
     )
 }
 
@@ -543,33 +558,52 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
 @Composable
 private fun TrendsCard(
     title: String,
+    accentColor: Color = ApexPrimary,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = ApexSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.15f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = ApexPrimary
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Metric accent bar at top
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(accentColor.copy(alpha = 0.85f), accentColor.copy(alpha = 0.2f))
+                        )
+                    )
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            content()
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = title.uppercase(),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        letterSpacing = 0.8.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = accentColor
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                content()
+            }
         }
     }
 }
 
 @Composable
-private fun StatsRow(items: List<Pair<String, String>>) {
+private fun StatsRow(items: List<Pair<String, String>>, accentColor: Color = ApexPrimary) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = ApexSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.12f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -585,8 +619,8 @@ private fun StatsRow(items: List<Pair<String, String>>) {
                         color = ApexOnSurface
                     )
                     Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
+                        text = label.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.5.sp),
                         color = ApexOnSurfaceVariant
                     )
                 }
