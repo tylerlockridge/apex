@@ -196,7 +196,7 @@ class SyncWorker(
                         },
                         onFailure = { e ->
                             Log.e(TAG, "BP sync failed — ${pending.size} records kept in queue", e)
-                            if (e is ApiService.PermanentSyncFailure) anyPermanentFailure = true
+                            if (e is PermanentSyncFailure) anyPermanentFailure = true
                             else anyTransientFailure = true
                         }
                     )
@@ -222,7 +222,7 @@ class SyncWorker(
                         },
                         onFailure = { e ->
                             Log.e(TAG, "Sleep sync failed — ${pending.size} records kept in queue", e)
-                            if (e is ApiService.PermanentSyncFailure) anyPermanentFailure = true
+                            if (e is PermanentSyncFailure) anyPermanentFailure = true
                             else anyTransientFailure = true
                         }
                     )
@@ -248,7 +248,7 @@ class SyncWorker(
                         },
                         onFailure = { e ->
                             Log.e(TAG, "Body sync failed — ${pending.size} records kept in queue", e)
-                            if (e is ApiService.PermanentSyncFailure) anyPermanentFailure = true
+                            if (e is PermanentSyncFailure) anyPermanentFailure = true
                             else anyTransientFailure = true
                         }
                     )
@@ -272,7 +272,7 @@ class SyncWorker(
                         },
                         onFailure = { e ->
                             Log.e(TAG, "HRV sync failed — ${pending.size} records kept in queue", e)
-                            if (e is ApiService.PermanentSyncFailure) anyPermanentFailure = true
+                            if (e is PermanentSyncFailure) anyPermanentFailure = true
                             else anyTransientFailure = true
                         }
                     )

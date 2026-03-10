@@ -185,12 +185,6 @@ class ApiService private constructor(
 
     companion object {
         /**
-         * Thrown when the server returns a non-retryable HTTP error (400/401/403/404/422).
-         * [SyncWorker] maps this to [Result.failure] so WorkManager stops retrying.
-         */
-        class PermanentSyncFailure(message: String) : Exception(message)
-
-        /**
          * Shared Gson instance — thread-safe and expensive to construct.
          * Used by both [ApiService] and [SyncWorker] serialisation.
          */
@@ -225,3 +219,9 @@ class ApiService private constructor(
             ApiService(baseUrl, deviceSecret, apiKey)
     }
 }
+
+/**
+ * Thrown when the server returns a non-retryable HTTP error (400/401/403/404/422).
+ * [SyncWorker] maps this to [Result.failure] so WorkManager stops retrying.
+ */
+class PermanentSyncFailure(message: String) : Exception(message)

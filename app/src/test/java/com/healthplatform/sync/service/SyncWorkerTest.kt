@@ -19,6 +19,7 @@ import com.healthplatform.sync.data.SleepData
 import com.healthplatform.sync.data.db.ApexDatabase
 import com.healthplatform.sync.data.db.SyncQueueDao
 import com.healthplatform.sync.data.db.SyncQueueEntity
+import com.healthplatform.sync.data.db.computeRecordHash
 import com.healthplatform.sync.security.SecurePrefs
 import io.mockk.coEvery
 import io.mockk.every
@@ -126,11 +127,13 @@ class SyncWorkerTest {
     @Test
     fun `BP sync failure returns Result retry`() = runTest {
         // Pre-seed the queue with a BP record
+        val bpPayload = """{"systolic":120,"diastolic":80,"measuredAt":"2026-03-01T08:00:00Z"}"""
         dao.insertAll(listOf(
             SyncQueueEntity(
                 dataType = SyncWorker.DATA_TYPE_BP,
                 measuredAt = "2026-03-01T08:00:00Z",
-                payload = """{"systolic":120,"diastolic":80,"measuredAt":"2026-03-01T08:00:00Z"}"""
+                payload = bpPayload,
+                recordHash = computeRecordHash(SyncWorker.DATA_TYPE_BP, bpPayload)
             )
         ))
 
@@ -157,8 +160,8 @@ class SyncWorkerTest {
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
         val result = worker.doWork()
 
-        // Token should be cleared
-        assertFalse(prefs().contains(SyncPrefsKeys.CHANGE_TOKEN_BP))
+        // After fallback full read a fresh token is re-acquired and persisted
+        assertEquals("bp-token", prefs().getString(SyncPrefsKeys.CHANGE_TOKEN_BP, null))
         // Should still succeed (Phase 2 has nothing to flush → no failures)
         assertEquals(ListenableWorker.Result.success(), result)
     }
@@ -187,11 +190,13 @@ class SyncWorkerTest {
         // Pre-seed queue with hypertensive BP
         val gson = com.google.gson.Gson()
         val bp = BloodPressureData(systolic = 140, diastolic = 85, measuredAt = "2026-03-01T08:00:00Z")
+        val bpPayload1 = gson.toJson(bp)
         dao.insertAll(listOf(
             SyncQueueEntity(
                 dataType = SyncWorker.DATA_TYPE_BP,
                 measuredAt = bp.measuredAt,
-                payload = gson.toJson(bp)
+                payload = bpPayload1,
+                recordHash = computeRecordHash(SyncWorker.DATA_TYPE_BP, bpPayload1)
             )
         ))
 
@@ -210,11 +215,13 @@ class SyncWorkerTest {
     fun `anomaly notification when diastolic at 90`() = runTest {
         val gson = com.google.gson.Gson()
         val bp = BloodPressureData(systolic = 125, diastolic = 90, measuredAt = "2026-03-01T08:00:00Z")
+        val bpPayload2 = gson.toJson(bp)
         dao.insertAll(listOf(
             SyncQueueEntity(
                 dataType = SyncWorker.DATA_TYPE_BP,
                 measuredAt = bp.measuredAt,
-                payload = gson.toJson(bp)
+                payload = bpPayload2,
+                recordHash = computeRecordHash(SyncWorker.DATA_TYPE_BP, bpPayload2)
             )
         ))
 
