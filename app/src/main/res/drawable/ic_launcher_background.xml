@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Apex adaptive icon background.
+    Deep navy gradient: lighter at top-center (atmospheric depth), darkest at bottom.
+    Matches the Play Store icon background mood.
+-->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <gradient
         android:type="linear"
         android:angle="270"
-        android:startColor="#4F8EC2"
-        android:endColor="#152840" />
+        android:startColor="#1B2C45"
+        android:endColor="#090F1C" />
 </shape>

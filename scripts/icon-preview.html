@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Apex Icon Preview</title>
+<style>
+  body {
+    margin: 0;
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 40px;
+    font-family: system-ui, sans-serif;
+    color: #aaa;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  .label {
+    font-size: 12px;
+    text-align: center;
+    margin-top: 8px;
+    letter-spacing: 0.05em;
+  }
+  .col { display: flex; flex-direction: column; align-items: center; }
+  .bg-light { background: #f0f0f0; padding: 16px; border-radius: 12px; }
+</style>
+</head>
+<body>
+
+<div class="row">
+  <!-- 512x512 main -->
+  <div class="col">
+    <canvas id="icon512" width="512" height="512"></canvas>
+    <div class="label">512 × 512 (Play Store)</div>
+  </div>
+
+  <!-- 192x192 -->
+  <div class="col">
+    <canvas id="icon192" width="192" height="192"></canvas>
+    <div class="label">192 × 192</div>
+  </div>
+
+  <div class="col">
+    <!-- 96x96 on dark -->
+    <canvas id="icon96" width="96" height="96"></canvas>
+    <div class="label">96 × 96 (dark bg)</div>
+  </div>
+
+  <div class="col bg-light">
+    <!-- 96x96 on light -->
+    <canvas id="icon96l" width="96" height="96"></canvas>
+    <div class="label" style="color:#555">96 × 96 (light bg)</div>
+  </div>
+
+  <!-- 48x48 -->
+  <div class="col">
+    <canvas id="icon48" width="48" height="48" style="image-rendering:pixelated"></canvas>
+    <div class="label">48 × 48</div>
+  </div>
+</div>
+
+<script>
+function drawApexIcon(canvas, size) {
+  const ctx = canvas.getContext('2d');
+  const s = size / 512; // scale factor
+
+  // ── Background ────────────────────────────────────────────────────────────
+  // Rounded square clip (radius ~23% of size)
+  const r = size * 0.234;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, r);
+  ctx.clip();
+
+  // Deep navy background with atmospheric depth
+  const bgGrad = ctx.createRadialGradient(
+    size * 0.5, size * 0.32, 0,
+    size * 0.5, size * 0.5, size * 0.72
+  );
+  bgGrad.addColorStop(0.0, '#1C2E4A'); // lighter navy at top-center
+  bgGrad.addColorStop(0.45, '#111C30'); // mid navy
+  bgGrad.addColorStop(1.0, '#09101C'); // darkest at corners
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, size, size);
+
+  // ── Atmospheric peak glow (behind the mark) ────────────────────────────
+  const glowX = size * 0.5;
+  const glowY = size * 0.25;
+  const peakGlow = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, size * 0.42);
+  peakGlow.addColorStop(0.0, 'rgba(91, 155, 213, 0.22)');
+  peakGlow.addColorStop(0.5, 'rgba(91, 155, 213, 0.07)');
+  peakGlow.addColorStop(1.0, 'rgba(91, 155, 213, 0.00)');
+  ctx.fillStyle = peakGlow;
+  ctx.fillRect(0, 0, size, size);
+
+  // ── Mark geometry ─────────────────────────────────────────────────────────
+  // All coordinates in 512-unit space, scaled by s
+  const px = 256 * s, py = 100 * s;   // peak
+  const blx = 92 * s,  bly = 410 * s; // bottom-left
+  const brx = 420 * s, bry = 410 * s; // bottom-right
+
+  // Crossbar: at 60% of the way from peak to base
+  const t = 0.60;
+  const cbLx = (256 + t * (92  - 256)) * s; // 157.6
+  const cbRx = (256 + t * (420 - 256)) * s; // 354.4
+  const cbY  = (100 + t * (410 - 100)) * s; // 286
+
+  // Mark gradient: ice-blue at peak → steel blue → deeper steel at base
+  const markGrad = ctx.createLinearGradient(px, py, px, bly);
+  markGrad.addColorStop(0.00, '#D4EEFF'); // ice white-blue at peak tip
+  markGrad.addColorStop(0.18, '#A0CFEE'); // bright steel blue
+  markGrad.addColorStop(0.50, '#5B9BD5'); // steel blue primary
+  markGrad.addColorStop(0.85, '#3A7CBF'); // deeper steel
+  markGrad.addColorStop(1.00, '#2460A7'); // richest at base
+
+  // ── Layer 1: Outer atmosphere (wide soft glow) ────────────────────────
+  ctx.save();
+  ctx.shadowColor = 'rgba(91, 155, 213, 0.45)';
+  ctx.shadowBlur = 28 * s;
+  ctx.strokeStyle = 'rgba(91, 155, 213, 0.18)';
+  ctx.lineWidth = 128 * s;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(px, py); ctx.lineTo(blx, bly);
+  ctx.moveTo(px, py); ctx.lineTo(brx, bry);
+  ctx.moveTo(cbLx, cbY); ctx.lineTo(cbRx, cbY);
+  ctx.stroke();
+  ctx.restore();
+
+  // ── Layer 2: Inner glow ────────────────────────────────────────────────
+  ctx.save();
+  ctx.strokeStyle = 'rgba(91, 155, 213, 0.32)';
+  ctx.lineWidth = 94 * s;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(px, py); ctx.lineTo(blx, bly);
+  ctx.moveTo(px, py); ctx.lineTo(brx, bry);
+  ctx.moveTo(cbLx, cbY); ctx.lineTo(cbRx, cbY);
+  ctx.stroke();
+  ctx.restore();
+
+  // ── Layer 3: Core mark with gradient ──────────────────────────────────
+  ctx.save();
+  ctx.shadowColor = 'rgba(168, 212, 245, 0.6)';
+  ctx.shadowBlur = 12 * s;
+  ctx.strokeStyle = markGrad;
+  ctx.lineWidth = 74 * s;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(px, py); ctx.lineTo(blx, bly);
+  ctx.moveTo(px, py); ctx.lineTo(brx, bry);
+  ctx.moveTo(cbLx, cbY); ctx.lineTo(cbRx, cbY);
+  ctx.stroke();
+  ctx.restore();
+
+  // ── Layer 4: Bright peak highlight (just the peak tip) ────────────────
+  ctx.save();
+  const tipGrad = ctx.createLinearGradient(px, py, px, py + 90 * s);
+  tipGrad.addColorStop(0.0, 'rgba(255,255,255,0.70)');
+  tipGrad.addColorStop(1.0, 'rgba(255,255,255,0.00)');
+  ctx.strokeStyle = tipGrad;
+  ctx.lineWidth = 18 * s;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(px, py); ctx.lineTo(blx, bly);
+  ctx.moveTo(px, py); ctx.lineTo(brx, bry);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.restore(); // end rounded-square clip
+}
+
+// Render all sizes
+['icon512','icon192','icon96','icon96l','icon48'].forEach(id => {
+  const c = document.getElementById(id);
+  drawApexIcon(c, c.width);
+});
+</script>
+</body>
+</html>

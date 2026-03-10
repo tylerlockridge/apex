@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Apex icon — mountain peak that reads as the letter A.
-    Safe zone: 21–87 on both axes. All paths within bounds.
-    Glow layers (40% white, 2× stroke width) sit beneath the solid white strokes
-    to give the mark a soft luminous quality against the dark gradient background.
+    Apex adaptive icon foreground — mountain-A lettermark.
+
+    Geometry matches the Play Store icon:
+      Peak (54,22) · Base-L (20,88) · Base-R (88,88)
+      Crossbar at 60% down: M34,60 L74,60
+
+    Three-layer atmospheric treatment:
+      1. Wide outer glow  — steel blue at 18% opacity, wide stroke
+      2. Inner glow       — steel blue at 48% opacity, mid stroke
+      3. Core mark        — light steel blue (#8BBFE8) at full opacity, tight stroke
+
+    All paths within the 18–90 safe zone (72×72dp centered in 108×108dp).
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -11,38 +19,58 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Glow: chevron arms (A outer strokes) -->
+    <!-- ── Layer 1: Wide outer atmosphere glow ──────────────────────────── -->
     <path
-        android:pathData="M34,76 L54,30 L74,76"
+        android:pathData="M54,22 L20,88 M54,22 L88,88"
         android:fillColor="@android:color/transparent"
-        android:strokeColor="#40FFFFFF"
-        android:strokeWidth="16"
+        android:strokeColor="#2E5B9BD5"
+        android:strokeWidth="22"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
-
-    <!-- Glow: crossbar (A crossbar) -->
     <path
-        android:pathData="M42,58 L66,58"
+        android:pathData="M34,60 L74,60"
         android:fillColor="@android:color/transparent"
-        android:strokeColor="#40FFFFFF"
-        android:strokeWidth="10"
+        android:strokeColor="#2E5B9BD5"
+        android:strokeWidth="18"
         android:strokeLineCap="round" />
 
-    <!-- Main: chevron arms -->
+    <!-- ── Layer 2: Inner glow ───────────────────────────────────────────── -->
     <path
-        android:pathData="M34,76 L54,30 L74,76"
+        android:pathData="M54,22 L20,88 M54,22 L88,88"
         android:fillColor="@android:color/transparent"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="7"
+        android:strokeColor="#7A5B9BD5"
+        android:strokeWidth="14"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
-
-    <!-- Main: crossbar -->
     <path
-        android:pathData="M42,58 L66,58"
+        android:pathData="M34,60 L74,60"
         android:fillColor="@android:color/transparent"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="4.5"
+        android:strokeColor="#7A5B9BD5"
+        android:strokeWidth="11"
         android:strokeLineCap="round" />
+
+    <!-- ── Layer 3: Core mark — light steel blue ────────────────────────── -->
+    <path
+        android:pathData="M54,22 L20,88 M54,22 L88,88"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF8BBFE8"
+        android:strokeWidth="7.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M34,60 L74,60"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF8BBFE8"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+
+    <!-- ── Layer 4: Bright peak tip highlight ───────────────────────────── -->
+    <path
+        android:pathData="M54,22 L38,52 M54,22 L70,52"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#AADCF0FF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 
 </vector>
