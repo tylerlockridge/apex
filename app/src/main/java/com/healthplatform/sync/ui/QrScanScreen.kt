@@ -34,8 +34,10 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import com.healthplatform.sync.Config
 import com.healthplatform.sync.ui.theme.*
 import org.json.JSONObject
+import java.net.URI
 import androidx.concurrent.futures.await
 import java.util.concurrent.Executors
 
@@ -89,11 +91,22 @@ fun QrScanScreen(
                         }
                         try {
                             val json = JSONObject(raw)
-                            val serverUrl = json.getString("serverUrl")
-                            val apiKey = json.getString("apiKey")
-                            val deviceSecret = json.getString("deviceSecret")
+                            val rawUrl = json.getString("serverUrl").trim().trimEnd('/')
+                            val apiKey = json.getString("apiKey").trim()
+                            val deviceSecret = json.getString("deviceSecret").trim()
+
+                            // Validate URL: must be HTTPS and match the expected hostname
+                            val uri = URI.create(rawUrl)
+                            require(uri.scheme == "https") { "Server URL must use HTTPS" }
+                            val defaultHost = URI.create(Config.SERVER_URL_DEFAULT).host
+                            require(uri.host == defaultHost) {
+                                "Untrusted server host: ${uri.host}"
+                            }
+
                             consumed = true
-                            onConfigured(serverUrl, apiKey, deviceSecret)
+                            onConfigured(rawUrl, apiKey, deviceSecret)
+                        } catch (e: IllegalArgumentException) {
+                            scanError = e.message ?: "Invalid server URL"
                         } catch (_: Exception) {
                             scanError = "Invalid QR format — expected {serverUrl, apiKey, deviceSecret}"
                         }
