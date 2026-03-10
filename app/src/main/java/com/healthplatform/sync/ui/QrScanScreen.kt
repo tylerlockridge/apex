@@ -34,7 +34,6 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
-import com.healthplatform.sync.Config
 import com.healthplatform.sync.ui.theme.*
 import org.json.JSONObject
 import java.net.URI
@@ -95,13 +94,12 @@ fun QrScanScreen(
                             val apiKey = json.getString("apiKey").trim()
                             val deviceSecret = json.getString("deviceSecret").trim()
 
-                            // Validate URL: must be HTTPS and match the expected hostname
+                            // Validate URL: must use HTTPS (prevents plaintext credential exposure).
+                            // Host is not allowlisted — Config.getServerUrl() supports custom hosts
+                            // for staging and LAN testing, so QR onboarding should too.
                             val uri = URI.create(rawUrl)
                             require(uri.scheme == "https") { "Server URL must use HTTPS" }
-                            val defaultHost = URI.create(Config.SERVER_URL_DEFAULT).host
-                            require(uri.host == defaultHost) {
-                                "Untrusted server host: ${uri.host}"
-                            }
+                            require(!uri.host.isNullOrBlank()) { "Server URL has no host" }
 
                             consumed = true
                             onConfigured(rawUrl, apiKey, deviceSecret)

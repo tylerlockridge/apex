@@ -1,6 +1,11 @@
 package com.healthplatform.sync.ui
 
+import android.Manifest
 import android.content.Context
+import android.content.SharedPreferences
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.Color
@@ -71,9 +76,34 @@ fun SettingsScreen(
     // "Clear all data" confirmation dialog
     var showClearDialog by remember { mutableStateOf(false) }
 
+    // M-1: runtime POST_NOTIFICATIONS permission (required on Android 13+)
+    val notifPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* result handled silently — notifications will work or OS blocks them */ }
+
     // M-4 / L-7: server status and per-type HC permissions come from SettingsViewModel
     // so the OkHttpClient is built once rather than on every screen open.
     val serverState by settingsViewModel.serverState.collectAsStateWithLifecycle()
+
+    // M-3: register a SharedPreferences listener so sync history and last-sync timestamp
+    // update live after a sync finishes, without the user needing to leave and re-open Settings.
+    DisposableEffect(prefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            when (key) {
+                SyncPrefsKeys.LAST_SYNC -> lastSyncMs = prefs.getLong(SyncPrefsKeys.LAST_SYNC, 0L)
+                SyncPrefsKeys.SYNC_HISTORY -> {
+                    val historyJson = prefs.getString(SyncPrefsKeys.SYNC_HISTORY, "[]") ?: "[]"
+                    val arr = try { JSONArray(historyJson) } catch (e: Exception) { JSONArray() }
+                    syncHistory = (0 until arr.length()).map { i ->
+                        val obj = arr.getJSONObject(i)
+                        Pair(obj.getLong("t"), obj.getBoolean("ok"))
+                    }
+                }
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
 
     LaunchedEffect(Unit) {
         // Parse sync history from prefs
@@ -85,6 +115,10 @@ fun SettingsScreen(
         }
         // Refresh server status and HC permissions each time settings opens.
         settingsViewModel.checkAll()
+        // M-1: request POST_NOTIFICATIONS permission if not already granted (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     Scaffold(
@@ -395,7 +429,9 @@ fun SettingsScreen(
                     onClick = {
                         haptic.click()
                         SecurePrefs.setApiKey(context, apiKey)
-                        scope.launch { snackbarHostState.showSnackbar("API key saved — restart app to apply") }
+                        // M-4: ApiService.get() refreshes the key on next sync call — no restart needed.
+                        // ViewModels with cached ServerApiClient will pick up the key after next recompose.
+                        scope.launch { snackbarHostState.showSnackbar("API key saved") }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = ApexPrimary, contentColor = ApexOnPrimary)

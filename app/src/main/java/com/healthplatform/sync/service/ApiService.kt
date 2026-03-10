@@ -165,7 +165,14 @@ class ApiService private constructor(
     private suspend fun <T : Any> sync(request: SyncRequest<T>): Result<SyncResponse> = try {
         val response = api.syncData(request)
         if (response.isSuccessful) {
-            Result.success(response.body() ?: throw Exception("Empty sync response body"))
+            val body = response.body() ?: throw Exception("Empty sync response body")
+            // H-2: server can return 200 with success=false (e.g. partial rejection).
+            // Treat as transient so WorkManager retries rather than silently dropping records.
+            if (!body.success) {
+                Result.failure(Exception("Server rejected sync (success=false, synced=${body.synced})"))
+            } else {
+                Result.success(body)
+            }
         } else {
             // 4xx (except 429) are permanent — bad auth, malformed payload, server rejected.
             // 5xx and 429 are transient — server error or rate limit, safe to retry.

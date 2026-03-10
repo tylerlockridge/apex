@@ -94,9 +94,11 @@ class WeeklySummaryWorker(
             }
             val initialDelayMs = target.timeInMillis - now.timeInMillis
 
+            // M-2: no network constraint — worker only reads SharedPreferences and posts a
+            // local notification. Requiring CONNECTED deferred the weekly summary if the device
+            // was offline on Sunday at 9 AM, causing cadence drift.
             val request = PeriodicWorkRequestBuilder<WeeklySummaryWorker>(7, TimeUnit.DAYS)
                 .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(

@@ -177,8 +177,18 @@ class SyncWorker(
             if (filter == null || filter == DATA_TYPE_BP) {
                 val pending = dao.getPending(DATA_TYPE_BP)
                 if (pending.isNotEmpty()) {
-                    val records = pending.map { gson.fromJson(it.payload, BloodPressureData::class.java) }
-                    api.syncBloodPressure(records).fold(
+                    // H-3: malformed rows (from schema migrations or bugs) are deleted immediately
+                    // rather than poisoning the queue forever. Valid rows are still uploaded.
+                    val malformed = mutableListOf<com.healthplatform.sync.data.db.SyncQueueEntity>()
+                    val records = pending.mapNotNull { entity ->
+                        try { gson.fromJson(entity.payload, BloodPressureData::class.java) }
+                        catch (e: Exception) {
+                            Log.e(TAG, "Dropping malformed BP record id=${entity.id}", e)
+                            malformed.add(entity); null
+                        }
+                    }
+                    if (malformed.isNotEmpty()) dao.delete(malformed)
+                    if (records.isNotEmpty()) api.syncBloodPressure(records).fold(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} BP records")
                             dao.delete(pending)
@@ -207,8 +217,16 @@ class SyncWorker(
             if (filter == null || filter == DATA_TYPE_SLEEP) {
                 val pending = dao.getPending(DATA_TYPE_SLEEP)
                 if (pending.isNotEmpty()) {
-                    val records = pending.map { gson.fromJson(it.payload, SleepData::class.java) }
-                    api.syncSleep(records).fold(
+                    val malformedSleep = mutableListOf<com.healthplatform.sync.data.db.SyncQueueEntity>()
+                    val records = pending.mapNotNull { entity ->
+                        try { gson.fromJson(entity.payload, SleepData::class.java) }
+                        catch (e: Exception) {
+                            Log.e(TAG, "Dropping malformed Sleep record id=${entity.id}", e)
+                            malformedSleep.add(entity); null
+                        }
+                    }
+                    if (malformedSleep.isNotEmpty()) dao.delete(malformedSleep)
+                    if (records.isNotEmpty()) api.syncSleep(records).fold(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} sleep records")
                             dao.delete(pending)
@@ -233,8 +251,16 @@ class SyncWorker(
             if (filter == null || filter == DATA_TYPE_BODY) {
                 val pending = dao.getPending(DATA_TYPE_BODY)
                 if (pending.isNotEmpty()) {
-                    val records = pending.map { gson.fromJson(it.payload, BodyMeasurementData::class.java) }
-                    api.syncBodyMeasurements(records).fold(
+                    val malformedBody = mutableListOf<com.healthplatform.sync.data.db.SyncQueueEntity>()
+                    val records = pending.mapNotNull { entity ->
+                        try { gson.fromJson(entity.payload, BodyMeasurementData::class.java) }
+                        catch (e: Exception) {
+                            Log.e(TAG, "Dropping malformed Body record id=${entity.id}", e)
+                            malformedBody.add(entity); null
+                        }
+                    }
+                    if (malformedBody.isNotEmpty()) dao.delete(malformedBody)
+                    if (records.isNotEmpty()) api.syncBodyMeasurements(records).fold(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} body records")
                             dao.delete(pending)
@@ -259,8 +285,16 @@ class SyncWorker(
             if (filter == null || filter == DATA_TYPE_HRV) {
                 val pending = dao.getPending(DATA_TYPE_HRV)
                 if (pending.isNotEmpty()) {
-                    val records = pending.map { gson.fromJson(it.payload, HrvData::class.java) }
-                    api.syncHrv(records).fold(
+                    val malformedHrv = mutableListOf<com.healthplatform.sync.data.db.SyncQueueEntity>()
+                    val records = pending.mapNotNull { entity ->
+                        try { gson.fromJson(entity.payload, HrvData::class.java) }
+                        catch (e: Exception) {
+                            Log.e(TAG, "Dropping malformed HRV record id=${entity.id}", e)
+                            malformedHrv.add(entity); null
+                        }
+                    }
+                    if (malformedHrv.isNotEmpty()) dao.delete(malformedHrv)
+                    if (records.isNotEmpty()) api.syncHrv(records).fold(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} HRV records")
                             dao.delete(pending)
@@ -381,6 +415,8 @@ class SyncWorker(
 
         /** Name of the periodic work — exposed so callers can observe its state. */
         const val WORK_NAME = "health_sync_periodic"
+        /** Name of the manual one-time work — used for uniqueness to prevent races. */
+        const val WORK_NAME_ONCE = "health_sync_once"
 
         /** Shared Gson instance — [ApiService.Companion.gson] is the same object. */
         private val gson = ApiService.gson
@@ -428,7 +464,12 @@ class SyncWorker(
                 .setInputData(inputData)
                 .build()
 
-            WorkManager.getInstance(context).enqueue(request)
+            // H-1: Use unique work to prevent duplicate uploads when periodic + manual workers
+            // overlap. KEEP means if a manual sync is already running/queued, we don't enqueue
+            // another one — preventing the same queue snapshot being uploaded twice.
+            val uniqueName = if (dataTypeFilter != null) "sync_once_$dataTypeFilter" else WORK_NAME_ONCE
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork(uniqueName, ExistingWorkPolicy.KEEP, request)
             return request.id
         }
 
