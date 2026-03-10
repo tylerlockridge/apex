@@ -185,6 +185,8 @@ class ApiService private constructor(
         val gson = Gson()
 
         @Volatile private var instance: ApiService? = null
+        @Volatile private var currentBaseUrl: String? = null
+        @Volatile private var currentSecret: String? = null
 
         /**
          * Returns the singleton [ApiService], creating it on first call.
@@ -192,11 +194,19 @@ class ApiService private constructor(
          * The underlying [OkHttpClient] (with cert pinning, HMAC interceptor, and
          * connection pool) is created once and reused. The [apiKey] is refreshed on
          * every call so WorkManager runs always use the current key.
+         *
+         * If [baseUrl] or [deviceSecret] changed (e.g. after a QR code scan), the
+         * instance is rebuilt so the new URL and HMAC secret take effect immediately.
          */
         fun get(baseUrl: String, deviceSecret: String, apiKey: String): ApiService =
-            (instance ?: synchronized(this) {
-                instance ?: ApiService(baseUrl, deviceSecret, apiKey).also { instance = it }
-            }).also { it._apiKey = apiKey }
+            synchronized(this) {
+                if (instance == null || currentBaseUrl != baseUrl || currentSecret != deviceSecret) {
+                    instance = ApiService(baseUrl, deviceSecret, apiKey)
+                    currentBaseUrl = baseUrl
+                    currentSecret = deviceSecret
+                }
+                instance!!.also { it._apiKey = apiKey }
+            }
 
         /** Creates a fresh (non-singleton) instance for unit testing only. */
         internal fun createForTest(baseUrl: String, deviceSecret: String, apiKey: String) =

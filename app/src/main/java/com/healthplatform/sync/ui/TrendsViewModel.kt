@@ -7,6 +7,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.service.ServerApiClient
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -98,6 +99,10 @@ class TrendsViewModel(
 
     private val client: ServerApiClient by lazy { clientProvider() }
 
+    // Tracks the in-flight network fetch so rapid tab/range switches cancel the stale request
+    // before launching a new one — prevents slower responses from overwriting newer UI state.
+    private var fetchJob: Job? = null
+
     fun selectTab(index: Int) {
         savedStateHandle["selected_tab"] = index
         _state.update { it.copy(selectedTab = index) }
@@ -124,7 +129,8 @@ class TrendsViewModel(
     }
 
     fun loadBp(days: Int = _state.value.selectedRange) {
-        viewModelScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true, bpError = null) }
             client.getBloodPressure(days).fold(
                 onSuccess = { list ->
@@ -141,7 +147,8 @@ class TrendsViewModel(
     }
 
     fun loadSleep(days: Int = _state.value.selectedRange) {
-        viewModelScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true, sleepError = null) }
             client.getSleep(days).fold(
                 onSuccess = { list ->
@@ -167,7 +174,8 @@ class TrendsViewModel(
     }
 
     fun loadBody(days: Int = _state.value.selectedRange) {
-        viewModelScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true, bodyError = null) }
             client.getBodyMeasurements(days).fold(
                 onSuccess = { list ->
@@ -190,7 +198,8 @@ class TrendsViewModel(
     }
 
     fun loadHrv(days: Int = _state.value.selectedRange) {
-        viewModelScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true, hrvError = null) }
             client.getHrv(days).fold(
                 onSuccess = { list ->

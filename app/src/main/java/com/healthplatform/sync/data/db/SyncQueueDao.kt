@@ -1,6 +1,7 @@
 package com.healthplatform.sync.data.db
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -19,9 +20,12 @@ interface SyncQueueDao {
     @Query("SELECT * FROM sync_queue WHERE dataType = :dataType ORDER BY measuredAt ASC")
     suspend fun getPending(dataType: String): List<SyncQueueEntity>
 
-    /** Removes successfully-synced records by their primary key. */
-    @Query("DELETE FROM sync_queue WHERE id IN (:ids)")
-    suspend fun deleteByIds(ids: List<Long>)
+    /**
+     * Removes successfully-synced records. Uses Room's @Delete which automatically
+     * chunks the list, avoiding SQLiteException when the queue exceeds 999 records.
+     */
+    @Delete
+    suspend fun delete(records: List<SyncQueueEntity>)
 
     /** Total number of records still waiting to be synced (across all types). */
     @Query("SELECT COUNT(*) FROM sync_queue")

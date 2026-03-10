@@ -71,7 +71,7 @@ class SyncQueueDaoTest {
     }
 
     @Test
-    fun `deleteByIds removes only specified records`() = runTest {
+    fun `delete removes only specified records`() = runTest {
         val records = listOf(
             SyncQueueEntity(dataType = "blood_pressure", measuredAt = "2026-03-01T08:00:00Z", payload = "{}"),
             SyncQueueEntity(dataType = "blood_pressure", measuredAt = "2026-03-02T08:00:00Z", payload = "{}"),
@@ -83,7 +83,7 @@ class SyncQueueDaoTest {
         assertEquals(2, all.size)
 
         // Delete only the first BP record
-        dao.deleteByIds(listOf(all[0].id))
+        dao.delete(listOf(all[0]))
 
         val remaining = dao.getPending("blood_pressure")
         assertEquals(1, remaining.size)

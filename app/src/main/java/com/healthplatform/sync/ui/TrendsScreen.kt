@@ -212,18 +212,23 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         return
     }
 
-    // Build data points for systolic and diastolic
-    val systolicPoints = readings.mapNotNull { reading ->
-        try {
-            val ts = parseIsoToMillis(reading.measuredAt)
-            ts to reading.systolic.toFloat()
-        } catch (e: Exception) { null }
+    // Build data points for systolic and diastolic — keyed by readings so this only
+    // recomputes when the data changes, not on every recomposition during animations.
+    val systolicPoints = remember(readings) {
+        readings.mapNotNull { reading ->
+            try {
+                val ts = parseIsoToMillis(reading.measuredAt)
+                ts to reading.systolic.toFloat()
+            } catch (e: Exception) { null }
+        }
     }
-    val diastolicPoints = readings.mapNotNull { reading ->
-        try {
-            val ts = parseIsoToMillis(reading.measuredAt)
-            ts to reading.diastolic.toFloat()
-        } catch (e: Exception) { null }
+    val diastolicPoints = remember(readings) {
+        readings.mapNotNull { reading ->
+            try {
+                val ts = parseIsoToMillis(reading.measuredAt)
+                ts to reading.diastolic.toFloat()
+            } catch (e: Exception) { null }
+        }
     }
 
     // BP normal/elevated/high baselines
@@ -258,10 +263,10 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     }
 
     // Stats row
-    val avgSys = readings.map { it.systolic }.average()
-    val avgDia = readings.map { it.diastolic }.average()
-    val minSys = readings.minOf { it.systolic }
-    val maxSys = readings.maxOf { it.systolic }
+    val avgSys = remember(readings) { readings.map { it.systolic }.average() }
+    val avgDia = remember(readings) { readings.map { it.diastolic }.average() }
+    val minSys = remember(readings) { readings.minOf { it.systolic } }
+    val maxSys = remember(readings) { readings.maxOf { it.systolic } }
     StatsRow(
         listOf(
             "Avg Sys" to "%.0f".format(avgSys),
@@ -272,7 +277,7 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     )
 
     // Anomaly list (systolic >= 130 or diastolic >= 80)
-    val anomalies = readings.filter { it.systolic >= 130 || it.diastolic >= 80 }
+    val anomalies = remember(readings) { readings.filter { it.systolic >= 130 || it.diastolic >= 80 } }
     if (anomalies.isNotEmpty()) {
         TrendsCard(title = "Elevated Readings") {
             anomalies.take(5).forEach { r ->
@@ -316,16 +321,18 @@ private fun SleepTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     }
 
     // Build stacked bars — take last N sessions
-    val bars = sessions.takeLast(state.selectedRange.coerceAtMost(30)).map { s ->
-        val dateLabel = formatIsoDateShort(s.sleepStart)
-        SleepBar(
-            date = dateLabel,
-            deepMin = s.deepSleepMinutes ?: 0,
-            remMin = s.remSleepMinutes ?: 0,
-            lightMin = s.lightSleepMinutes ?: 0,
-            awakeMin = (s.durationMinutes - (s.deepSleepMinutes ?: 0) -
-                    (s.remSleepMinutes ?: 0) - (s.lightSleepMinutes ?: 0)).coerceAtLeast(0)
-        )
+    val bars = remember(sessions, state.selectedRange) {
+        sessions.takeLast(state.selectedRange.coerceAtMost(30)).map { s ->
+            val dateLabel = formatIsoDateShort(s.sleepStart)
+            SleepBar(
+                date = dateLabel,
+                deepMin = s.deepSleepMinutes ?: 0,
+                remMin = s.remSleepMinutes ?: 0,
+                lightMin = s.lightSleepMinutes ?: 0,
+                awakeMin = (s.durationMinutes - (s.deepSleepMinutes ?: 0) -
+                        (s.remSleepMinutes ?: 0) - (s.lightSleepMinutes ?: 0)).coerceAtLeast(0)
+            )
+        }
     }
 
     TrendsCard(title = "Sleep Stages per Night") {
@@ -346,17 +353,21 @@ private fun SleepTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     }
 
     // Stats
-    val avgDurationH = sessions.map { it.durationMinutes }.average() / 60.0
-    val avgDeepPct = sessions.mapNotNull { s ->
-        if (s.durationMinutes > 0 && s.deepSleepMinutes != null)
-            s.deepSleepMinutes * 100.0 / s.durationMinutes
-        else null
-    }.let { if (it.isEmpty()) null else it.average() }
-    val avgRemPct = sessions.mapNotNull { s ->
-        if (s.durationMinutes > 0 && s.remSleepMinutes != null)
-            s.remSleepMinutes * 100.0 / s.durationMinutes
-        else null
-    }.let { if (it.isEmpty()) null else it.average() }
+    val avgDurationH = remember(sessions) { sessions.map { it.durationMinutes }.average() / 60.0 }
+    val avgDeepPct = remember(sessions) {
+        sessions.mapNotNull { s ->
+            if (s.durationMinutes > 0 && s.deepSleepMinutes != null)
+                s.deepSleepMinutes * 100.0 / s.durationMinutes
+            else null
+        }.let { if (it.isEmpty()) null else it.average() }
+    }
+    val avgRemPct = remember(sessions) {
+        sessions.mapNotNull { s ->
+            if (s.durationMinutes > 0 && s.remSleepMinutes != null)
+                s.remSleepMinutes * 100.0 / s.durationMinutes
+            else null
+        }.let { if (it.isEmpty()) null else it.average() }
+    }
 
     StatsRow(
         listOf(
@@ -382,12 +393,14 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         return
     }
 
-    val weightPoints = measurements.mapNotNull { m ->
-        if (m.weightKg != null) {
-            try {
-                parseIsoToMillis(m.measuredAt) to m.weightKg.toFloat()
-            } catch (e: Exception) { null }
-        } else null
+    val weightPoints = remember(measurements) {
+        measurements.mapNotNull { m ->
+            if (m.weightKg != null) {
+                try {
+                    parseIsoToMillis(m.measuredAt) to m.weightKg.toFloat()
+                } catch (e: Exception) { null }
+            } else null
+        }
     }
 
     if (weightPoints.isNotEmpty()) {
@@ -403,12 +416,14 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         }
     }
 
-    val fatPoints = measurements.mapNotNull { m ->
-        if (m.bodyFatPercent != null) {
-            try {
-                parseIsoToMillis(m.measuredAt) to m.bodyFatPercent.toFloat()
-            } catch (e: Exception) { null }
-        } else null
+    val fatPoints = remember(measurements) {
+        measurements.mapNotNull { m ->
+            if (m.bodyFatPercent != null) {
+                try {
+                    parseIsoToMillis(m.measuredAt) to m.bodyFatPercent.toFloat()
+                } catch (e: Exception) { null }
+            } else null
+        }
     }
 
     if (fatPoints.isNotEmpty()) {
@@ -425,12 +440,15 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     }
 
     // Stats
-    val currentWeight = measurements.lastOrNull()?.weightKg
-    val startWeight = measurements.firstOrNull()?.weightKg
-    val change = if (currentWeight != null && startWeight != null) currentWeight - startWeight else null
-
+    val currentWeight = remember(measurements) { measurements.lastOrNull()?.weightKg }
+    val startWeight = remember(measurements) { measurements.firstOrNull()?.weightKg }
+    val change = remember(currentWeight, startWeight) {
+        if (currentWeight != null && startWeight != null) currentWeight - startWeight else null
+    }
     val dayCount = state.selectedRange.coerceAtLeast(1)
-    val ratePerWeek = if (change != null) change / dayCount * 7 else null
+    val ratePerWeek = remember(change, dayCount) {
+        if (change != null) change / dayCount * 7 else null
+    }
 
     StatsRow(
         listOf(
@@ -457,18 +475,22 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         return
     }
 
-    val points = readings.mapNotNull { r ->
-        try { parseIsoToMillis(r.measuredAt) to r.hrvMs.toFloat() }
-        catch (e: Exception) { null }
+    val points = remember(readings) {
+        readings.mapNotNull { r ->
+            try { parseIsoToMillis(r.measuredAt) to r.hrvMs.toFloat() }
+            catch (e: Exception) { null }
+        }
     }
 
     // 7-day rolling average — for each point, average the preceding 7 readings
-    val rollingAvgPoints = if (points.size >= 2) {
-        points.mapIndexed { i, (ts, _) ->
-            val window = points.subList(maxOf(0, i - 6), i + 1)
-            ts to window.map { it.second }.average().toFloat()
-        }
-    } else emptyList()
+    val rollingAvgPoints = remember(points) {
+        if (points.size >= 2) {
+            points.mapIndexed { i, (ts, _) ->
+                val window = points.subList(maxOf(0, i - 6), i + 1)
+                ts to window.map { it.second }.average().toFloat()
+            }
+        } else emptyList()
+    }
 
     // Healthy HRV baselines (RMSSD ms — population varies widely, these are indicative)
     val hrvBaselines = listOf(
@@ -497,10 +519,12 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         }
     }
 
-    val avgHrv = readings.map { it.hrvMs }.average()
-    val minHrv = readings.minOf { it.hrvMs }
-    val maxHrv = readings.maxOf { it.hrvMs }
-    val trend = if (readings.size >= 2) readings.last().hrvMs - readings.first().hrvMs else null
+    val avgHrv = remember(readings) { readings.map { it.hrvMs }.average() }
+    val minHrv = remember(readings) { readings.minOf { it.hrvMs } }
+    val maxHrv = remember(readings) { readings.maxOf { it.hrvMs } }
+    val trend = remember(readings) {
+        if (readings.size >= 2) readings.last().hrvMs - readings.first().hrvMs else null
+    }
 
     StatsRow(
         listOf(

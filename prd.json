@@ -1,0 +1,201 @@
+{
+  "schemaVersion": "1.0",
+  "projectName": "Apex Test Coverage - Critical Gaps",
+  "branchName": "ralph/test-coverage",
+  "createdAt": "2026-03-05T22:00:00Z",
+  "updatedAt": "2026-03-06T03:47:00Z",
+  "maxIterations": 10,
+  "qualityGates": [
+    "./gradlew test",
+    "./gradlew lint",
+    "./gradlew assembleDebug"
+  ],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "HealthConnectReader pagination tests",
+      "description": "Add unit tests for readBloodPressure() and readWeight() pagination. Mock HealthConnectClient multi-page responses.",
+      "status": "complete",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "New test: HealthConnectReaderTest.kt",
+        "Uses MockK",
+        "Test: 2 pages concatenated",
+        "Test: empty first page",
+        "Test: 3 pages weight",
+        "Test: null pageToken single page",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "Implemented via constructor injection (optional client param) instead of mockkStatic. 4 pagination tests pass on CI."
+    },
+    {
+      "id": "US-002",
+      "title": "HealthConnectReader Oura Ring filtering tests",
+      "description": "Test Oura Ring device filtering in readSleep() and readHRV(). Mixed sources, Oura-only, no-Oura fallback.",
+      "status": "complete",
+      "dependsOn": [
+        "US-001"
+      ],
+      "acceptanceCriteria": [
+        "Tests in HealthConnectReaderTest.kt",
+        "Test: mixed Oura+Pixel filters to Oura",
+        "Test: no Oura returns all",
+        "Test: readHeartRateVariability prefers Oura source",
+        "Test: readHeartRateVariability no Oura returns all",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "4 Oura filtering tests added to HealthConnectReaderTest.kt. All pass on CI."
+    },
+    {
+      "id": "US-003",
+      "title": "HealthConnectReader body match window boundary tests",
+      "description": "Test +/-1 hour body match in readWeight(). Boundaries at 0s, 3600s, 3601s.",
+      "status": "complete",
+      "dependsOn": [
+        "US-001"
+      ],
+      "acceptanceCriteria": [
+        "Tests in HealthConnectReaderTest.kt",
+        "Test: 0s matched",
+        "Test: 3600s matched",
+        "Test: 3601s NOT matched",
+        "Test: no body comp null fields",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "4 boundary tests added. Uses any<ReadRecordsRequest<*>>() with returnsMany (call-order) due to type erasure. All pass on CI."
+    },
+    {
+      "id": "US-004",
+      "title": "SyncWorker doWork orchestration and retry tests",
+      "description": "Test three-phase flow with TestListenableWorkerBuilder. Token expiry, API failure, anomaly notification.",
+      "status": "complete",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "New test: SyncWorkerTest.kt",
+        "Uses TestListenableWorkerBuilder",
+        "Test: all succeed Result.success()",
+        "Test: BP fail Result.retry()",
+        "Test: expired change token removed from prefs, execution continues",
+        "Test: HC exception continues",
+        "Test: anomaly notification when systolic>=140 OR diastolic>=90",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "7 tests: all succeed, BP fail retry, expired token removed, HC exception continues, anomaly systolic 140, anomaly diastolic 90, blank API key failure. All pass on CI."
+    },
+    {
+      "id": "US-005",
+      "title": "SyncWorker queue entity builders and scheduling tests",
+      "description": "Test toQueueEntity() mappings and schedule/cancel methods.",
+      "status": "complete",
+      "dependsOn": [
+        "US-004"
+      ],
+      "acceptanceCriteria": [
+        "Test: BP toQueueEntity sets dataType to blood_pressure",
+        "Test: Sleep uses sleepStart",
+        "Test: Body maps weight bodyFat leanMass",
+        "Test: HRV maps hrvMs deviceName",
+        "Test: schedule 15-min periodic",
+        "Test: cancel by name",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "6 tests in SyncWorkerTest.kt. Entity mapping verified via DAO insertAll capture + Gson deserialization. Schedule/cancel via WorkManagerTestInitHelper. All pass on CI."
+    },
+    {
+      "id": "US-006",
+      "title": "DashboardViewModel readiness scoring tests",
+      "description": "Test computeReadiness() all boundaries. Score>=4 Good, >=2 Easy, else Recovery.",
+      "status": "complete",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Tests added to EXISTING DashboardViewModelTest.kt file",
+        "Uses Turbine to observe StateFlow readinessLabel and readinessReason",
+        "Test: moderate => Take it easy",
+        "Test: poor => Recovery day",
+        "Test: null => no label",
+        "Test: all three metrics null => readinessLabel is null",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "4 readiness tests added to existing DashboardViewModelTest.kt. UnconfinedTestDispatcher + drainAll() pattern for IO timing. All pass on CI."
+    },
+    {
+      "id": "US-007",
+      "title": "SettingsViewModel server checks and semver tests",
+      "description": "Test server connection, version check, compareVersions().",
+      "status": "complete",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "New test: SettingsViewModelTest.kt",
+        "Test: 200 => connected",
+        "Test: error => not connected",
+        "Test: versions match => ok",
+        "Test: older server => not ok",
+        "Test: semver equal/newer/older",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "5 tests using MockWebServer + mockkObject(SecurePrefs) + mockkObject(HealthConnectReader.Companion). UnconfinedTestDispatcher + repeat(3) drainAll(). All pass on CI."
+    },
+    {
+      "id": "US-008",
+      "title": "BiometricLockManager authentication flow tests",
+      "description": "Test isEnabled, canAuthenticate, setEnabled guard, callback routing.",
+      "status": "complete",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "New test: BiometricLockManagerTest.kt",
+        "Test: isEnabled mirrors prefs",
+        "Test: canAuthenticate checks BiometricManager",
+        "Test: setEnabled guard when no biometrics",
+        "Test: setEnabled persists when available",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "6 tests using mockkStatic(BiometricManager::class) + mockkObject(SecurePrefs). All pass on CI."
+    },
+    {
+      "id": "US-009",
+      "title": "SecurePrefs encryption and migration tests",
+      "description": "Test migration, get/set methods, clearAll, fallback logic with Robolectric.",
+      "status": "complete",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "New test: SecurePrefsTest.kt",
+        "Uses Robolectric",
+        "Test: get/set apiKey",
+        "Test: get/set biometricEnabled",
+        "Test: deviceSecret fallback",
+        "Test: clearAll resets",
+        "Test: migration from plain prefs",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "8 tests via mockkObject(SecurePrefs) — EncryptedSharedPreferences needs Android Keystore unavailable in Robolectric. All pass on CI."
+    },
+    {
+      "id": "US-010",
+      "title": "SyncQueueDao Room database tests",
+      "description": "Room in-memory DB: insertAll IGNORE, getPending sorted, deleteByIds, pendingCount.",
+      "status": "complete",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "New test: SyncQueueDaoTest.kt",
+        "Uses Room.inMemoryDatabaseBuilder",
+        "Test: insertAll adds",
+        "Test: duplicate ignored",
+        "Test: getPending sorted ASC",
+        "Test: deleteByIds selective",
+        "Test: pendingCount total",
+        "./gradlew test passes"
+      ],
+      "passes": true,
+      "notes": "5 tests with Room.inMemoryDatabaseBuilder + Robolectric. room-testing dependency added. All pass on CI."
+    }
+  ]
+}

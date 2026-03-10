@@ -81,11 +81,17 @@ class HealthConnectReader(
             allRecords += response.records
             pageToken = response.pageToken
         } while (pageToken != null)
-        // Prefer Oura Ring data — better sleep staging than Pixel Watch
-        val ouraRecords = allRecords.filter {
-            it.metadata.dataOrigin.packageName == "com.ouraring.oura"
-        }
-        val records = if (ouraRecords.isNotEmpty()) ouraRecords else allRecords
+        // Prefer Oura Ring sleep data but retain non-Oura sessions that don't overlap
+        // with an Oura session (e.g. a Pixel Watch nap on a day without Oura data).
+        val ouraRecords = allRecords.filter { it.metadata.dataOrigin.packageName == "com.ouraring.oura" }
+        val otherRecords = allRecords.filter { it.metadata.dataOrigin.packageName != "com.ouraring.oura" }
+        val records = if (ouraRecords.isNotEmpty()) {
+            ouraRecords + otherRecords.filter { other ->
+                ouraRecords.none { oura ->
+                    other.startTime.isBefore(oura.endTime) && other.endTime.isAfter(oura.startTime)
+                }
+            }
+        } else allRecords
         return records.map { record ->
             val stages = record.stages
             val deepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_DEEP }
@@ -187,11 +193,18 @@ class HealthConnectReader(
             allRecords += response.records
             pageToken = response.pageToken
         } while (pageToken != null)
-        // Prefer Oura Ring HRV — overnight resting RMSSD is more meaningful than spot checks
-        val ouraRecords = allRecords.filter {
-            it.metadata.dataOrigin.packageName == "com.ouraring.oura"
-        }
-        val records = if (ouraRecords.isNotEmpty()) ouraRecords else allRecords
+        // Prefer Oura Ring HRV — overnight resting RMSSD is more meaningful than spot checks.
+        // Retain non-Oura readings that aren't within 4 hours of an Oura reading to avoid
+        // dropping all spot-check readings when even one Oura record exists in the window.
+        val ouraRecords = allRecords.filter { it.metadata.dataOrigin.packageName == "com.ouraring.oura" }
+        val otherRecords = allRecords.filter { it.metadata.dataOrigin.packageName != "com.ouraring.oura" }
+        val records = if (ouraRecords.isNotEmpty()) {
+            ouraRecords + otherRecords.filter { other ->
+                ouraRecords.none { oura ->
+                    Math.abs(ChronoUnit.HOURS.between(other.time, oura.time)) < 4
+                }
+            }
+        } else allRecords
         return records.map { record ->
             HrvData(
                 measuredAt = record.time.toString(),
@@ -255,34 +268,42 @@ class HealthConnectReader(
      * Throws [Exception] if the token is expired — caller should fall back to [readSleep].
      */
     suspend fun readSleepChanges(token: String): Pair<List<SleepData>, String> {
-        val sessions = mutableListOf<SleepData>()
+        val allRecords = mutableListOf<SleepSessionRecord>()
         var currentToken = token
         var hasMore = true
         while (hasMore) {
             val response = healthConnectClient.getChanges(currentToken)
-            val newRecords = response.changes
+            allRecords += response.changes
                 .filterIsInstance<UpsertionChange>()
                 .mapNotNull { it.record as? SleepSessionRecord }
-            // Prefer Oura Ring data
-            val oura = newRecords.filter { it.metadata.dataOrigin.packageName == "com.ouraring.oura" }
-            val toProcess = if (oura.isNotEmpty()) oura else newRecords
-            toProcess.forEach { record ->
-                val stages = record.stages
-                sessions += SleepData(
-                    sleepStart = record.startTime.toString(),
-                    sleepEnd = record.endTime.toString(),
-                    durationMinutes = ChronoUnit.MINUTES.between(record.startTime, record.endTime).toInt(),
-                    deepSleepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_DEEP }
-                        .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }.toInt(),
-                    remSleepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_REM }
-                        .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }.toInt(),
-                    lightSleepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_LIGHT }
-                        .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }.toInt(),
-                    deviceName = record.metadata.device?.manufacturer
-                )
-            }
             currentToken = response.nextChangesToken
             hasMore = response.hasMore
+        }
+        // Apply the same smart Oura filter as readSleep — collect all pages first so the
+        // filter has full visibility into which Oura sessions are present.
+        val ouraRecords = allRecords.filter { it.metadata.dataOrigin.packageName == "com.ouraring.oura" }
+        val otherRecords = allRecords.filter { it.metadata.dataOrigin.packageName != "com.ouraring.oura" }
+        val toProcess = if (ouraRecords.isNotEmpty()) {
+            ouraRecords + otherRecords.filter { other ->
+                ouraRecords.none { oura ->
+                    other.startTime.isBefore(oura.endTime) && other.endTime.isAfter(oura.startTime)
+                }
+            }
+        } else allRecords
+        val sessions = toProcess.map { record ->
+            val stages = record.stages
+            SleepData(
+                sleepStart = record.startTime.toString(),
+                sleepEnd = record.endTime.toString(),
+                durationMinutes = ChronoUnit.MINUTES.between(record.startTime, record.endTime).toInt(),
+                deepSleepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_DEEP }
+                    .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }.toInt(),
+                remSleepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_REM }
+                    .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }.toInt(),
+                lightSleepMinutes = stages.filter { it.stage == SleepSessionRecord.STAGE_TYPE_LIGHT }
+                    .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }.toInt(),
+                deviceName = record.metadata.device?.manufacturer
+            )
         }
         return sessions to currentToken
     }
@@ -292,26 +313,33 @@ class HealthConnectReader(
      * Throws [Exception] if the token is expired — caller should fall back to [readHeartRateVariability].
      */
     suspend fun readHrvChanges(token: String): Pair<List<HrvData>, String> {
-        val records = mutableListOf<HrvData>()
+        val allRecords = mutableListOf<HeartRateVariabilityRmssdRecord>()
         var currentToken = token
         var hasMore = true
         while (hasMore) {
             val response = healthConnectClient.getChanges(currentToken)
-            val newRecords = response.changes
+            allRecords += response.changes
                 .filterIsInstance<UpsertionChange>()
                 .mapNotNull { it.record as? HeartRateVariabilityRmssdRecord }
-            // Prefer Oura Ring HRV
-            val oura = newRecords.filter { it.metadata.dataOrigin.packageName == "com.ouraring.oura" }
-            val toProcess = if (oura.isNotEmpty()) oura else newRecords
-            toProcess.forEach { record ->
-                records += HrvData(
-                    measuredAt = record.time.toString(),
-                    hrvMs = record.heartRateVariabilityMillis,
-                    deviceName = record.metadata.device?.manufacturer
-                )
-            }
             currentToken = response.nextChangesToken
             hasMore = response.hasMore
+        }
+        // Collect all pages before filtering — same smart Oura filter as readHeartRateVariability.
+        val ouraRecords = allRecords.filter { it.metadata.dataOrigin.packageName == "com.ouraring.oura" }
+        val otherRecords = allRecords.filter { it.metadata.dataOrigin.packageName != "com.ouraring.oura" }
+        val toProcess = if (ouraRecords.isNotEmpty()) {
+            ouraRecords + otherRecords.filter { other ->
+                ouraRecords.none { oura ->
+                    Math.abs(ChronoUnit.HOURS.between(other.time, oura.time)) < 4
+                }
+            }
+        } else allRecords
+        val records = toProcess.map { record ->
+            HrvData(
+                measuredAt = record.time.toString(),
+                hrvMs = record.heartRateVariabilityMillis,
+                deviceName = record.metadata.device?.manufacturer
+            )
         }
         return records to currentToken
     }
