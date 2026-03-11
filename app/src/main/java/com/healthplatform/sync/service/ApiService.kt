@@ -72,9 +72,10 @@ class ApiService private constructor(
     private val api: HealthPlatformApi
 
     init {
-        // Pin ISRG Root X1 and Root X2 — the two Let's Encrypt root CAs.
-        // Pinning roots (not intermediates) gives multi-year stability without rotation risk.
+        // Pin the Let's Encrypt E8 intermediate (present in the TLS chain) plus ISRG roots
+        // as backup. E8 is stable across cert renewals for this server.
         val certificatePinner = CertificatePinner.Builder()
+            .add("tyler-health.duckdns.org", "sha256/iFvwVyJSxnQdyaUvUERIf+8qk7gRze3612JMwoO3zdU=") // Let's Encrypt E8
             .add("tyler-health.duckdns.org", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
             .add("tyler-health.duckdns.org", "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
             .build()

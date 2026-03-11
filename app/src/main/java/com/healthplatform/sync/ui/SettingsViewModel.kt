@@ -58,6 +58,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             .readTimeout(4, TimeUnit.SECONDS)
             .certificatePinner(
                 CertificatePinner.Builder()
+                    .add(host, "sha256/iFvwVyJSxnQdyaUvUERIf+8qk7gRze3612JMwoO3zdU=") // Let's Encrypt E8
                     .add(host, "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
                     .add(host, "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
                     .build()
