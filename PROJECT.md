@@ -22,10 +22,19 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-10 -->
 ## Quick Resume
 **Last Active:** 2026-03-10
-**Current Phase:** UI overhaul complete — release-ready polish applied to all 4 screens
-**Current Task:** Done. Commit `1fdfb85` pushed to master.
+**Current Phase:** Release-ready — UI polished, signing configured, credentials baked in
+**Current Task:** Done. Commit `183c333` pushed to master.
 **Blockers:** None.
-**Next Action:** Verify CI passes. App is release-candidate quality — next step would be release keystore setup or server-side feature work.
+**Next Action:** Verify CI passes (`183c333`). Verify sync works end-to-end on device. Next major step: Play Store release or new health platform features.
+
+## Session Summary (2026-03-10)
+- **UI overhaul**: All 4 screens polished (Dashboard, Trends, Activity, Settings) — per-metric accent colors, upgraded typography, section labels, card spacing
+- **App icon**: Full redesign — steel blue mountain-A lettermark with 4-layer atmospheric glow, deep navy background. Python Pillow script for Play Store PNG.
+- **Release signing**: Keystore generated, signingConfigs in build.gradle.kts, CI workflow updated. Credentials backed up to `C:\Users\tyler\Documents\Reference\Apex-Keystore-Credentials.md`
+- **API key baked in**: Auto-seeded from `BuildConfig.API_KEY` into `SecurePrefs` on first launch — no manual entry. Key injected via `local.properties` + CI secret `API_KEY`.
+- **CI lint fixes**: `backup_rules.xml` and `data_extraction_rules.xml` — `domain="files"` → `domain="file"`, removed invalid `domain="no_backup"`
+- **Local build fixed**: `gradle.properties` points to Android Studio JDK 21; `local.properties` sdk.dir uses forward slashes (avoids `\t` escape bug)
+- **Hook updates**: `.env` files unblocked for project directories; SSH exception added for `165.227.125.102` (health platform server); CLAUDE.md updated with secrets access policy
 
 ## Commits This Session (2026-03-03)
 - `e0bb642` — fix: Sprint 1 — 7 bug fixes (H-1, H-2, H-3, L-4, L-6, L-8, L-10)
