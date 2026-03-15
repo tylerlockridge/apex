@@ -58,11 +58,15 @@ class BiometricLockManager(private val context: Context) {
             }
         )
 
+        // L-6: Allow device PIN/pattern/password as fallback to prevent permanent lockout
+        // if biometrics fail (e.g. sensor hardware failure, changed fingerprints).
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Apex Health")
             .setSubtitle("Authenticate to access your health data")
-            .setNegativeButtonText("Cancel")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+            .setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG
+                    or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
             .build()
 
         biometricPrompt.authenticate(promptInfo)

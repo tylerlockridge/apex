@@ -21,6 +21,8 @@ object SyncPrefsKeys {
     const val LAST_HRV_TIME          = "last_hrv_time"
 
     const val LAST_SYNC              = "last_sync"
+    /** measuredAt of the last BP reading that triggered an anomaly notification (dedup). */
+    const val LAST_BP_ALERT_TIME     = "last_bp_alert_time"
     const val AUTO_SYNC              = "auto_sync"
 
     /** JSON array of last 10 sync events — `[{"t":<ms>,"ok":<bool>},...]` newest first. */

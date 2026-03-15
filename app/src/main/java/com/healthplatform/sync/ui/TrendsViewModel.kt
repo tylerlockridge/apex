@@ -219,7 +219,7 @@ class TrendsViewModel(
     }
 
     init {
-        loadBp()
+        loadDataForCurrentTab()
     }
 }
 

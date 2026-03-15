@@ -30,4 +30,8 @@ interface SyncQueueDao {
     /** Total number of records still waiting to be synced (across all types). */
     @Query("SELECT COUNT(*) FROM sync_queue")
     suspend fun pendingCount(): Int
+
+    /** Wipes the entire queue — used by "Clear all data" to ensure no health records survive. */
+    @Query("DELETE FROM sync_queue")
+    suspend fun deleteAll()
 }

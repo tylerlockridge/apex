@@ -38,9 +38,9 @@ class TrendsViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         mockClient = mockk()
-        // TrendsViewModel.init { loadBp() } queues a coroutine on construction. Set up a
-        // default answer so it doesn't throw on the strict mock, then drain it with
-        // advanceUntilIdle() so each test starts with a settled, predictable state.
+        // TrendsViewModel.init { loadDataForCurrentTab() } queues a coroutine on construction.
+        // Default tab is 0 (BP). Set up a default answer so it doesn't throw on the strict
+        // mock, then drain it with advanceUntilIdle() so each test starts with settled state.
         coEvery { mockClient.getBloodPressure(any()) } returns Result.success(emptyList())
         val app = ApplicationProvider.getApplicationContext<Application>()
         viewModel = TrendsViewModel(app, clientProvider = { mockClient })

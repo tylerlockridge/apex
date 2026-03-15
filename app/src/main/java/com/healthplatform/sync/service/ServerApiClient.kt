@@ -145,18 +145,11 @@ class ServerApiClient(
     private val api: ServerReadApi
 
     init {
-        // Extract the hostname from the runtime URL for cert pinning, so a QR-configured
-        // custom server URL is pinned to the correct host rather than always the default.
-        val host = baseUrl.removePrefix("https://").removePrefix("http://")
-            .substringBefore("/").substringBefore(":")
+        val effectiveBase = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
 
-        val certificatePinner = CertificatePinner.Builder()
-            .add(host, "sha256/iFvwVyJSxnQdyaUvUERIf+8qk7gRze3612JMwoO3zdU=") // Let's Encrypt E8
-            .add(host, "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
-            .add(host, "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
-            .build()
-
-        val client = OkHttpClient.Builder()
+        // Auth interceptor reads apiKey at construction time — each ServerApiClient
+        // instance captures its own key, but they share the expensive OkHttpClient.
+        val client = sharedClient(baseUrl).newBuilder()
             .addInterceptor(Interceptor { chain ->
                 val request = chain.request().newBuilder()
                     .addHeader("Authorization", "Bearer $apiKey")
@@ -170,18 +163,49 @@ class ServerApiClient(
                     })
                 }
             }
-            .certificatePinner(certificatePinner)
-            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
             .build()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl(if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/")
+            .baseUrl(effectiveBase)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
         api = retrofit.create(ServerReadApi::class.java)
+    }
+
+    companion object {
+        @Volatile private var cachedClient: OkHttpClient? = null
+        @Volatile private var cachedHost: String? = null
+
+        /**
+         * Returns a shared [OkHttpClient] with cert pinning, connection pool, and
+         * timeouts. The client is rebuilt only when the target host changes (e.g.
+         * after QR onboarding to a different server). Per-instance auth interceptors
+         * are added via [OkHttpClient.newBuilder] which shares the underlying pool.
+         */
+        private fun sharedClient(baseUrl: String): OkHttpClient {
+            val host = Config.extractHost(baseUrl)
+            val existing = cachedClient
+            if (existing != null && cachedHost == host) return existing
+            return synchronized(this) {
+                val current = cachedClient
+                if (current != null && cachedHost == host) return current
+                val certificatePinner = CertificatePinner.Builder()
+                    .add(host, Config.PIN_LETS_ENCRYPT_E8)
+                    .add(host, Config.PIN_ISRG_ROOT_X1)
+                    .add(host, Config.PIN_ISRG_ROOT_X2)
+                    .build()
+                OkHttpClient.Builder()
+                    .certificatePinner(certificatePinner)
+                    .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .build().also {
+                        cachedClient = it
+                        cachedHost = host
+                    }
+            }
+        }
     }
 
     suspend fun getBloodPressure(days: Int = 30): Result<List<BpReadingResponse>> {

@@ -188,10 +188,11 @@ class SyncWorker(
                         }
                     }
                     if (malformed.isNotEmpty()) dao.delete(malformed)
+                    val valid = pending.filter { it !in malformed }
                     if (records.isNotEmpty()) api.syncBloodPressure(records).fold(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} BP records")
-                            dao.delete(pending)
+                            dao.delete(valid)
                             // maxByOrNull is defensive; records are sorted ASC by measuredAt (DAO guarantees this).
                             val latest = records.maxByOrNull { it.measuredAt } ?: return@fold
                             prefs.edit()
@@ -199,9 +200,15 @@ class SyncWorker(
                                 .putInt(SyncPrefsKeys.LAST_BP_DIASTOLIC, latest.diastolic)
                                 .putString(SyncPrefsKeys.LAST_BP_TIME, latest.measuredAt)
                                 .apply()
-                            // Alert if Stage 2 hypertension (systolic ≥ 140 or diastolic ≥ 90)
+                            // Alert if Stage 2 hypertension (systolic ≥ 140 or diastolic ≥ 90).
+                            // GPT 5.4 A-09: only notify on *new* anomalous readings to avoid
+                            // repeating alerts for the same measurement across sync cycles.
                             if (latest.systolic >= 140 || latest.diastolic >= 90) {
-                                postBpAnomalyNotification(latest.systolic, latest.diastolic)
+                                val lastAlerted = prefs.getString(SyncPrefsKeys.LAST_BP_ALERT_TIME, null)
+                                if (lastAlerted != latest.measuredAt) {
+                                    postBpAnomalyNotification(latest.systolic, latest.diastolic)
+                                    prefs.edit().putString(SyncPrefsKeys.LAST_BP_ALERT_TIME, latest.measuredAt).apply()
+                                }
                             }
                         },
                         onFailure = { e ->
@@ -226,10 +233,11 @@ class SyncWorker(
                         }
                     }
                     if (malformedSleep.isNotEmpty()) dao.delete(malformedSleep)
+                    val validSleep = pending.filter { it !in malformedSleep }
                     if (records.isNotEmpty()) api.syncSleep(records).fold(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} sleep records")
-                            dao.delete(pending)
+                            dao.delete(validSleep)
                             val latest = records.maxByOrNull { it.sleepStart } ?: return@fold
                             prefs.edit()
                                 .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, latest.durationMinutes)
@@ -260,10 +268,11 @@ class SyncWorker(
                         }
                     }
                     if (malformedBody.isNotEmpty()) dao.delete(malformedBody)
+                    val validBody = pending.filter { it !in malformedBody }
                     if (records.isNotEmpty()) api.syncBodyMeasurements(records).fold(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} body records")
-                            dao.delete(pending)
+                            dao.delete(validBody)
                             val latest = records.maxByOrNull { it.measuredAt } ?: return@fold
                             if (latest.weightKg != null) {
                                 prefs.edit()
@@ -294,10 +303,11 @@ class SyncWorker(
                         }
                     }
                     if (malformedHrv.isNotEmpty()) dao.delete(malformedHrv)
+                    val validHrv = pending.filter { it !in malformedHrv }
                     if (records.isNotEmpty()) api.syncHrv(records).fold(
                         onSuccess = {
                             Log.i(TAG, "Synced ${records.size} HRV records")
-                            dao.delete(pending)
+                            dao.delete(validHrv)
                             val latest = records.maxByOrNull { it.measuredAt } ?: return@fold
                             prefs.edit()
                                 .putFloat(SyncPrefsKeys.LAST_HRV_MS, latest.hrvMs.toFloat())

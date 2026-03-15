@@ -50,17 +50,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // hostname even after QR onboarding to a non-default server.
     private val pingClient: OkHttpClient by lazy {
         val serverUrl = Config.getServerUrl(getApplication())
-        val host = serverUrl
-            .removePrefix("https://").removePrefix("http://")
-            .substringBefore("/").substringBefore(":")
+        val host = Config.extractHost(serverUrl)
         OkHttpClient.Builder()
             .connectTimeout(4, TimeUnit.SECONDS)
             .readTimeout(4, TimeUnit.SECONDS)
             .certificatePinner(
                 CertificatePinner.Builder()
-                    .add(host, "sha256/iFvwVyJSxnQdyaUvUERIf+8qk7gRze3612JMwoO3zdU=") // Let's Encrypt E8
-                    .add(host, "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
-                    .add(host, "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
+                    .add(host, Config.PIN_LETS_ENCRYPT_E8)
+                    .add(host, Config.PIN_ISRG_ROOT_X1)
+                    .add(host, Config.PIN_ISRG_ROOT_X2)
                     .build()
             )
             .build()
@@ -74,8 +72,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun checkAll() {
         viewModelScope.launch {
             checkHcPermissions()
-            checkServerConnection()
-            checkServerVersion()
+            checkServerConnection()  // M-6: single request checks both connectivity + version
         }
     }
 
@@ -109,41 +106,33 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
+    /**
+     * Checks server connectivity AND version in a single request to /api/version.
+     * Avoids the previous approach of hitting /api/bp?days=1 which leaked health
+     * data into server access logs for what is just a connectivity check (M-6).
+     */
     private suspend fun checkServerConnection() {
         val context = getApplication<Application>()
         val serverUrl = Config.getServerUrl(context)
-        val status = withContext(Dispatchers.IO) {
-            try {
-                val key = SecurePrefs.getApiKey(context)
-                val request = Request.Builder()
-                    .url("$serverUrl/api/bp?days=1")
-                    .addHeader("Authorization", "Bearer $key")
-                    .build()
-                pingClient.newCall(request).execute().use { it.isSuccessful }
-            } catch (_: Exception) { false }
-        }
-        _serverState.value = _serverState.value.copy(serverStatus = status)
-    }
-
-    private suspend fun checkServerVersion() {
-        val context = getApplication<Application>()
-        val serverUrl = Config.getServerUrl(context)
-        val versionOk = withContext(Dispatchers.IO) {
+        val (reachable, versionOk) = withContext(Dispatchers.IO) {
             try {
                 val key = SecurePrefs.getApiKey(context)
                 val request = Request.Builder()
                     .url("$serverUrl/api/version")
                     .addHeader("Authorization", "Bearer $key")
                     .build()
-                val body = pingClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@withContext null
-                    response.body?.string()
-                } ?: return@withContext null
+                val (body, success) = pingClient.newCall(request).execute().use { response ->
+                    (response.body?.string()) to response.isSuccessful
+                }
+                if (!success || body == null) return@withContext true to null
                 val version = JSONObject(body).getString("version")
-                compareVersions(version, Config.MIN_SERVER_VERSION) >= 0
-            } catch (_: Exception) { null }  // endpoint absent or unreachable — skip banner
+                true to (compareVersions(version, Config.MIN_SERVER_VERSION) >= 0)
+            } catch (_: Exception) { false to null }
         }
-        _serverState.value = _serverState.value.copy(serverVersionOk = versionOk)
+        _serverState.value = _serverState.value.copy(
+            serverStatus = reachable,
+            serverVersionOk = versionOk
+        )
     }
 
     companion object {

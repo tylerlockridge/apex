@@ -38,7 +38,11 @@ import com.healthplatform.sync.BuildConfig
 import com.healthplatform.sync.SyncPrefsKeys
 import com.healthplatform.sync.security.BiometricLockManager
 import com.healthplatform.sync.security.SecurePrefs
+import androidx.work.WorkManager
+import com.healthplatform.sync.data.db.ApexDatabase
 import com.healthplatform.sync.service.SyncWorker
+import com.healthplatform.sync.service.WeeklySummaryWorker
+import kotlinx.coroutines.Dispatchers
 import com.healthplatform.sync.ui.theme.*
 import com.healthplatform.sync.ui.util.rememberApexHaptic
 import kotlinx.coroutines.launch
@@ -583,6 +587,14 @@ fun SettingsScreen(
                     onClick = {
                         showClearDialog = false
                         haptic.reject()
+                        // GPT 5.4 A-03: Cancel all WorkManager jobs first to prevent
+                        // stale syncs from uploading queued records after clear.
+                        SyncWorker.cancel(context)
+                        WorkManager.getInstance(context).cancelUniqueWork(WeeklySummaryWorker.WORK_NAME)
+                        // Wipe the Room sync queue so no health data survives clear.
+                        scope.launch(Dispatchers.IO) {
+                            ApexDatabase.get(context).syncQueueDao().deleteAll()
+                        }
                         prefs.edit().clear().commit()
                         SecurePrefs.clearAll(context)
                         apiKey = ""

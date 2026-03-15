@@ -1,6 +1,7 @@
 package com.healthplatform.sync.service
 
 import com.google.gson.Gson
+import com.healthplatform.sync.Config
 import com.healthplatform.sync.data.BloodPressureData
 import com.healthplatform.sync.data.BodyMeasurementData
 import com.healthplatform.sync.data.HrvData
@@ -72,12 +73,14 @@ class ApiService private constructor(
     private val api: HealthPlatformApi
 
     init {
-        // Pin the Let's Encrypt E8 intermediate (present in the TLS chain) plus ISRG roots
-        // as backup. E8 is stable across cert renewals for this server.
+        // GPT 5.4 A-07: Derive pinned host from runtime baseUrl so QR-configured
+        // custom servers are pinned correctly (previously hardcoded tyler-health.duckdns.org).
+        val host = Config.extractHost(baseUrl)
+
         val certificatePinner = CertificatePinner.Builder()
-            .add("tyler-health.duckdns.org", "sha256/iFvwVyJSxnQdyaUvUERIf+8qk7gRze3612JMwoO3zdU=") // Let's Encrypt E8
-            .add("tyler-health.duckdns.org", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
-            .add("tyler-health.duckdns.org", "sha256/diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvXFu2z8LMAs=") // ISRG Root X2
+            .add(host, Config.PIN_LETS_ENCRYPT_E8)
+            .add(host, Config.PIN_ISRG_ROOT_X1)
+            .add(host, Config.PIN_ISRG_ROOT_X2)
             .build()
 
         val client = OkHttpClient.Builder()

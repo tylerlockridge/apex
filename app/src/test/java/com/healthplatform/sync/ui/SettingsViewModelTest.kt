@@ -68,9 +68,9 @@ class SettingsViewModelTest {
      * to give the continuation time to post back to the test scheduler.
      */
     private fun drainAll() {
-        // checkAll() runs HC check → server check → version check sequentially.
+        // checkAll() runs HC check → server check (single /api/version request) sequentially.
         // Each check uses withContext(Dispatchers.IO) so we need multiple drain passes.
-        repeat(3) {
+        repeat(2) {
             Thread.sleep(500)
             testDispatcher.scheduler.advanceUntilIdle()
         }
@@ -78,7 +78,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `server 200 sets connected true`() = runTest {
-        mockServer.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
+        // M-6: single /api/version request checks both connectivity + version
         mockServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"version":"1.0.0"}"""))
 
         val vm = SettingsViewModel(app)
@@ -88,19 +88,19 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `server error sets connected false`() = runTest {
-        mockServer.enqueue(MockResponse().setResponseCode(500))
+    fun `server error sets connected true but version unknown`() = runTest {
         mockServer.enqueue(MockResponse().setResponseCode(500))
 
         val vm = SettingsViewModel(app)
         drainAll()
 
-        assertEquals(false, vm.serverState.value.serverStatus)
+        // Server responded (reachable) but with error — version unknown
+        assertEquals(true, vm.serverState.value.serverStatus)
+        assertEquals(null, vm.serverState.value.serverVersionOk)
     }
 
     @Test
     fun `version match sets serverVersionOk true`() = runTest {
-        mockServer.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
         mockServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"version":"1.0.0"}"""))
 
         val vm = SettingsViewModel(app)
@@ -111,7 +111,6 @@ class SettingsViewModelTest {
 
     @Test
     fun `older server sets serverVersionOk false`() = runTest {
-        mockServer.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
         mockServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"version":"0.9.0"}"""))
 
         val vm = SettingsViewModel(app)
@@ -122,7 +121,6 @@ class SettingsViewModelTest {
 
     @Test
     fun `newer server sets serverVersionOk true`() = runTest {
-        mockServer.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
         mockServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"version":"2.1.0"}"""))
 
         val vm = SettingsViewModel(app)

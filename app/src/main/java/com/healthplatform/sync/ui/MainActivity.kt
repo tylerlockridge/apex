@@ -81,6 +81,11 @@ class MainActivity : FragmentActivity() {
     private var pausedAtElapsed: Long = 0L
     private val reauthThresholdMs = 5 * 60 * 1000L // 5 minutes
 
+    // L-5: Activity-level auth state so onResume can lock the UI without recreate().
+    // Using mutableStateOf at the Activity level lets Compose observe it reactively,
+    // avoiding the jarring destroy/rebuild caused by recreate().
+    private var isAuthenticated = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -94,6 +99,9 @@ class MainActivity : FragmentActivity() {
         healthConnectReader = HealthConnectReader(this)
         biometricLockManager = BiometricLockManager(this)
 
+        // If biometric is disabled, treat as authenticated immediately.
+        isAuthenticated.value = !biometricLockManager.isEnabled()
+
         // Auto-seed API key from BuildConfig on first install — no manual entry needed.
         if (SecurePrefs.getApiKey(this).isBlank() && BuildConfig.API_KEY.isNotBlank()) {
             SecurePrefs.setApiKey(this, BuildConfig.API_KEY)
@@ -101,24 +109,19 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             ApexTheme {
-                var isAuthenticated by remember {
-                    // If biometric is disabled, treat as authenticated
-                    mutableStateOf(!biometricLockManager.isEnabled())
-                }
-
                 // Trigger initial auth prompt if biometric is enabled
                 LaunchedEffect(Unit) {
-                    if (biometricLockManager.isEnabled() && !isAuthenticated) {
+                    if (biometricLockManager.isEnabled() && !isAuthenticated.value) {
                         biometricLockManager.authenticate(
                             activity = this@MainActivity,
-                            onSuccess = { isAuthenticated = true },
+                            onSuccess = { isAuthenticated.value = true },
                             onError = { /* user can tap unlock button */ }
                         )
                     }
                 }
 
                 AnimatedVisibility(
-                    visible = !isAuthenticated,
+                    visible = !isAuthenticated.value,
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
@@ -126,7 +129,7 @@ class MainActivity : FragmentActivity() {
                         onAuthenticate = {
                             biometricLockManager.authenticate(
                                 activity = this@MainActivity,
-                                onSuccess = { isAuthenticated = true },
+                                onSuccess = { isAuthenticated.value = true },
                                 onError = { }
                             )
                         }
@@ -134,13 +137,13 @@ class MainActivity : FragmentActivity() {
                 }
 
                 AnimatedVisibility(
-                    visible = isAuthenticated,
+                    visible = isAuthenticated.value,
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
                     ApexApp(
                         onRequestPermissions = { requestHealthConnectPermissions() },
-                        onLock = { isAuthenticated = false }
+                        onLock = { isAuthenticated.value = false }
                     )
                 }
             }
@@ -154,12 +157,13 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // L-5: State-driven re-auth — sets isAuthenticated to false, which triggers
+        // Compose recomposition to show the LockScreen smoothly via AnimatedVisibility
+        // instead of destroying the entire Activity with recreate().
         if (biometricLockManager.isEnabled() && pausedAtElapsed > 0) {
             val elapsed = SystemClock.elapsedRealtime() - pausedAtElapsed
             if (elapsed >= reauthThresholdMs) {
-                // Re-auth required — reset content; Compose state will show LockScreen
-                // We use a shared state approach via recreate on extended background
-                recreate()
+                isAuthenticated.value = false
             }
         }
     }
