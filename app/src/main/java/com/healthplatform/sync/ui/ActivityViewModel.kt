@@ -58,7 +58,8 @@ class ActivityViewModel(
 
     constructor(application: Application) : this(application, {
         val serverUrl = com.healthplatform.sync.Config.getServerUrl(application)
-        ServerApiClient(SecurePrefs.getApiKey(application), serverUrl)
+        val deviceSecret = SecurePrefs.getDeviceSecret(application, com.healthplatform.sync.Config.DEVICE_SECRET)
+        ServerApiClient(SecurePrefs.getApiKey(application), serverUrl, deviceSecret)
     })
 
     private val _state = MutableStateFlow(ActivityState())

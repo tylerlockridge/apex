@@ -1,5 +1,6 @@
 package com.healthplatform.sync.widget
 
+import android.app.KeyguardManager
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -59,13 +60,19 @@ class HealthGlanceWidget : GlanceAppWidget() {
             "Never synced"
         }
 
-        val bpLabel = if (bpSystolic != null && bpDiastolic != null) "$bpSystolic/$bpDiastolic" else "—"
-        val sleepLabel = if (sleepDurationMin != null) {
+        // S-3: Hide raw health values when the device is locked to prevent PHI
+        // exposure on the lock screen. FLAG_SECURE on MainActivity doesn't cover
+        // Glance widgets since they render in the launcher process.
+        val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        val isLocked = keyguard.isDeviceLocked
+
+        val bpLabel = if (isLocked) "***" else if (bpSystolic != null && bpDiastolic != null) "$bpSystolic/$bpDiastolic" else "—"
+        val sleepLabel = if (isLocked) "***" else if (sleepDurationMin != null) {
             val h = sleepDurationMin / 60
             val m = sleepDurationMin % 60
             "${h}h ${m}m"
         } else "—"
-        val hrvLabel = if (hrvMs != null) "%.0f ms".format(hrvMs) else "—"
+        val hrvLabel = if (isLocked) "***" else if (hrvMs != null) "%.0f ms".format(hrvMs) else "—"
 
         provideContent {
             WidgetContent(

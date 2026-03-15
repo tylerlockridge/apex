@@ -163,7 +163,22 @@ class SyncWorker(
             }
 
             // ----------------------------------------------------------------
+            // Phase 1.5 — R-1: Enforce queue size cap to prevent unbounded growth
+            // when the server is persistently unreachable.
+            // ----------------------------------------------------------------
+            val queueSize = dao.pendingCount()
+            if (queueSize > MAX_QUEUE_SIZE) {
+                val excess = queueSize - MAX_QUEUE_SIZE
+                Log.w(TAG, "Queue size $queueSize exceeds cap $MAX_QUEUE_SIZE — evicting $excess oldest records")
+                dao.evictOldest(excess)
+            }
+
+            // ----------------------------------------------------------------
             // Phase 2 — Flush the Room queue to the server
+            //
+            // R-2: Extracted into flushDataType() to eliminate 4x copy-paste.
+            // R-4: Uses batched reads (UPLOAD_BATCH_SIZE) to avoid multi-MB
+            // payloads when the queue is large.
             //
             // Records are only deleted from the queue after the server
             // acknowledges a successful upload. A network failure leaves them
@@ -175,152 +190,82 @@ class SyncWorker(
 
             // ---- Blood Pressure ----
             if (filter == null || filter == DATA_TYPE_BP) {
-                val pending = dao.getPending(DATA_TYPE_BP)
-                if (pending.isNotEmpty()) {
-                    // H-3: malformed rows (from schema migrations or bugs) are deleted immediately
-                    // rather than poisoning the queue forever. Valid rows are still uploaded.
-                    val malformed = mutableListOf<com.healthplatform.sync.data.db.SyncQueueEntity>()
-                    val records = pending.mapNotNull { entity ->
-                        try { gson.fromJson(entity.payload, BloodPressureData::class.java) }
-                        catch (e: Exception) {
-                            Log.e(TAG, "Dropping malformed BP record id=${entity.id}", e)
-                            malformed.add(entity); null
+                val (transient, permanent) = flushDataType(
+                    dao, DATA_TYPE_BP, BloodPressureData::class.java,
+                    syncFn = { records -> api.syncBloodPressure(records) },
+                    onSuccess = { records ->
+                        val latest = records.maxByOrNull { it.measuredAt } ?: return@flushDataType
+                        prefs.edit()
+                            .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, latest.systolic)
+                            .putInt(SyncPrefsKeys.LAST_BP_DIASTOLIC, latest.diastolic)
+                            .putString(SyncPrefsKeys.LAST_BP_TIME, latest.measuredAt)
+                            .apply()
+                        if (latest.systolic >= 140 || latest.diastolic >= 90) {
+                            val lastAlerted = prefs.getString(SyncPrefsKeys.LAST_BP_ALERT_TIME, null)
+                            if (lastAlerted != latest.measuredAt) {
+                                postBpAnomalyNotification(latest.systolic, latest.diastolic)
+                                prefs.edit().putString(SyncPrefsKeys.LAST_BP_ALERT_TIME, latest.measuredAt).apply()
+                            }
                         }
                     }
-                    if (malformed.isNotEmpty()) dao.delete(malformed)
-                    val valid = pending.filter { it !in malformed }
-                    if (records.isNotEmpty()) api.syncBloodPressure(records).fold(
-                        onSuccess = {
-                            Log.i(TAG, "Synced ${records.size} BP records")
-                            dao.delete(valid)
-                            // maxByOrNull is defensive; records are sorted ASC by measuredAt (DAO guarantees this).
-                            val latest = records.maxByOrNull { it.measuredAt } ?: return@fold
-                            prefs.edit()
-                                .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, latest.systolic)
-                                .putInt(SyncPrefsKeys.LAST_BP_DIASTOLIC, latest.diastolic)
-                                .putString(SyncPrefsKeys.LAST_BP_TIME, latest.measuredAt)
-                                .apply()
-                            // Alert if Stage 2 hypertension (systolic ≥ 140 or diastolic ≥ 90).
-                            // GPT 5.4 A-09: only notify on *new* anomalous readings to avoid
-                            // repeating alerts for the same measurement across sync cycles.
-                            if (latest.systolic >= 140 || latest.diastolic >= 90) {
-                                val lastAlerted = prefs.getString(SyncPrefsKeys.LAST_BP_ALERT_TIME, null)
-                                if (lastAlerted != latest.measuredAt) {
-                                    postBpAnomalyNotification(latest.systolic, latest.diastolic)
-                                    prefs.edit().putString(SyncPrefsKeys.LAST_BP_ALERT_TIME, latest.measuredAt).apply()
-                                }
-                            }
-                        },
-                        onFailure = { e ->
-                            Log.e(TAG, "BP sync failed — ${pending.size} records kept in queue", e)
-                            if (e is PermanentSyncFailure) anyPermanentFailure = true
-                            else anyTransientFailure = true
-                        }
-                    )
-                }
+                )
+                if (transient) anyTransientFailure = true
+                if (permanent) anyPermanentFailure = true
             }
 
             // ---- Sleep ----
             if (filter == null || filter == DATA_TYPE_SLEEP) {
-                val pending = dao.getPending(DATA_TYPE_SLEEP)
-                if (pending.isNotEmpty()) {
-                    val malformedSleep = mutableListOf<com.healthplatform.sync.data.db.SyncQueueEntity>()
-                    val records = pending.mapNotNull { entity ->
-                        try { gson.fromJson(entity.payload, SleepData::class.java) }
-                        catch (e: Exception) {
-                            Log.e(TAG, "Dropping malformed Sleep record id=${entity.id}", e)
-                            malformedSleep.add(entity); null
-                        }
+                val (transient, permanent) = flushDataType(
+                    dao, DATA_TYPE_SLEEP, SleepData::class.java,
+                    syncFn = { records -> api.syncSleep(records) },
+                    onSuccess = { records ->
+                        val latest = records.maxByOrNull { it.sleepStart } ?: return@flushDataType
+                        prefs.edit()
+                            .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, latest.durationMinutes)
+                            .putInt(SyncPrefsKeys.LAST_SLEEP_DEEP_MIN, latest.deepSleepMinutes ?: 0)
+                            .putInt(SyncPrefsKeys.LAST_SLEEP_REM_MIN, latest.remSleepMinutes ?: 0)
+                            .putString(SyncPrefsKeys.LAST_SLEEP_TIME, latest.sleepEnd)
+                            .apply()
                     }
-                    if (malformedSleep.isNotEmpty()) dao.delete(malformedSleep)
-                    val validSleep = pending.filter { it !in malformedSleep }
-                    if (records.isNotEmpty()) api.syncSleep(records).fold(
-                        onSuccess = {
-                            Log.i(TAG, "Synced ${records.size} sleep records")
-                            dao.delete(validSleep)
-                            val latest = records.maxByOrNull { it.sleepStart } ?: return@fold
-                            prefs.edit()
-                                .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, latest.durationMinutes)
-                                .putInt(SyncPrefsKeys.LAST_SLEEP_DEEP_MIN, latest.deepSleepMinutes ?: 0)
-                                .putInt(SyncPrefsKeys.LAST_SLEEP_REM_MIN, latest.remSleepMinutes ?: 0)
-                                .putString(SyncPrefsKeys.LAST_SLEEP_TIME, latest.sleepEnd)
-                                .apply()
-                        },
-                        onFailure = { e ->
-                            Log.e(TAG, "Sleep sync failed — ${pending.size} records kept in queue", e)
-                            if (e is PermanentSyncFailure) anyPermanentFailure = true
-                            else anyTransientFailure = true
-                        }
-                    )
-                }
+                )
+                if (transient) anyTransientFailure = true
+                if (permanent) anyPermanentFailure = true
             }
 
             // ---- Body Measurements ----
             if (filter == null || filter == DATA_TYPE_BODY) {
-                val pending = dao.getPending(DATA_TYPE_BODY)
-                if (pending.isNotEmpty()) {
-                    val malformedBody = mutableListOf<com.healthplatform.sync.data.db.SyncQueueEntity>()
-                    val records = pending.mapNotNull { entity ->
-                        try { gson.fromJson(entity.payload, BodyMeasurementData::class.java) }
-                        catch (e: Exception) {
-                            Log.e(TAG, "Dropping malformed Body record id=${entity.id}", e)
-                            malformedBody.add(entity); null
+                val (transient, permanent) = flushDataType(
+                    dao, DATA_TYPE_BODY, BodyMeasurementData::class.java,
+                    syncFn = { records -> api.syncBodyMeasurements(records) },
+                    onSuccess = { records ->
+                        val latest = records.maxByOrNull { it.measuredAt } ?: return@flushDataType
+                        if (latest.weightKg != null) {
+                            prefs.edit()
+                                .putFloat(SyncPrefsKeys.LAST_WEIGHT_KG, latest.weightKg.toFloat())
+                                .putString(SyncPrefsKeys.LAST_WEIGHT_TIME, latest.measuredAt)
+                                .apply()
                         }
                     }
-                    if (malformedBody.isNotEmpty()) dao.delete(malformedBody)
-                    val validBody = pending.filter { it !in malformedBody }
-                    if (records.isNotEmpty()) api.syncBodyMeasurements(records).fold(
-                        onSuccess = {
-                            Log.i(TAG, "Synced ${records.size} body records")
-                            dao.delete(validBody)
-                            val latest = records.maxByOrNull { it.measuredAt } ?: return@fold
-                            if (latest.weightKg != null) {
-                                prefs.edit()
-                                    .putFloat(SyncPrefsKeys.LAST_WEIGHT_KG, latest.weightKg.toFloat())
-                                    .putString(SyncPrefsKeys.LAST_WEIGHT_TIME, latest.measuredAt)
-                                    .apply()
-                            }
-                        },
-                        onFailure = { e ->
-                            Log.e(TAG, "Body sync failed — ${pending.size} records kept in queue", e)
-                            if (e is PermanentSyncFailure) anyPermanentFailure = true
-                            else anyTransientFailure = true
-                        }
-                    )
-                }
+                )
+                if (transient) anyTransientFailure = true
+                if (permanent) anyPermanentFailure = true
             }
 
             // ---- HRV ----
             if (filter == null || filter == DATA_TYPE_HRV) {
-                val pending = dao.getPending(DATA_TYPE_HRV)
-                if (pending.isNotEmpty()) {
-                    val malformedHrv = mutableListOf<com.healthplatform.sync.data.db.SyncQueueEntity>()
-                    val records = pending.mapNotNull { entity ->
-                        try { gson.fromJson(entity.payload, HrvData::class.java) }
-                        catch (e: Exception) {
-                            Log.e(TAG, "Dropping malformed HRV record id=${entity.id}", e)
-                            malformedHrv.add(entity); null
-                        }
+                val (transient, permanent) = flushDataType(
+                    dao, DATA_TYPE_HRV, HrvData::class.java,
+                    syncFn = { records -> api.syncHrv(records) },
+                    onSuccess = { records ->
+                        val latest = records.maxByOrNull { it.measuredAt } ?: return@flushDataType
+                        prefs.edit()
+                            .putFloat(SyncPrefsKeys.LAST_HRV_MS, latest.hrvMs.toFloat())
+                            .putString(SyncPrefsKeys.LAST_HRV_TIME, latest.measuredAt)
+                            .apply()
                     }
-                    if (malformedHrv.isNotEmpty()) dao.delete(malformedHrv)
-                    val validHrv = pending.filter { it !in malformedHrv }
-                    if (records.isNotEmpty()) api.syncHrv(records).fold(
-                        onSuccess = {
-                            Log.i(TAG, "Synced ${records.size} HRV records")
-                            dao.delete(validHrv)
-                            val latest = records.maxByOrNull { it.measuredAt } ?: return@fold
-                            prefs.edit()
-                                .putFloat(SyncPrefsKeys.LAST_HRV_MS, latest.hrvMs.toFloat())
-                                .putString(SyncPrefsKeys.LAST_HRV_TIME, latest.measuredAt)
-                                .apply()
-                        },
-                        onFailure = { e ->
-                            Log.e(TAG, "HRV sync failed — ${pending.size} records kept in queue", e)
-                            if (e is PermanentSyncFailure) anyPermanentFailure = true
-                            else anyTransientFailure = true
-                        }
-                    )
-                }
+                )
+                if (transient) anyTransientFailure = true
+                if (permanent) anyPermanentFailure = true
             }
 
             val anyFailure = anyTransientFailure || anyPermanentFailure
@@ -378,6 +323,58 @@ class SyncWorker(
             payload = payload, recordHash = computeRecordHash(DATA_TYPE_HRV, payload))
     }
 
+    /**
+     * R-2: Shared flush logic for all data types. Deserializes queued entities, drops
+     * malformed rows, uploads valid records in batches (R-4), and deletes on success.
+     *
+     * @return Pair(anyTransientFailure, anyPermanentFailure)
+     */
+    private suspend fun <T : Any> flushDataType(
+        dao: com.healthplatform.sync.data.db.SyncQueueDao,
+        dataType: String,
+        clazz: Class<T>,
+        syncFn: suspend (List<T>) -> kotlin.Result<SyncResponse>,
+        onSuccess: (List<T>) -> Unit,
+    ): Pair<Boolean, Boolean> {
+        var anyTransient = false
+        var anyPermanent = false
+
+        // R-4: Process in batches to avoid multi-MB payloads.
+        while (true) {
+            val batch = dao.getPendingBatch(dataType, UPLOAD_BATCH_SIZE)
+            if (batch.isEmpty()) break
+
+            val malformed = mutableListOf<SyncQueueEntity>()
+            val records = batch.mapNotNull { entity ->
+                try { gson.fromJson(entity.payload, clazz) }
+                catch (e: Exception) {
+                    Log.e(TAG, "Dropping malformed $dataType record id=${entity.id}", e)
+                    malformed.add(entity); null
+                }
+            }
+            if (malformed.isNotEmpty()) dao.delete(malformed)
+
+            val malformedIds = malformed.map { it.id }.toSet()
+            val valid = batch.filter { it.id !in malformedIds }
+
+            if (records.isEmpty()) continue
+
+            val result = syncFn(records)
+            if (result.isSuccess) {
+                Log.i(TAG, "Synced ${records.size} $dataType records")
+                dao.delete(valid)
+                onSuccess(records)
+            } else {
+                val e = result.exceptionOrNull()
+                Log.e(TAG, "$dataType sync failed — ${batch.size} records kept in queue", e)
+                if (e is PermanentSyncFailure) anyPermanent = true
+                else anyTransient = true
+                break // Stop batching on failure
+            }
+        }
+        return anyTransient to anyPermanent
+    }
+
     private fun postBpAnomalyNotification(systolic: Int, diastolic: Int) {
         val intent = applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
         val pendingIntent = PendingIntent.getActivity(
@@ -422,6 +419,11 @@ class SyncWorker(
     companion object {
         private const val TAG = "SyncWorker"
         private const val NOTIF_ID_BP = 1001
+
+        /** R-1: Maximum queue rows. Oldest records are evicted when exceeded. */
+        private const val MAX_QUEUE_SIZE = 5000
+        /** R-4: Maximum records per server POST to avoid multi-MB payloads. */
+        private const val UPLOAD_BATCH_SIZE = 200
 
         /** Name of the periodic work — exposed so callers can observe its state. */
         const val WORK_NAME = "health_sync_periodic"

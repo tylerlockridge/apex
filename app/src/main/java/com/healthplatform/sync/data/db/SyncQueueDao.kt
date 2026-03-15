@@ -27,9 +27,17 @@ interface SyncQueueDao {
     @Delete
     suspend fun delete(records: List<SyncQueueEntity>)
 
+    /** Returns the oldest pending records for a data type, limited to [limit] for batching. */
+    @Query("SELECT * FROM sync_queue WHERE dataType = :dataType ORDER BY measuredAt ASC LIMIT :limit")
+    suspend fun getPendingBatch(dataType: String, limit: Int): List<SyncQueueEntity>
+
     /** Total number of records still waiting to be synced (across all types). */
     @Query("SELECT COUNT(*) FROM sync_queue")
     suspend fun pendingCount(): Int
+
+    /** Evicts the oldest records across all types to keep the queue under a size cap. */
+    @Query("DELETE FROM sync_queue WHERE id IN (SELECT id FROM sync_queue ORDER BY createdAt ASC LIMIT :count)")
+    suspend fun evictOldest(count: Int)
 
     /** Wipes the entire queue — used by "Clear all data" to ensure no health records survive. */
     @Query("DELETE FROM sync_queue")

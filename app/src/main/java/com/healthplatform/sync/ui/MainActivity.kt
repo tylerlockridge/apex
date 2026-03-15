@@ -82,9 +82,12 @@ class MainActivity : FragmentActivity() {
     private val reauthThresholdMs = 5 * 60 * 1000L // 5 minutes
 
     // L-5: Activity-level auth state so onResume can lock the UI without recreate().
-    // Using mutableStateOf at the Activity level lets Compose observe it reactively,
-    // avoiding the jarring destroy/rebuild caused by recreate().
+    // A-1: Saved in Bundle to survive config changes (rotation, dark mode) without
+    // forcing re-auth. Process death still resets to locked (correct behaviour).
     private var isAuthenticated = mutableStateOf(false)
+    private companion object {
+        const val KEY_IS_AUTHENTICATED = "is_authenticated"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -99,8 +102,10 @@ class MainActivity : FragmentActivity() {
         healthConnectReader = HealthConnectReader(this)
         biometricLockManager = BiometricLockManager(this)
 
-        // If biometric is disabled, treat as authenticated immediately.
-        isAuthenticated.value = !biometricLockManager.isEnabled()
+        // A-1: Restore auth state from savedInstanceState (survives config change).
+        // On fresh launch / process death, fall back to the biometric-enabled check.
+        isAuthenticated.value = savedInstanceState?.getBoolean(KEY_IS_AUTHENTICATED)
+            ?: !biometricLockManager.isEnabled()
 
         // Auto-seed API key from BuildConfig on first install — no manual entry needed.
         if (SecurePrefs.getApiKey(this).isBlank() && BuildConfig.API_KEY.isNotBlank()) {
@@ -148,6 +153,11 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_IS_AUTHENTICATED, isAuthenticated.value)
     }
 
     override fun onPause() {

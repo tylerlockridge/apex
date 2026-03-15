@@ -53,11 +53,10 @@ fun DashboardScreen(
     val haptic = rememberApexHaptic()
     var isRefreshing by remember { mutableStateOf(false) }
 
-    // ViewModel loads on init; reload whenever the screen becomes active after
-    // returning from another tab so cached SharedPrefs stay fresh.
-    LaunchedEffect(Unit) {
-        viewModel.loadFromPrefs()
-    }
+    // A-2: Removed redundant LaunchedEffect(Unit) { viewModel.loadFromPrefs() }.
+    // ViewModel.init already calls loadFromPrefs(), and triggerSync() refreshes after
+    // sync completes. The duplicate call was creating a new HealthConnectReader on
+    // every tab switch and double-loading prefs.
 
     // Dismiss PTR as soon as prefs have been reloaded (no hardcoded delay).
     LaunchedEffect(state.isLoadingPrefs) {
@@ -210,13 +209,12 @@ fun DashboardScreen(
 
 @Composable
 private fun DashboardHeader() {
-    val greeting = remember {
-        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-        when {
-            hour < 12 -> "Good morning"
-            hour < 17 -> "Good afternoon"
-            else      -> "Good evening"
-        }
+    // A-4: Keyed by current hour so the greeting updates if the app spans midnight.
+    val currentHour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+    val greeting = when {
+        currentHour < 12 -> "Good morning"
+        currentHour < 17 -> "Good afternoon"
+        else             -> "Good evening"
     }
     Row(
         modifier = Modifier.fillMaxWidth(),

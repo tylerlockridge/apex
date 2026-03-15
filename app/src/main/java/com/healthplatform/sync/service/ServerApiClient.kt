@@ -9,6 +9,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.Buffer
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -140,6 +141,7 @@ interface ServerReadApi {
 class ServerApiClient(
     private val apiKey: String,
     baseUrl: String = Config.SERVER_URL_DEFAULT,
+    private val deviceSecret: String = "",
 ) {
 
     private val api: ServerReadApi
@@ -147,14 +149,47 @@ class ServerApiClient(
     init {
         val effectiveBase = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
 
-        // Auth interceptor reads apiKey at construction time — each ServerApiClient
-        // instance captures its own key, but they share the expensive OkHttpClient.
+        // S-1: Auth interceptor adds Bearer token + HMAC signing (same as ApiService)
+        // so read endpoints have the same authentication strength as write endpoints.
         val client = sharedClient(baseUrl).newBuilder()
             .addInterceptor(Interceptor { chain ->
                 val request = chain.request().newBuilder()
                     .addHeader("Authorization", "Bearer $apiKey")
                     .build()
                 chain.proceed(request)
+            })
+            .addInterceptor(Interceptor { chain ->
+                val original = chain.request()
+                val body = original.body
+                val timestamp = (System.currentTimeMillis() / 1000L).toString()
+                val signed = if (body != null && deviceSecret.isNotEmpty()) {
+                    val buffer = Buffer()
+                    body.writeTo(buffer)
+                    val bodyBytes = buffer.readByteArray()
+                    val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+                    mac.init(javax.crypto.spec.SecretKeySpec(deviceSecret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+                    mac.update("$timestamp\n".toByteArray(Charsets.UTF_8))
+                    mac.update(bodyBytes)
+                    val hex = mac.doFinal().joinToString("") { "%02x".format(it) }
+                    original.newBuilder()
+                        .addHeader("X-Signature", "sha256=$hex")
+                        .addHeader("X-Timestamp", timestamp)
+                        .method(original.method, bodyBytes.toRequestBody(body.contentType()))
+                        .build()
+                } else if (deviceSecret.isNotEmpty()) {
+                    // GET requests: sign empty body
+                    val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+                    mac.init(javax.crypto.spec.SecretKeySpec(deviceSecret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+                    mac.update("$timestamp\n".toByteArray(Charsets.UTF_8))
+                    val hex = mac.doFinal().joinToString("") { "%02x".format(it) }
+                    original.newBuilder()
+                        .addHeader("X-Signature", "sha256=$hex")
+                        .addHeader("X-Timestamp", timestamp)
+                        .build()
+                } else {
+                    original
+                }
+                chain.proceed(signed)
             })
             .apply {
                 if (BuildConfig.DEBUG) {

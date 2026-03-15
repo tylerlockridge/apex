@@ -103,7 +103,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             // no-ops rather than crashing; health-metric state still loads from regular prefs.
             serverClient = try {
                 val serverUrl = com.healthplatform.sync.Config.getServerUrl(context)
-                ServerApiClient(SecurePrefs.getApiKey(context), serverUrl)
+                val deviceSecret = SecurePrefs.getDeviceSecret(context, com.healthplatform.sync.Config.DEVICE_SECRET)
+                ServerApiClient(SecurePrefs.getApiKey(context), serverUrl, deviceSecret)
             } catch (_: Exception) { null }
 
             val (readinessLabel, readinessReason) = computeReadiness(bpSystolic, sleepDurationMin, hrvMs)

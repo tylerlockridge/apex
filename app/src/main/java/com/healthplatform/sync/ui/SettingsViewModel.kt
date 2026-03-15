@@ -46,12 +46,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _serverState = MutableStateFlow(SettingsServerState())
     val serverState: StateFlow<SettingsServerState> = _serverState.asStateFlow()
 
-    // Built lazily using the runtime server URL so cert pinning targets the correct
-    // hostname even after QR onboarding to a non-default server.
-    private val pingClient: OkHttpClient by lazy {
+    // A-5: Built per checkAll() instead of lazy so QR-configured server URL changes
+    // take effect immediately without requiring a process restart.
+    @Volatile private var pingClient: OkHttpClient? = null
+    @Volatile private var pingHost: String? = null
+
+    private fun getPingClient(): OkHttpClient {
         val serverUrl = Config.getServerUrl(getApplication())
         val host = Config.extractHost(serverUrl)
-        OkHttpClient.Builder()
+        val existing = pingClient
+        if (existing != null && pingHost == host) return existing
+        return OkHttpClient.Builder()
             .connectTimeout(4, TimeUnit.SECONDS)
             .readTimeout(4, TimeUnit.SECONDS)
             .certificatePinner(
@@ -61,7 +66,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     .add(host, Config.PIN_ISRG_ROOT_X2)
                     .build()
             )
-            .build()
+            .build().also { pingClient = it; pingHost = host }
     }
 
     init {
@@ -121,7 +126,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     .url("$serverUrl/api/version")
                     .addHeader("Authorization", "Bearer $key")
                     .build()
-                val (body, success) = pingClient.newCall(request).execute().use { response ->
+                val (body, success) = getPingClient().newCall(request).execute().use { response ->
                     (response.body?.string()) to response.isSuccessful
                 }
                 if (!success || body == null) return@withContext true to null
