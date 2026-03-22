@@ -3,7 +3,10 @@ package com.healthplatform.sync.ui
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
+import com.healthplatform.sync.service.ExerciseSignalResponse
 import com.healthplatform.sync.service.HevySyncResult
+import com.healthplatform.sync.service.LandmarkStatusResponse
+import com.healthplatform.sync.service.ProgressionSummaryResponse
 import com.healthplatform.sync.service.ServerApiClient
 import com.healthplatform.sync.service.WorkoutResponse
 import com.healthplatform.sync.service.WorkoutStatsSummaryResponse
@@ -43,6 +46,9 @@ class ActivityViewModelTest {
         coEvery { mockClient.getWorkouts(any(), any()) } returns Result.success(emptyList())
         coEvery { mockClient.getWorkoutStatsSummary(any()) } returns Result.success(
             WorkoutStatsSummaryResponse(total_workouts = 0, avg_duration = null, total_volume_kg = null, avg_sets_per_workout = null)
+        )
+        coEvery { mockClient.getProgressionSummary(any()) } returns Result.failure(
+            Exception("No progression data")
         )
         val app = ApplicationProvider.getApplicationContext<Application>()
         viewModel = ActivityViewModel(app, clientProvider = { mockClient })
@@ -169,5 +175,49 @@ class ActivityViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify(exactly = 1) { mockClient.triggerHevySync() }
+    }
+
+    // -------------------------------------------------------------------------
+    // progressionSummary
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `loadAll populates progressionSummary when server returns data`() = runTest {
+        val summary = ProgressionSummaryResponse(
+            snapshotDate = "2026-03-22",
+            periodDays = 7,
+            trainingLoadScore = 62,
+            historyFresh = true,
+            volumeByMuscle = mapOf("chest" to 10, "triceps" to 8),
+            landmarkStatus = mapOf(
+                "chest" to LandmarkStatusResponse(
+                    sets = 10, mevLow = 4, mavLow = 6, mavHigh = 16, mrvHigh = 24,
+                    status = "in_range", approachingMrv = false
+                )
+            ),
+            exerciseSignals = listOf(
+                ExerciseSignalResponse(
+                    exerciseTemplateId = "EX001", exerciseName = "Bench Press",
+                    lastWeightKg = 80.0, consecutiveTargetHits = 2,
+                    suggestion = "increase_weight"
+                )
+            )
+        )
+        coEvery { mockClient.getProgressionSummary(any()) } returns Result.success(summary)
+
+        viewModel.refresh()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertNotNull(state.progressionSummary)
+        assertEquals(62, state.progressionSummary!!.trainingLoadScore)
+        assertEquals(10, state.progressionSummary!!.volumeByMuscle["chest"])
+        assertEquals(1, state.progressionSummary!!.exerciseSignals.size)
+    }
+
+    @Test
+    fun `progressionSummary is null when server returns failure`() = runTest {
+        // Already stubbed to fail in setUp
+        assertNull(viewModel.state.value.progressionSummary)
     }
 }

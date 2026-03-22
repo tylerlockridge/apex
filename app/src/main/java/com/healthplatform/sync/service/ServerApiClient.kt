@@ -15,6 +15,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 // ---------------------------------------------------------------------------
@@ -92,6 +93,110 @@ data class HrvReadingResponse(
 data class ServerVersionResponse(val version: String)
 
 // ---------------------------------------------------------------------------
+// Phase 3: Progression + Generation models
+// ---------------------------------------------------------------------------
+
+data class LandmarkStatusResponse(
+    val sets: Int,
+    val mevLow: Int,
+    val mavLow: Int,
+    val mavHigh: Int,
+    val mrvHigh: Int,
+    val status: String,
+    val approachingMrv: Boolean
+)
+
+data class ExerciseSignalResponse(
+    val exerciseTemplateId: String,
+    val exerciseName: String,
+    val lastWeightKg: Double,
+    val consecutiveTargetHits: Int,
+    val suggestion: String
+)
+
+data class ProgressionSummaryResponse(
+    val snapshotDate: String,
+    val periodDays: Int,
+    val trainingLoadScore: Int,
+    val historyFresh: Boolean,
+    val volumeByMuscle: Map<String, Int>,
+    val landmarkStatus: Map<String, LandmarkStatusResponse>,
+    val exerciseSignals: List<ExerciseSignalResponse>
+)
+
+data class ReadinessPayloadRequest(
+    val aggregateScore: Int?,
+    val label: String?,
+    val computedAt: String? = null,
+    val inputs: List<ReadinessInputRequest>? = null
+)
+
+data class ReadinessInputRequest(
+    val id: String,
+    val status: String,
+    val score: Int? = null,
+    val effectiveWeight: Double,
+    val lastUpdatedAt: String? = null,
+    val reason: String? = null
+)
+
+data class GenerateRoutineRequest(
+    val sessionType: String,
+    val targetMuscleGroups: List<String>,
+    val durationMinutes: Int = 60,
+    val readiness: ReadinessPayloadRequest? = null
+)
+
+data class GeneratedRoutineReadinessResponse(
+    val aggregateScore: Double?,
+    val label: String?
+)
+
+data class GeneratedRoutineProgressionResponse(
+    val trainingLoadScore: Int,
+    val historyFresh: Boolean
+)
+
+data class GeneratedRoutineExerciseResponse(
+    val id: String,
+    val ordering: Int,
+    val exerciseTemplateId: String,
+    val exerciseName: String,
+    val targetSets: Int,
+    val targetReps: Int?,
+    val targetWeightKg: Double?,
+    val targetRpe: Double?,
+    val resolvedPrimary: String,
+    val resolvedSecondaries: List<String>,
+    val reasoning: String,
+    val flags: List<String>
+)
+
+data class GeneratedRoutineResponse(
+    val id: String,
+    val title: String,
+    val status: String,
+    val reasoningSummary: String?,
+    val readiness: GeneratedRoutineReadinessResponse?,
+    val progression: GeneratedRoutineProgressionResponse?,
+    val warnings: List<String>,
+    val exercises: List<GeneratedRoutineExerciseResponse>
+)
+
+data class RoutineDecisionRequest(val decision: String)
+
+data class RoutineDecisionResponse(
+    val id: String,
+    val status: String,
+    val decidedAt: String?
+)
+
+data class AppErrorResponse(
+    val error: String,
+    val code: String?
+)
+
+// ---------------------------------------------------------------------------
 // Retrofit interface
 // ---------------------------------------------------------------------------
 
@@ -132,6 +237,23 @@ interface ServerReadApi {
 
     @GET("api/version")
     suspend fun getServerVersion(): ServerVersionResponse
+
+    @GET("api/workouts/progression/summary")
+    suspend fun getProgressionSummary(
+        @Query("days") days: Int = 7
+    ): ProgressionSummaryResponse
+
+    @POST("api/generated-routines")
+    suspend fun generateRoutine(@Body body: GenerateRoutineRequest): GeneratedRoutineResponse
+
+    @GET("api/generated-routines/{id}")
+    suspend fun getGeneratedRoutine(@Path("id") id: String): GeneratedRoutineResponse
+
+    @POST("api/generated-routines/{id}/decision")
+    suspend fun decideGeneratedRoutine(
+        @Path("id") id: String,
+        @Body body: RoutineDecisionRequest
+    ): RoutineDecisionResponse
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +426,38 @@ class ServerApiClient(
     suspend fun getServerVersion(): Result<String> {
         return try {
             Result.success(api.getServerVersion().version)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getProgressionSummary(days: Int = 7): Result<ProgressionSummaryResponse> {
+        return try {
+            Result.success(api.getProgressionSummary(days))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun generateRoutine(request: GenerateRoutineRequest): Result<GeneratedRoutineResponse> {
+        return try {
+            Result.success(api.generateRoutine(request))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getGeneratedRoutine(id: String): Result<GeneratedRoutineResponse> {
+        return try {
+            Result.success(api.getGeneratedRoutine(id))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun decideGeneratedRoutine(id: String, decision: String): Result<RoutineDecisionResponse> {
+        return try {
+            Result.success(api.decideGeneratedRoutine(id, RoutineDecisionRequest(decision)))
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -11,11 +11,11 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import com.healthplatform.sync.Config
 import com.healthplatform.sync.SyncPrefsKeys
 import com.google.gson.Gson
-import com.healthplatform.sync.data.BloodPressureData
-import com.healthplatform.sync.data.BodyMeasurementData
-import com.healthplatform.sync.data.HealthConnectReader
-import com.healthplatform.sync.data.HrvData
-import com.healthplatform.sync.data.SleepData
+import com.healthplatform.sync.data.health.BloodPressureData
+import com.healthplatform.sync.data.health.BodyMeasurementData
+import com.healthplatform.sync.data.health.HealthDataProvider
+import com.healthplatform.sync.data.health.HrvData
+import com.healthplatform.sync.data.health.SleepData
 import com.healthplatform.sync.data.db.ApexDatabase
 import com.healthplatform.sync.data.db.SyncQueueDao
 import com.healthplatform.sync.data.db.SyncQueueEntity
@@ -44,6 +44,7 @@ class SyncWorkerTest {
     private val gson = Gson()
     private lateinit var context: Context
     private lateinit var mockApi: ApiService
+    private lateinit var mockProvider: HealthDataProvider
     private lateinit var db: ApexDatabase
     private lateinit var dao: SyncQueueDao
 
@@ -80,15 +81,16 @@ class SyncWorkerTest {
         mockkObject(ApiService)
         every { ApiService.get(any(), any(), any()) } returns mockApi
 
-        // Mock HealthConnectReader — HC not available in test environment
-        mockkConstructor(HealthConnectReader::class)
-        coEvery { anyConstructed<HealthConnectReader>().readBloodPressure(any()) } returns emptyList()
-        coEvery { anyConstructed<HealthConnectReader>().readSleep(any()) } returns emptyList()
-        coEvery { anyConstructed<HealthConnectReader>().readWeight(any()) } returns emptyList()
-        coEvery { anyConstructed<HealthConnectReader>().readHeartRateVariability(any()) } returns emptyList()
-        coEvery { anyConstructed<HealthConnectReader>().getBpChangesToken() } returns "bp-token"
-        coEvery { anyConstructed<HealthConnectReader>().getSleepChangesToken() } returns "sleep-token"
-        coEvery { anyConstructed<HealthConnectReader>().getHrvChangesToken() } returns "hrv-token"
+        // Mock HealthDataProvider — HC not available in test environment
+        mockProvider = mockk()
+        coEvery { mockProvider.readBloodPressure(any()) } returns emptyList()
+        coEvery { mockProvider.readSleep(any()) } returns emptyList()
+        coEvery { mockProvider.readWeight(any()) } returns emptyList()
+        coEvery { mockProvider.readHeartRateVariability(any()) } returns emptyList()
+        coEvery { mockProvider.getBpChangesToken() } returns "bp-token"
+        coEvery { mockProvider.getSleepChangesToken() } returns "sleep-token"
+        coEvery { mockProvider.getHrvChangesToken() } returns "hrv-token"
+        SyncWorker.providerOverride = mockProvider
 
         // Suppress Glance widget update
         mockkConstructor(androidx.glance.appwidget.GlanceAppWidgetManager::class)
@@ -100,6 +102,7 @@ class SyncWorkerTest {
 
     @After
     fun tearDown() {
+        SyncWorker.providerOverride = null
         db.close()
         unmockkAll()
     }
@@ -154,7 +157,7 @@ class SyncWorkerTest {
         prefs().edit().putString(SyncPrefsKeys.CHANGE_TOKEN_BP, "old-token").apply()
 
         // Incremental read throws (expired token)
-        coEvery { anyConstructed<HealthConnectReader>().readBloodPressureChanges("old-token") } throws
+        coEvery { mockProvider.readBloodPressureChanges("old-token") } throws
             Exception("Token expired")
 
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
@@ -169,13 +172,13 @@ class SyncWorkerTest {
     @Test
     fun `HC exception continues to Phase 2`() = runTest {
         // All HC reads throw
-        coEvery { anyConstructed<HealthConnectReader>().readBloodPressure(any()) } throws
+        coEvery { mockProvider.readBloodPressure(any()) } throws
             Exception("HC unavailable")
-        coEvery { anyConstructed<HealthConnectReader>().readSleep(any()) } throws
+        coEvery { mockProvider.readSleep(any()) } throws
             Exception("HC unavailable")
-        coEvery { anyConstructed<HealthConnectReader>().readWeight(any()) } throws
+        coEvery { mockProvider.readWeight(any()) } throws
             Exception("HC unavailable")
-        coEvery { anyConstructed<HealthConnectReader>().readHeartRateVariability(any()) } throws
+        coEvery { mockProvider.readHeartRateVariability(any()) } throws
             Exception("HC unavailable")
 
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
@@ -252,7 +255,7 @@ class SyncWorkerTest {
     @Test
     fun `BP toQueueEntity sets dataType to blood_pressure`() = runTest {
         val bp = BloodPressureData(systolic = 120, diastolic = 80, measuredAt = "2026-03-01T08:00:00Z")
-        coEvery { anyConstructed<HealthConnectReader>().readBloodPressure(any()) } returns listOf(bp)
+        coEvery { mockProvider.readBloodPressure(any()) } returns listOf(bp)
 
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
         worker.doWork()
@@ -273,7 +276,7 @@ class SyncWorkerTest {
             sleepEnd = "2026-03-02T07:00:00Z",
             durationMinutes = 480
         )
-        coEvery { anyConstructed<HealthConnectReader>().readSleep(any()) } returns listOf(sleep)
+        coEvery { mockProvider.readSleep(any()) } returns listOf(sleep)
 
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
         worker.doWork()
@@ -291,7 +294,7 @@ class SyncWorkerTest {
             bodyFatPercent = 18.5,
             muscleMassKg = 32.0
         )
-        coEvery { anyConstructed<HealthConnectReader>().readWeight(any()) } returns listOf(body)
+        coEvery { mockProvider.readWeight(any()) } returns listOf(body)
 
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
         worker.doWork()
@@ -307,7 +310,7 @@ class SyncWorkerTest {
     @Test
     fun `HRV toQueueEntity maps hrvMs and deviceName`() = runTest {
         val hrv = HrvData(measuredAt = "2026-03-01T06:00:00Z", hrvMs = 55.3, deviceName = "Oura Ring")
-        coEvery { anyConstructed<HealthConnectReader>().readHeartRateVariability(any()) } returns listOf(hrv)
+        coEvery { mockProvider.readHeartRateVariability(any()) } returns listOf(hrv)
 
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).build()
         worker.doWork()

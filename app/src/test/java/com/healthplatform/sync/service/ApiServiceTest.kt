@@ -1,6 +1,6 @@
 package com.healthplatform.sync.service
 
-import com.healthplatform.sync.data.BloodPressureData
+import com.healthplatform.sync.data.health.BloodPressureData
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

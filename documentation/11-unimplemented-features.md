@@ -1,78 +1,99 @@
 # Feature: Unimplemented Features & Known Gaps
 
-*Created: 2026-03-02 | Updated: 2026-03-02 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-19 | Project: Apex*
 
 ---
 
 ## Feature Overview
 
 **What it does:**
-Tracks all features that are called for in the PRD or referenced in code (stub buttons, TODO comments) but have not been implemented. This is the canonical reference for what is missing from Apex.
+Tracks the meaningful client-side gaps that still exist in Apex and the major v2 roadmap work that is planned but not yet implemented.
 
 **What it does NOT do:**
-- This document does not track test coverage gaps (see `10-testing-strategy.md`)
-- This document does not track security hardening gaps (see `04-security-implementation.md`)
+- Does not duplicate test-gap tracking (see `10-testing-strategy.md`)
+- Does not duplicate security hardening details (see `04-security-implementation.md`)
+- Does not act as the authoritative multi-repo implementation roadmap; for that see `IMPLEMENTATION-ROADMAP.md`
 
 ---
 
-## Unimplemented Features
+## Recently Closed
+
+These items were previously listed as missing and are now implemented:
+
+- Offline Room sync queue
+- HRV sync to server
+- Hevy workout display + manual Hevy sync trigger
+- QR code onboarding / scan flow
+- Certificate pinning
+- HMAC request signing
+- Sync history detail
+- Widget refresh after sync
+- Clear-all-data flow
+
+---
+
+## Active Client Gaps
 
 ### Data & Sync
 
-| Feature | Gap | Location |
-|---------|-----|---------|
-| ~~**Offline queue**~~ | ✅ **Implemented 2026-03-02.** Room DB (`ApexDatabase`, `SyncQueueEntity`, `SyncQueueDao`) added. `SyncWorker` now does two-phase sync: HC read → Room queue (IGNORE duplicates); Room queue → server (delete on success, keep on failure for retry). | Closed |
-| **Incremental sync (change tokens)** | Full 30-day fetch on every sync run. Health Connect change tokens would allow reading only new records since last sync. | `HealthConnectReader.kt`, `SyncWorker.kt` |
-| ~~**HRV sync to server**~~ | ✅ **Implemented 2026-03-02.** `ApiService.syncHrv()` added; `SyncWorker` calls it; `GET /api/hrv/recent` added to `ServerApiClient`; Trends HRV tab added. | Closed |
-| ~~**Hevy gym data sync**~~ | ✅ **Implemented 2026-03-03.** `ActivityScreen` + `ActivityViewModel` display workouts from server. `ServerApiClient.triggerHevySync()` added; Activity screen has Sync icon button (header) that POSTs to `/api/sync/hevy/workouts`, then reloads the list. `ActivityViewModelTest` added. | Closed |
+| Gap | Current state |
+|-----|---------------|
+| Body incremental sync | BP/sleep/HRV use change tokens; body measurements still do a full 30-day read |
+| Durable inbound cache | Trends and Activity still rely on live server reads; no local persisted read model exists for those screens |
+| Full transactional sync semantics | Per-type uploads can succeed or fail independently |
+| Strict server compatibility enforcement | Settings checks server version and can warn, but compatibility is not enforced as a hard gate |
 
-### UI & Onboarding
+### Readiness
 
-| Feature | Gap | Location |
-|---------|-----|---------|
-| **QR code onboarding / Re-scan QR** | No CameraX or ML Kit integration. Settings "Re-scan QR" button is wired to a TODO callback that does nothing. Initial onboarding also has no QR flow. | `SettingsScreen.kt` — stub callback |
-| ~~**"Clear all data"**~~ | ✅ **Implemented 2026-03-02.** Confirmation `AlertDialog` added; clears `SecurePrefs` (API key, biometric) and all `SharedPreferences` sync state. | Closed |
-| ~~**Sync history detail**~~ | ✅ **Implemented 2026-03-02.** `SyncWorker` records last 10 sync events (timestamp + success/fail) to `SharedPreferences` as JSON; `SettingsScreen` displays them with icons. | Closed |
-| ~~**Widget auto-update after sync**~~ | ✅ **Implemented 2026-03-02.** `SyncWorker.doWork()` calls `HealthGlanceWidget().updateAll(applicationContext)` after every sync. | Closed |
+| Gap | Current state |
+|-----|---------------|
+| Configurable readiness engine | Dashboard still uses a small hardcoded heuristic in `DashboardViewModel` |
+| Per-input readiness breakdown | Dashboard card does not yet show the richer ADR-003 style input-by-input display |
+| Subjective readiness input | No UI/data path exists yet |
+| Training-load readiness input | Deferred until workout-generation data flow exists |
 
-### Security
+### Provider / Data Source Flexibility
 
-| Feature | Gap | Location |
-|---------|-----|---------|
-| ~~**Certificate pinning**~~ | ✅ **Implemented 2026-03-02.** ISRG Root X1 + Root X2 pins added to both `ApiService` and `ServerApiClient` `OkHttpClient` builders via `CertificatePinner`. | Closed |
-| ~~**HMAC request signing**~~ | ✅ **Implemented + hardened 2026-03-02.** HMAC-SHA256 signing with replay protection. Client sends `X-Signature: sha256=HMAC(secret, "${ts}\n${body}")` and `X-Timestamp: <unix seconds>`. Server enforces both headers (no fallback), validates ±5 min timestamp freshness, fails closed if `DEVICE_SECRET` not set. `device_secret` removed from request body entirely. | Closed |
+| Gap | Current state |
+|-----|---------------|
+| Alternative health providers | Package 0B created the seam, but only `HealthConnectProvider` exists |
+| HC reliability fallback | No WHOOP/Oura/Garmin direct provider work exists; that remains validation-dependent |
 
-### Server Compatibility
+---
 
-| Feature | Gap | Location |
-|---------|-----|---------|
-| **Server version validation** | Settings screen displays the server version string fetched from the server, but no compatibility check is performed. If server schema changes, the app may silently malfunction. | `SettingsScreen.kt` / `ServerApiClient.kt` |
+## v2 Roadmap Work Not Yet Implemented
+
+These are not "missing v1 bugs"; they are deliberate v2 roadmap items still ahead of the current client codebase.
+
+| Roadmap area | Current state |
+|-------------|---------------|
+| Phase 1 server Hevy adapter + workout schema | Planned in `Health-Platform-Desktop`; not part of current Apex runtime |
+| Phase 2 readiness engine | Planned; execution artifacts written, code not landed yet |
+| Phase 2 future-pillar schemas | Planned in server repo; not client work |
+| Phase 3 workout generation flow | Not implemented |
+| Push-to-Hevy prescribed routine path | Validation-dependent Phase 3 feature |
 
 ---
 
 ## Impact Summary
 
-| Severity | Count | Items |
+| Severity | Count | Notes |
 |----------|-------|-------|
-| High | 0 | — all closed |
-| Medium (feature completeness) | 2 | QR onboarding, Server version validation |
-| Low (polish) | 1 | Incremental sync |
+| High | 0 | no obvious client-critical missing feature from the previously shipped scope |
+| Medium | 5 | readiness engine, readiness breakdown, durable inbound cache, body incremental sync, strict compatibility enforcement |
+| Low / planned | several | roadmap items intentionally not landed yet |
 
 ---
 
 ## Status
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| HRV sync to server | ✅ PASS | Implemented 2026-03-02 |
-| Certificate pinning | ✅ PASS | ISRG Root X1 + X2, both OkHttp clients |
-| "Clear all data" | ✅ PASS | Implemented 2026-03-02 |
-| Sync history detail | ✅ PASS | Last 10 events with status icons |
-| Widget auto-update after sync | ✅ PASS | GlanceWidget.updateAll() called after each sync |
-| Offline queue (Room) | ✅ PASS | Two-phase sync: HC→queue, queue→server; delete on success |
-| QR code onboarding | ❌ FAIL | No CameraX; stub button |
-| Hevy gym data sync | ✅ PASS | ActivityScreen + triggerHevySync() implemented 2026-03-03 |
-| AI analysis on device | ❌ FAIL | Backend only; app links to web dashboard |
-| Incremental sync (change tokens) | ❌ FAIL | Full 30-day every run |
-| HMAC request signing | ✅ PASS | Client interceptor + server verifyHmac middleware |
-| Server version validation | ❌ FAIL | Display only; no check |
+| Area | Status | Notes |
+|------|--------|-------|
+| Offline queue | ✅ PASS | implemented and durable |
+| QR onboarding | ✅ PASS | CameraX + ML Kit flow exists |
+| Hevy activity sync trigger | ✅ PASS | server-triggered from Activity screen |
+| Server version awareness | ✅ PARTIAL | warning/check exists, not a hard gate |
+| Incremental sync | ✅ PARTIAL | body remains full-read |
+| Readiness engine (ADR-003-style) | ❌ GAP | planned, not yet implemented |
+| Durable inbound read cache | ❌ GAP | trends/workouts remain live-read |
+| Alternative providers | ❌ GAP | seam exists; implementations do not |

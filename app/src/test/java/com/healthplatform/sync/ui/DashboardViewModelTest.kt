@@ -132,66 +132,84 @@ class DashboardViewModelTest {
     }
 
     // -------------------------------------------------------------------------
-    // computeReadiness
+    // Readiness engine integration (ADR-003)
+    // HRV weight = 0 by default (A-01 unvalidated), so only sleep + BP contribute.
+    // Scoring: sleep 360-540min → 0-100, BP 110-140 → 100-0.
+    // Bands: >=80 "Good to go", 50-79 "Moderate", <50 "Recovery day".
     // -------------------------------------------------------------------------
 
     @Test
-    fun `readiness good to go when all metrics optimal`() = runTest {
+    fun `readiness good to go when sleep and BP are optimal`() = runTest {
+        // Sleep 480min (8h, >=420) → 100, BP 115 (<120) → 100
+        // Weighted: (100*0.30 + 100*0.20) / 0.50 = 100 → "Good to go"
         prefs().edit()
             .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, 115)
-            .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, 480) // 8h
-            .putFloat(SyncPrefsKeys.LAST_HRV_MS, 65f)
+            .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, 480)
+            .putString(SyncPrefsKeys.LAST_BP_TIME, java.time.Instant.now().toString())
+            .putString(SyncPrefsKeys.LAST_SLEEP_TIME, java.time.Instant.now().toString())
             .apply()
 
         val vm = DashboardViewModel(app)
         drainAll()
 
         assertEquals("Good to go", vm.state.value.readinessLabel)
-        assertEquals("All metrics looking good", vm.state.value.readinessReason)
     }
 
     @Test
     fun `readiness take it easy with moderate metrics`() = runTest {
-        // BP 125 => +1, sleep 390min (6.5h) => +1 + concern, HRV 45 => +1  => score=3 >= 2
+        // Sleep 400min (6h40m, 360-420) → 70, BP 125 (120-130) → 70
+        // Weighted: (70*0.30 + 70*0.20) / 0.50 = 70 → "Take it easy"
         prefs().edit()
             .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, 125)
-            .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, 390)
-            .putFloat(SyncPrefsKeys.LAST_HRV_MS, 45f)
+            .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, 400)
+            .putString(SyncPrefsKeys.LAST_BP_TIME, java.time.Instant.now().toString())
+            .putString(SyncPrefsKeys.LAST_SLEEP_TIME, java.time.Instant.now().toString())
             .apply()
 
         val vm = DashboardViewModel(app)
         drainAll()
 
         assertEquals("Take it easy", vm.state.value.readinessLabel)
-        assertTrue(vm.state.value.readinessReason!!.contains("Under 7h sleep"))
     }
 
     @Test
     fun `readiness recovery day with poor metrics`() = runTest {
-        // BP 145 => -1, sleep 300min (5h) => -1, HRV 20 => -1 => score=-3
+        // Sleep 300min (<360) → 25, BP 145 (>=140) → 10
+        // Weighted: (25*0.30 + 10*0.20) / 0.50 = 19 → "Recovery day"
         prefs().edit()
             .putInt(SyncPrefsKeys.LAST_BP_SYSTOLIC, 145)
             .putInt(SyncPrefsKeys.LAST_SLEEP_DURATION_MIN, 300)
-            .putFloat(SyncPrefsKeys.LAST_HRV_MS, 20f)
+            .putString(SyncPrefsKeys.LAST_BP_TIME, java.time.Instant.now().toString())
+            .putString(SyncPrefsKeys.LAST_SLEEP_TIME, java.time.Instant.now().toString())
             .apply()
 
         val vm = DashboardViewModel(app)
         drainAll()
 
         assertEquals("Recovery day", vm.state.value.readinessLabel)
-        assertTrue(vm.state.value.readinessReason!!.contains("BP high"))
-        assertTrue(vm.state.value.readinessReason!!.contains("Low sleep"))
-        assertTrue(vm.state.value.readinessReason!!.contains("Low HRV"))
     }
 
     @Test
-    fun `readiness null when all three metrics null`() = runTest {
-        // No prefs set => all null
+    fun `readiness null when no metrics available`() = runTest {
         val vm = DashboardViewModel(app)
         drainAll()
 
         assertNull(vm.state.value.readinessLabel)
-        assertNull(vm.state.value.readinessReason)
+    }
+
+    @Test
+    fun `HRV excluded by default — does not affect score`() = runTest {
+        // Only set HRV, not sleep or BP — readiness should be null
+        prefs().edit()
+            .putFloat(SyncPrefsKeys.LAST_HRV_MS, 65f)
+            .putString(SyncPrefsKeys.LAST_HRV_TIME, java.time.Instant.now().toString())
+            .apply()
+
+        val vm = DashboardViewModel(app)
+        drainAll()
+
+        // HRV weight is 0 → excluded → no contributing inputs → null label
+        assertNull(vm.state.value.readinessLabel)
     }
 
     // -------------------------------------------------------------------------

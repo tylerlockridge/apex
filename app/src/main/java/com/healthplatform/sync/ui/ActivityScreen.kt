@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.healthplatform.sync.service.LandmarkStatusResponse
+import com.healthplatform.sync.service.ProgressionSummaryResponse
 import com.healthplatform.sync.ui.theme.*
 import com.healthplatform.sync.ui.util.rememberApexHaptic
 import java.time.Instant
@@ -39,7 +41,8 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActivityScreen(
-    viewModel: ActivityViewModel = viewModel()
+    viewModel: ActivityViewModel = viewModel(),
+    onNavigateToGenerate: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val haptic = rememberApexHaptic()
@@ -137,6 +140,30 @@ fun ActivityScreen(
                             // Weekly summary card
                             state.stats?.let { stats ->
                                 WeeklySummaryCard(stats)
+                            }
+
+                            // Generate workout button
+                            Button(
+                                onClick = { haptic.confirm(); onNavigateToGenerate() },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ApexPrimary,
+                                    contentColor = ApexOnPrimary
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.AutoAwesome,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Generate Workout", fontWeight = FontWeight.SemiBold)
+                            }
+
+                            // Progression summary card (Phase 3)
+                            state.progressionSummary?.let { summary ->
+                                ProgressionSummaryCard(summary)
                             }
 
                             // Workout list
@@ -450,6 +477,119 @@ private fun WorkoutChip(
             style = MaterialTheme.typography.labelSmall,
             color = ApexOnSurfaceVariant
         )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Progression summary card (Phase 3 — grounded in actuals from server)
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ProgressionSummaryCard(summary: ProgressionSummaryResponse) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = ApexSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Training Load",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = ApexPrimary
+                )
+                Text(
+                    text = "${summary.trainingLoadScore}%",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = when {
+                        summary.trainingLoadScore >= 80 -> ApexBpAccent
+                        summary.trainingLoadScore >= 40 -> ApexHrvAccent
+                        else -> ApexWeightAccent
+                    }
+                )
+            }
+
+            if (!summary.historyFresh) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Based on cached data — sync Hevy for latest",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ApexOnSurfaceVariant
+                )
+            }
+
+            // Compact volume landmarks — show muscles approaching MRV or below MEV
+            val alerts = summary.landmarkStatus.filter { (_, lm) -> lm.approachingMrv }
+            val low = summary.landmarkStatus.filter { (_, lm) ->
+                lm.status == "below_mev" || lm.status == "below_mav"
+            }
+
+            if (alerts.isNotEmpty() || low.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = ApexOutline)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (alerts.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.Warning,
+                        contentDescription = null,
+                        tint = ApexHrvAccent,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Approaching MRV: ${alerts.keys.joinToString { it.replace("_", " ") }}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ApexHrvAccent
+                    )
+                }
+            }
+
+            if (low.isNotEmpty()) {
+                if (alerts.isNotEmpty()) Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.TrendingDown,
+                        contentDescription = null,
+                        tint = ApexOnSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Below target: ${low.keys.joinToString { it.replace("_", " ") }}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ApexOnSurfaceVariant
+                    )
+                }
+            }
+
+            // 2-for-2 signals
+            val increases = summary.exerciseSignals.filter { it.suggestion == "increase_weight" }
+            if (increases.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.TrendingUp,
+                        contentDescription = null,
+                        tint = ApexWeightAccent,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Ready to increase: ${increases.joinToString { it.exerciseName }}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ApexWeightAccent
+                    )
+                }
+            }
+        }
     }
 }
 

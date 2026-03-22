@@ -19,13 +19,37 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-14 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-22 -->
 ## Quick Resume
-**Last Active:** 2026-03-14
-**Current Phase:** Post-audit — 6 fixes applied, ready for commit + CI
-**Current Task:** Triple-provider LLM audit complete (GPT 5.4: 5/10, Gemini 2.5 Pro: 8/10, Opus 4.6: 7.5/10). Consensus score: **7/10**. 6 fixes applied, build passes locally.
-**Blockers:** None.
-**Next Action:** Commit audit fixes, push to GitHub, verify CI passes, then sideload updated APK.
+**Last Active:** 2026-03-22
+**Current Phase:** v2 implementation — Phase 4 in progress (production live, source/live aligned, E2E pending)
+**Current Task:** Production rollout is fully live from clean branch `codex/health-platform-rollout`. `LOGIN_PASSWORD` was added on the server, the live `DB_NAME` mismatch (`healthplatform` -> `health_platform`) was fixed, `/health` is green with DB connected, migrations 001-013 are applied, and the rollout branch/source now matches production. Production data bootstrap is complete: `hevy_exercise_cache=311`, `workout_sessions=82`, `workout_sets=1580`, `exercise_muscle_overrides=26`, and `/api/generated-routines` returns real 201 routines for both push and pull sessions with progression signals, override attribution, and readiness-aware reasoning.
+**Blockers:** No infrastructure blockers. Remaining work is Phase 4 Task 7 daily-loop E2E validation on the real Apex device flow, then H-06 and A-01 validation/tuning, then Task 9 MVP ship declaration. VD-1 remains optional.
+**Next Action:** 1. Run Phase 4 Task 7 E2E verification on the real Apex device flow: sync -> readiness -> generate -> review -> execute in Hevy -> sync back -> confirm the next generation reflects updated history. 2. Run H-06 and A-01 validations during/after E2E. 3. If all pass, complete Task 9 MVP ship declaration.
+
+### v2 Architecture Artifacts
+- `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
+- `ARCHITECTURE-KICKOFF-CHECKLIST.md` — consumed at session start
+- `ARCHITECTURE-SESSION-01-OUTPUT.md` — drivers, constraints, ADR candidates, follow-ups
+- `SERVER-SCHEMA-INVENTORY.md` — PostgreSQL 16+, 7 raw SQL migrations, 11 tables
+- `EXERCISE-ATTRIBUTION-REFINEMENT-SCOPE.md` — system-scoped override table (~55 rows)
+- `ADR-001-hevy-abstraction-and-sync-strategy.md` — **acceptance-ready**, tiered sync by H-06 result
+- `ADR-002-server-schema-migration-strategy.md` — **accepted** for MVP
+- `ADR-003-readiness-scoring-input-architecture.md` — **acceptance-ready**, HRV config conditional on A-01
+- `ADR-004-workout-generation-reconciliation-model.md` — **accepted** for MVP
+- `ADR-005-health-data-source-abstraction.md` — **acceptance-ready**, provider interface already implemented in Package 0B
+- `ADR-ACCEPTANCE-RECORD.md` — Codex recommendation for human signoff on ADR-001 / ADR-003 / ADR-005
+- `GSD-PHASE-1.md` — Phase 1 execution plan (server Hevy adapter + workout schema)
+- `IMPL-BRIEF-PHASE-1.md` — implementation-ready Phase 1 brief
+- `GSD-PHASE-2.md` — Phase 2 execution plan (future-pillar schemas + readiness engine)
+- `IMPL-BRIEF-PHASE-2.md` — implementation-ready Phase 2 brief
+- `GSD-PHASE-3.md` — Phase 3 execution plan (workout generation MVP)
+- `IMPL-BRIEF-PHASE-3.md` — implementation-ready Phase 3 brief
+- `VALIDATION-RUNBOOK.md` — H-06 / A-01 / VD-1 manual procedures + prompt pack
+- `research/rp-volume-landmarks.md` — RP volume landmark availability/licensing research
+- `research/v1-client-data-flows.md` — current-state Apex client data flow baseline
+- `CODEX-COORDINATION-HANDOFF-2026-03-18.md` — Codex-side summary of prior coordination/protocol/research work for workflow reset
+- Governance cleanup remaining: human acceptance of ADR-001, ADR-003, and ADR-005. H-06, A-01, and VD-1 remain implementation/config validations, not ADR blockers.
 
 ## Session Summary (2026-03-10)
 - **UI overhaul**: All 4 screens polished (Dashboard, Trends, Activity, Settings) — per-metric accent colors, upgraded typography, section labels, card spacing

@@ -329,7 +329,14 @@ private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
                     TrendsScreen()
                 }
                 composable(Destination.Activity.route) {
-                    ActivityScreen()
+                    ActivityScreen(
+                        onNavigateToGenerate = { navController.navigate("generatedRoutine") }
+                    )
+                }
+                composable("generatedRoutine") {
+                    GeneratedRoutineScreen(
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable(Destination.Settings.route) {
                     SettingsScreen(

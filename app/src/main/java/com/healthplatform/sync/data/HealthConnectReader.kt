@@ -13,6 +13,10 @@ import androidx.health.connect.client.changes.UpsertionChange
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import com.healthplatform.sync.data.health.BloodPressureData
+import com.healthplatform.sync.data.health.BodyMeasurementData
+import com.healthplatform.sync.data.health.HrvData
+import com.healthplatform.sync.data.health.SleepData
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -352,38 +356,3 @@ class HealthConnectReader(
         }
     }
 }
-
-// Data classes for API sync
-data class BloodPressureData(
-    val systolic: Int,
-    val diastolic: Int,
-    val measuredAt: String,
-    val pulse: Int? = null,
-    val context: String? = null,
-    val deviceName: String? = null
-)
-
-data class SleepData(
-    val sleepStart: String,
-    val sleepEnd: String,
-    val durationMinutes: Int,
-    val deepSleepMinutes: Int? = null,
-    val remSleepMinutes: Int? = null,
-    val lightSleepMinutes: Int? = null,
-    val sleepScore: Int? = null,
-    val deviceName: String? = null
-)
-
-data class BodyMeasurementData(
-    val measuredAt: String,
-    val weightKg: Double? = null,
-    val bodyFatPercent: Double? = null,
-    val muscleMassKg: Double? = null,
-    val deviceName: String? = null
-)
-
-data class HrvData(
-    val measuredAt: String,
-    val hrvMs: Double,
-    val deviceName: String? = null
-)
