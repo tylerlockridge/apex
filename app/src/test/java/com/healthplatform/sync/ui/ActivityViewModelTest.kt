@@ -125,7 +125,7 @@ class ActivityViewModelTest {
 
     @Test
     fun `triggerHevySync success clears syncError and reloads workouts`() = runTest {
-        val syncResult = HevySyncResult(success = true, synced = 3, skipped = 0, total_fetched = 3, sync_id = "sync-001")
+        val syncResult = HevySyncResult(success = true, synced = 3, skipped = false, total_fetched = 3, sync_id = "sync-001")
         coEvery { mockClient.triggerHevySync() } returns Result.success(syncResult)
         coEvery { mockClient.getWorkouts(any(), any()) } returns Result.success(emptyList())
 
@@ -167,7 +167,7 @@ class ActivityViewModelTest {
     @Test
     fun `triggerHevySync is debounced — second call no-ops while syncing`() = runTest {
         coEvery { mockClient.triggerHevySync() } returns
-            Result.success(HevySyncResult(true, 0, 0, 0, null))
+            Result.success(HevySyncResult(success = true, synced = 0, skipped = false, total_fetched = 0, sync_id = null))
 
         viewModel.triggerHevySync()
         viewModel.triggerHevySync() // second call while isSyncing = true
@@ -175,6 +175,52 @@ class ActivityViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify(exactly = 1) { mockClient.triggerHevySync() }
+    }
+
+    @Test
+    fun `triggerHevySync skipped response does not surface error`() = runTest {
+        val skippedResult = HevySyncResult(
+            success = false, synced = 0, skipped = true, degraded = false,
+            duplicates_skipped = 0, total_fetched = 0, sync_id = "sync-skip"
+        )
+        coEvery { mockClient.triggerHevySync() } returns Result.success(skippedResult)
+        coEvery { mockClient.getWorkouts(any(), any()) } returns Result.success(emptyList())
+
+        viewModel.state.test {
+            awaitItem()
+
+            viewModel.triggerHevySync()
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertNull(viewModel.state.value.syncError)
+        assertFalse(viewModel.state.value.isSyncing)
+        // loadAll still called even when skipped — workouts may have been synced by a prior run
+        coVerify(atLeast = 2) { mockClient.getWorkouts(any(), any()) }
+    }
+
+    @Test
+    fun `triggerHevySync degraded response does not surface error`() = runTest {
+        val degradedResult = HevySyncResult(
+            success = false, synced = 0, skipped = false, degraded = true,
+            duplicates_skipped = 0, total_fetched = 0, sync_id = "sync-deg"
+        )
+        coEvery { mockClient.triggerHevySync() } returns Result.success(degradedResult)
+        coEvery { mockClient.getWorkouts(any(), any()) } returns Result.success(emptyList())
+
+        viewModel.state.test {
+            awaitItem()
+
+            viewModel.triggerHevySync()
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertNull(viewModel.state.value.syncError)
+        assertFalse(viewModel.state.value.isSyncing)
     }
 
     // -------------------------------------------------------------------------

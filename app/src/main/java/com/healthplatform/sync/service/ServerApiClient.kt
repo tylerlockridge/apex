@@ -75,7 +75,9 @@ data class WorkoutStatsSummaryResponse(
 data class HevySyncResult(
     val success: Boolean,
     val synced: Int,
-    val skipped: Int,
+    val skipped: Boolean = false,
+    val degraded: Boolean = false,
+    val duplicates_skipped: Int = 0,
     val total_fetched: Int,
     val sync_id: String?
 )
