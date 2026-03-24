@@ -272,6 +272,8 @@ Phase 0A (server) and Phase 0B (client) have **zero coupling**. They can execute
 
 **Purpose:** Close remaining gaps, apply validation-derived tuning, reconcile documentation, ship.
 
+**Status (2026-03-23):** Complete — v2 MVP shipped.
+
 **In scope:**
 1. H-06 sync tier finalization (if still at Tier 2 defaults)
 2. A-01 HRV activation (if validated but not yet enabled in readiness config)
@@ -286,11 +288,13 @@ Phase 0A (server) and Phase 0B (client) have **zero coupling**. They can execute
 **Soft dependencies:** H-02/H-03 require 4+ weeks of real usage data from Phase 3.
 
 **Exit criteria:**
-- All validation-derived config values applied (sync tier, HRV weight, push path)
-- End-to-end flow tested and working
-- Stale v1 documentation updated
-- App is stable for daily use as primary workout companion alongside Hevy
-- No known regressions from v1 functionality
+- ~~All validation-derived config values applied (sync tier, HRV weight, push path)~~ H-06: validated >= 30 req/min, Tier 2 defaults confirmed — no change needed. A-01: inconclusive (no confirmed HC HRV/sleep data meeting runbook validation window), HRV=0 shipped. VD-1: deferred, Path B shipped.
+- ~~End-to-end flow tested and working~~ Task 7 passed on real device (2026-03-22)
+- ~~Stale v1 documentation updated~~ Task 5 complete — mandatory + optional docs updated
+- ~~App is stable for daily use as primary workout companion alongside Hevy~~ Confirmed
+- ~~No known regressions from v1 functionality~~ Confirmed
+- H-02/H-03: explicitly deferred — insufficient data (< 1 week of daily use; 4+ weeks required)
+- ~~ADR-001, ADR-003, ADR-005 human acceptance~~ Accepted by Tyler 2026-03-23. All exit criteria satisfied.
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed for acceptance** — 2026-03-18. The architecture decision (weighted pluggable inputs, configurable weights, graceful degradation, client-side computation) is complete. A-01 determines initial HRV weight (0.25 or 0). H-02/H-03 tune weights during MVP. Neither blocks this ADR.
+**Accepted** — 2026-03-23. Accepted by Tyler (human controller-of-record). A-01 was inconclusive at ship time; HRV weight ships at 0.0 and can be activated via config when validated. H-02/H-03 weight tuning deferred to post-MVP (requires 4+ weeks of daily use data). Originally proposed 2026-03-18.
 
 ## Context
 

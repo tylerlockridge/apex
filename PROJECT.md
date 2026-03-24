@@ -19,13 +19,13 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-22 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-23 -->
 ## Quick Resume
-**Last Active:** 2026-03-22
-**Current Phase:** v2 implementation — Phase 4 in progress (Task 7 complete, validation/tuning pending)
-**Current Task:** Production rollout is fully live from clean branch `codex/health-platform-rollout`. `LOGIN_PASSWORD` was added on the server, the live `DB_NAME` mismatch (`healthplatform` -> `health_platform`) was fixed, `/health` is green with DB connected, migrations 001-013 are applied, and the rollout branch/source now matches production. Production data bootstrap is complete: `hevy_exercise_cache=311`, `workout_sessions=82`, `workout_sets=1580`, `exercise_muscle_overrides=26`, and `/api/generated-routines` returns real 201 routines for both push and pull sessions with progression signals, override attribution, and readiness-aware reasoning. Apex v2 client code is committed on branch `codex/apex-v2-e2e-ready` (`74c31c4`), PR #2 is open, and Android CI run `23413583303` completed successfully with v2 APK artifacts. Phase 4 Task 7 now passes cleanly end-to-end on a real device, including Hevy execution, post-workout sync-back, and re-generation with updated history. The false `Server unreachable` message was fixed by aligning the Apex Hevy sync model with the server contract (`skipped: Boolean`, `degraded: Boolean`, `duplicates_skipped: Int`).
-**Blockers:** No core flow blockers. Remaining work is H-06 and A-01 validation/tuning, then Task 9 MVP ship declaration. VD-1 remains optional.
-**Next Action:** 1. Run H-06 sync-tier validation and record whether current freshness behavior is acceptable or needs tuning. 2. Run A-01 HRV validation and decide whether to activate non-zero HRV weight. 3. If those pass, complete Task 9 MVP ship declaration.
+**Last Active:** 2026-03-23
+**Current Phase:** v2 MVP shipped
+**Current Task:** Apex v2 workout-first MVP is formally shipped. Phase 4 is fully complete. Production is live with migrations 001-013, 82 Hevy workouts, 311 exercise templates, 26 muscle overrides. Task 7 passed end-to-end on a real device. H-06 validated (>= 30 req/min, Tier 2 defaults confirmed). A-01 inconclusive — HRV weight ships at 0.0, config-ready for activation post-ship. VD-1 deferred — Path B (display-only) shipped by design. ADR-001, ADR-003, ADR-005 accepted by Tyler on 2026-03-23. All 5 ADRs now accepted.
+**Blockers:** None. MVP is shipped.
+**Next Action:** Daily use as primary workout companion alongside Hevy. Post-MVP: A-01 re-evaluation after HC data observed over multiple days; H-02/H-03 weight tuning after 4+ weeks of daily use; VD-1 push path if validated.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
@@ -33,12 +33,12 @@ standalone repository for clearer AI assistant context and independent versionin
 - `ARCHITECTURE-SESSION-01-OUTPUT.md` — drivers, constraints, ADR candidates, follow-ups
 - `SERVER-SCHEMA-INVENTORY.md` — PostgreSQL 16+, 7 raw SQL migrations, 11 tables
 - `EXERCISE-ATTRIBUTION-REFINEMENT-SCOPE.md` — system-scoped override table (~55 rows)
-- `ADR-001-hevy-abstraction-and-sync-strategy.md` — **acceptance-ready**, tiered sync by H-06 result
+- `ADR-001-hevy-abstraction-and-sync-strategy.md` — **accepted** 2026-03-23
 - `ADR-002-server-schema-migration-strategy.md` — **accepted** for MVP
-- `ADR-003-readiness-scoring-input-architecture.md` — **acceptance-ready**, HRV config conditional on A-01
+- `ADR-003-readiness-scoring-input-architecture.md` — **accepted** 2026-03-23
 - `ADR-004-workout-generation-reconciliation-model.md` — **accepted** for MVP
-- `ADR-005-health-data-source-abstraction.md` — **acceptance-ready**, provider interface already implemented in Package 0B
-- `ADR-ACCEPTANCE-RECORD.md` — Codex recommendation for human signoff on ADR-001 / ADR-003 / ADR-005
+- `ADR-005-health-data-source-abstraction.md` — **accepted** 2026-03-23
+- `ADR-ACCEPTANCE-RECORD.md` — governance complete, all 5 ADRs accepted
 - `GSD-PHASE-1.md` — Phase 1 execution plan (server Hevy adapter + workout schema)
 - `IMPL-BRIEF-PHASE-1.md` — implementation-ready Phase 1 brief
 - `GSD-PHASE-2.md` — Phase 2 execution plan (future-pillar schemas + readiness engine)
@@ -49,7 +49,7 @@ standalone repository for clearer AI assistant context and independent versionin
 - `research/rp-volume-landmarks.md` — RP volume landmark availability/licensing research
 - `research/v1-client-data-flows.md` — current-state Apex client data flow baseline
 - `CODEX-COORDINATION-HANDOFF-2026-03-18.md` — Codex-side summary of prior coordination/protocol/research work for workflow reset
-- Governance cleanup remaining: human acceptance of ADR-001, ADR-003, and ADR-005. H-06, A-01, and VD-1 remain implementation/config validations, not ADR blockers.
+- ADR governance complete: all 5 ADRs accepted. v2 MVP shipped 2026-03-23.
 
 ## Session Summary (2026-03-10)
 - **UI overhaul**: All 4 screens polished (Dashboard, Trends, Activity, Settings) — per-metric accent colors, upgraded typography, section labels, card spacing

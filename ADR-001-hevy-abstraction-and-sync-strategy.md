@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed for acceptance** — 2026-03-18. The architecture decisions (server-side adapter boundary, cache-through model, tiered sync, fallback behavior) are complete. H-06 selects the sync tier at implementation time but does not change the architecture. VD-1 determines whether routine cache is needed.
+**Accepted** — 2026-03-23. Accepted by Tyler (human controller-of-record) for MVP as implemented. H-06 validated >= 30 req/min; Tier 2 defaults confirmed appropriate. Direct Hevy routine push (VD-1) can be revisited post-MVP and is not required for current ship declaration. Originally proposed 2026-03-18.
 
 ## Context
 

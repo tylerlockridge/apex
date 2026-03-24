@@ -1,7 +1,7 @@
 # GSD Phase 4
 
 **Phase:** Polish, Validation, and MVP Ship
-**Status:** Not started
+**Status:** Complete — v2 MVP shipped 2026-03-23
 **Source:** IMPLEMENTATION-ROADMAP.md Phase 4; GSD-PHASE-3.md §10 Handoff; VALIDATION-RUNBOOK.md
 **Target repos:** Apex and Health-Platform-Desktop
 **Estimated effort:** 1-2 sessions
@@ -50,29 +50,21 @@ Phase 4 does NOT add features. It applies evidence from H-06, A-01, and VD-1 val
 
 ## 2. Current State (Code-Grounded)
 
-**Production deployment status:**
-- Migrations 008-012 are written but NOT yet applied to the live database
-- `exercise_muscle_overrides` seed script exists but NOT yet run on production
-- The generation flow, readiness engine, and all Phase 1-3 code are built and CI-green but awaiting production deployment
+**Production deployment status (2026-03-22):**
+- Migrations 001-013 applied on production. DB connected, `/health` green.
+- `exercise_muscle_overrides` seeded: 26 rows with real Hevy template IDs
+- `hevy_exercise_cache`: 311 templates. `workout_sessions`: 82. `workout_sets`: 1,580.
+- Generation endpoint returns real 201 routines with progression signals and readiness-aware reasoning.
 
-**Validation status:**
-- H-06: Not yet run. Adapter uses Tier 2 defaults (30 min periodic, 1/5min manual cap)
-- A-01: Not yet run. HRV weight is 0 in readiness config
-- VD-1: Not yet resolved. Path B (display-only) is shipped
+**Validation status (2026-03-23):**
+- H-06: **RESOLVED.** Tested 70 requests across 4 rate tiers (12, 30, 60, 120 req/min) plus 20-concurrent burst. Zero 429s. Classification: >= 30 req/min. Decision: Tier 2 defaults remain appropriate for MVP; no config change needed. Existing 429 handling + exponential backoff is correct defensive architecture.
+- A-01: **INCONCLUSIVE — shipped with HRV=0.** The v2 APK was installed and used on the physical device (Task 7 passed), but the server database contains zero HRV, sleep, and BP records from Health Connect. The runbook requires HRV present and current within 24h on at least two separate mornings — that evidence was not captured. Without confirmed Health Connect HRV/sleep data meeting the required validation window, the activation criteria are not satisfied. Decision: HRV weight stays `0.0` for MVP per runbook partial/fail path. Re-evaluate post-ship once Health Connect data syncs are observed on the server over multiple days.
+- VD-1: **DEFERRED — Path B shipped by design.** VD-1 was never run. Path B (display-only, user starts Hevy manually) is the MVP shipping path per ADR-004. Push-to-Hevy is a post-MVP add-on if VD-1 is later validated positive.
 
-**Documentation status:**
+**Documentation status (2026-03-23):**
+- Task 5 complete. All 3 mandatory docs updated (`01`, `03`, `07`). Optional docs (`05`, `10`, `11`, `12`) also updated where drift was discovered.
 
-Mandatory (named in IMPLEMENTATION-ROADMAP.md Phase 4):
-- `documentation/01-architecture-overview.md` — updated 2026-03-19, partially reflects v2 but missing generation flow, readiness engine details, ReadinessPayloadBuilder
-- `documentation/03-data-sync-protocol.md` — updated 2026-03-19, missing generation request/response protocol, progression summary endpoint
-- `documentation/07-background-sync-and-workers.md` — updated 2026-03-19, does not mention training-load readiness integration
-
-Optional (update only if drift discovered during mandatory pass):
-- `documentation/05-ui-screens-and-navigation.md` — explicitly notes it does NOT include the Phase 3 generation review route
-- `documentation/10-testing-strategy.md` — test count is stale (says 98 tests; Phase 3 added more)
-- `documentation/11-unimplemented-features.md` — lists Phase 1/2/3 roadmap items as "not yet implemented"; readiness engine listed as gap
-- `documentation/02-health-connect-integration.md` — may need minor update for readiness payload flow
-- `documentation/12-business-rules-and-edge-cases.md` — may need generation/progression rules added
+**H-02/H-03 status:** Explicitly deferred — insufficient data at ship time. MVP has been in daily use for < 1 week; 4+ weeks of readiness/workout data required. Current weights ship as-is. Re-evaluate post-MVP.
 
 **Client state:**
 - Readiness engine: `ReadinessEngine.kt`, `ReadinessConfigStore.kt`, `ReadinessModels.kt`, `ReadinessPayloadBuilder.kt` all landed
@@ -324,19 +316,19 @@ FINAL:
 
 Phase 4 is complete when ALL of the following are true:
 
-- [ ] Migrations 008-012 applied on production
-- [ ] exercise_muscle_overrides seeded on production
-- [ ] H-06 resolved OR shipped with Tier 2 defaults + documented
-- [ ] A-01 resolved OR shipped with HRV=0 + documented
-- [ ] VD-1 resolved OR shipped with Path B only + documented
-- [ ] End-to-end daily loop verified on production (all 8 steps in Task 7)
-- [ ] Mandatory documentation reconciled: `01-architecture-overview.md`, `03-data-sync-protocol.md`, `07-background-sync-and-workers.md`
-- [ ] H-02/H-03 tuning applied OR explicitly deferred with documented rationale (insufficient data)
-- [ ] ADR-001, ADR-003, ADR-005 human-accepted (governance)
-- [ ] PROJECT.md updated to reflect v2 MVP shipped
-- [ ] No known regressions from v1 functionality
-- [ ] CI green in both repos
-- [ ] App is stable for daily use as primary workout companion alongside Hevy
+- [x] Migrations 008-013 applied on production (2026-03-22)
+- [x] exercise_muscle_overrides seeded on production — 26 rows with real Hevy IDs (2026-03-22)
+- [x] H-06 resolved: >= 30 req/min validated; Tier 2 defaults confirmed appropriate; no config change needed (2026-03-23)
+- [x] A-01 shipped with HRV=0 + documented: inconclusive — no confirmed Health Connect HRV/sleep data meeting runbook's repeat-morning validation window; re-evaluate post-ship (2026-03-23)
+- [x] VD-1 shipped with Path B only + documented: deferred by design per ADR-004 (2026-03-23)
+- [x] End-to-end daily loop verified on production — all 8 Task 7 steps passed on real device including Hevy execution, sync-back, and re-generation with updated history (2026-03-22)
+- [x] Mandatory documentation reconciled: `01`, `03`, `07` updated; optional docs `05`, `10`, `11`, `12` also updated (Task 5 complete)
+- [x] H-02/H-03 explicitly deferred — insufficient data at ship time (< 1 week of daily use; 4+ weeks required) (2026-03-23)
+- [x] ADR-001, ADR-003, ADR-005 human-accepted by Tyler (2026-03-23)
+- [x] PROJECT.md updated to reflect v2 MVP shipped (2026-03-23)
+- [x] No known regressions from v1 functionality
+- [x] CI green in both repos (Android CI run `23413583303` passed; 155 server tests passing)
+- [x] App is stable for daily use as primary workout companion alongside Hevy
 
 ---
 

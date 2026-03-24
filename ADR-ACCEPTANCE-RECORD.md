@@ -6,13 +6,13 @@
 
 ---
 
-## Current Recommendation
+## Acceptance Status
 
-| ADR | Current repo status | Codex recommendation | Note |
-|-----|---------------------|----------------------|------|
-| ADR-001 | acceptance-ready | Accept with note | H-06 and VD-1 still affect sync-tier config and optional push behavior, but not the architecture |
-| ADR-003 | acceptance-ready | Accept with note | A-01 still affects the initial HRV weight/config, not the readiness architecture |
-| ADR-005 | acceptance-ready | Accept with note | Package 0B has already proven the seam in code; A-01 does not block the provider abstraction |
+| ADR | Status | Accepted by | Date | Note |
+|-----|--------|-------------|------|------|
+| ADR-001 | **Accepted** | Tyler (human controller-of-record) | 2026-03-23 | Accepted for MVP as implemented. VD-1 push path deferred to post-MVP. H-06 validated >= 30 req/min. |
+| ADR-003 | **Accepted** | Tyler (human controller-of-record) | 2026-03-23 | Accepted. A-01 inconclusive; HRV weight ships at 0.0, config-ready for activation. |
+| ADR-005 | **Accepted** | Tyler (human controller-of-record) | 2026-03-23 | Accepted. Provider interface proven in Package 0B. Alternative providers post-MVP. |
 
 ---
 
@@ -56,19 +56,6 @@
 
 ---
 
-## What This Does Not Do
+## Governance Complete
 
-- It does **not** mark these ADRs as human-approved.
-- It does **not** convert H-06, A-01, or VD-1 into architecture blockers.
-- It does **not** reopen any settled decisions absent contradictory repo evidence.
-
----
-
-## Human Signoff Action
-
-When ready, the human controller-of-record can mark:
-- `ADR-001-hevy-abstraction-and-sync-strategy.md` as accepted
-- `ADR-003-readiness-scoring-input-architecture.md` as accepted
-- `ADR-005-health-data-source-abstraction.md` as accepted
-
-That signoff should be treated as governance cleanup, not as a prerequisite for continuing implementation work already scoped by the roadmap.
+All three ADRs were accepted by Tyler on 2026-03-23 as part of Phase 4 Task 8 (ADR Governance Close-Out). The ADR files themselves have been updated from "Proposed for acceptance" to "Accepted" with the acceptance date and controller-of-record attribution. No further governance action is required for MVP ship.

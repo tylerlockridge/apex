@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed for acceptance** — 2026-03-18. The decision (abstract behind a provider interface now, implement HC-only at MVP) is complete and unconditional. A-01/H-04 determine whether alternative providers are ever needed, not whether the interface should exist.
+**Accepted** — 2026-03-23. Accepted by Tyler (human controller-of-record). Provider interface proven in Package 0B; HC-only at MVP. Alternative providers (WHOOP, Oura, Garmin) remain post-MVP and H-04 dependent. Originally proposed 2026-03-18.
 
 ## Context
 

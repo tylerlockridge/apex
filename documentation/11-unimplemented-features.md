@@ -1,6 +1,6 @@
 # Feature: Unimplemented Features & Known Gaps
 
-*Created: 2026-03-02 | Updated: 2026-03-19 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-23 | Project: Apex*
 
 ---
 
@@ -47,10 +47,11 @@ These items were previously listed as missing and are now implemented:
 
 | Gap | Current state |
 |-----|---------------|
-| Configurable readiness engine | Dashboard still uses a small hardcoded heuristic in `DashboardViewModel` |
-| Per-input readiness breakdown | Dashboard card does not yet show the richer ADR-003 style input-by-input display |
-| Subjective readiness input | No UI/data path exists yet |
-| Training-load readiness input | Deferred until workout-generation data flow exists |
+| ~~Configurable readiness engine~~ | ✅ Implemented — `ReadinessEngine.kt` + `ReadinessConfigStore.kt` with configurable weights via SharedPreferences |
+| ~~Per-input readiness breakdown~~ | ✅ Implemented — Dashboard shows per-input scores, staleness indicators, and aggregate score |
+| HRV readiness activation | HRV weight is `0.0` for MVP (A-01 inconclusive). Config-ready for `0.25` when validated. |
+| Subjective readiness input | No UI/data path exists yet (post-MVP) |
+| ~~Training-load readiness input~~ | ✅ Implemented — wired into readiness engine from workout generation data |
 
 ### Provider / Data Source Flexibility
 
@@ -61,17 +62,15 @@ These items were previously listed as missing and are now implemented:
 
 ---
 
-## v2 Roadmap Work Not Yet Implemented
+## v2 Roadmap Work — Status as of MVP Close-Out (2026-03-23)
 
-These are not "missing v1 bugs"; they are deliberate v2 roadmap items still ahead of the current client codebase.
-
-| Roadmap area | Current state |
-|-------------|---------------|
-| Phase 1 server Hevy adapter + workout schema | Planned in `Health-Platform-Desktop`; not part of current Apex runtime |
-| Phase 2 readiness engine | Planned; execution artifacts written, code not landed yet |
-| Phase 2 future-pillar schemas | Planned in server repo; not client work |
-| Phase 3 workout generation flow | Not implemented |
-| Push-to-Hevy prescribed routine path | Validation-dependent Phase 3 feature |
+| Roadmap area | Status |
+|-------------|--------|
+| ~~Phase 1 server Hevy adapter + workout schema~~ | ✅ Implemented — `hevyClient.js` with cache-through, backoff, rate-limit tracking. Migrations 008-009. 155 server tests. |
+| ~~Phase 2 readiness engine~~ | ✅ Implemented — `ReadinessEngine.kt`, `ReadinessConfigStore.kt`, `ReadinessModels.kt`, `ReadinessPayloadBuilder.kt` |
+| ~~Phase 2 future-pillar schemas~~ | ✅ Implemented — Migrations 010-012 (nutrition, supplement, coaching tables created empty) |
+| ~~Phase 3 workout generation flow~~ | ✅ Implemented — `GeneratedRoutineScreen.kt`, `GeneratedRoutineViewModel.kt`, server-side `workoutGenerator.js`, `progressionEngine.js` |
+| Push-to-Hevy prescribed routine path | Deferred (VD-1 unvalidated). Path B (display-only, manual Hevy start) shipped. Post-MVP add-on if VD-1 passes. |
 
 ---
 
@@ -79,9 +78,9 @@ These are not "missing v1 bugs"; they are deliberate v2 roadmap items still ahea
 
 | Severity | Count | Notes |
 |----------|-------|-------|
-| High | 0 | no obvious client-critical missing feature from the previously shipped scope |
-| Medium | 5 | readiness engine, readiness breakdown, durable inbound cache, body incremental sync, strict compatibility enforcement |
-| Low / planned | several | roadmap items intentionally not landed yet |
+| High | 0 | no client-critical missing features |
+| Medium | 3 | durable inbound cache, body incremental sync, strict compatibility enforcement |
+| Low / deferred | 3 | HRV activation (config-ready), subjective readiness UI, push-to-Hevy (VD-1 dependent) |
 
 ---
 
@@ -94,6 +93,7 @@ These are not "missing v1 bugs"; they are deliberate v2 roadmap items still ahea
 | Hevy activity sync trigger | ✅ PASS | server-triggered from Activity screen |
 | Server version awareness | ✅ PARTIAL | warning/check exists, not a hard gate |
 | Incremental sync | ✅ PARTIAL | body remains full-read |
-| Readiness engine (ADR-003-style) | ❌ GAP | planned, not yet implemented |
-| Durable inbound read cache | ❌ GAP | trends/workouts remain live-read |
-| Alternative providers | ❌ GAP | seam exists; implementations do not |
+| Readiness engine (ADR-003-style) | ✅ PASS | implemented with configurable weights, staleness, per-input breakdown |
+| Workout generation (Phase 3) | ✅ PASS | server-side generation + client review/accept flow |
+| Durable inbound read cache | ❌ GAP | trends/workouts remain live-read (post-MVP) |
+| Alternative providers | ❌ GAP | seam exists; implementations do not (post-MVP, H-04 dependent) |
