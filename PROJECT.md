@@ -19,13 +19,13 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-23 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-24 -->
 ## Quick Resume
-**Last Active:** 2026-03-23
+**Last Active:** 2026-03-24
 **Current Phase:** v2 MVP shipped
-**Current Task:** Apex v2 workout-first MVP is formally shipped. Phase 4 is fully complete. Production is live with migrations 001-013, 82 Hevy workouts, 311 exercise templates, 26 muscle overrides. Task 7 passed end-to-end on a real device. H-06 validated (>= 30 req/min, Tier 2 defaults confirmed). A-01 inconclusive — HRV weight ships at 0.0, config-ready for activation post-ship. VD-1 deferred — Path B (display-only) shipped by design. ADR-001, ADR-003, ADR-005 accepted by Tyler on 2026-03-23. All 5 ADRs now accepted.
-**Blockers:** None. MVP is shipped.
-**Next Action:** Daily use as primary workout companion alongside Hevy. Post-MVP: A-01 re-evaluation after HC data observed over multiple days; H-02/H-03 weight tuning after 4+ weeks of daily use; VD-1 push path if validated.
+**Current Task:** Post-MVP Health Connect sync stabilization. Server-side HMAC/raw-body bug is fixed and deployed; HRV now syncs successfully to production (139 records). Apex-side wire-contract fix is implemented locally on branch `codex/health-connect-wire-fix` so blood pressure, sleep, and body payloads use the server's snake_case schema. `assembleDebug` passes; targeted `ApiServiceTest` passes; full `./gradlew test` still has the same single pre-existing Robolectric SQLite failure. Live retry is pending because no Android device was connected at the end of the session.
+**Blockers:** Physical device not connected for post-fix live sync verification. Sleep/body/BP production counts remain unverified after the Apex payload fix.
+**Next Action:** Reconnect and unlock the phone, install the patched Apex build from `codex/health-connect-wire-fix`, trigger a manual Health Connect sync, verify `sleep_sessions` and `body_measurements` begin populating on production, then decide whether A-01/H-04 monitoring can officially begin.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff

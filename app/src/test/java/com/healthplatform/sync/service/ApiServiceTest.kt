@@ -1,11 +1,14 @@
 package com.healthplatform.sync.service
 
 import com.healthplatform.sync.data.health.BloodPressureData
+import com.healthplatform.sync.data.health.BodyMeasurementData
+import com.healthplatform.sync.data.health.SleepData
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -92,6 +95,34 @@ class ApiServiceTest {
         assertEquals("Empty sync response body", result.exceptionOrNull()!!.message)
     }
 
+    @Test
+    fun `syncBloodPressure serializes snake case fields`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setBody("""{"success":true,"synced":1,"sync_id":null}""")
+                .addHeader("Content-Type", "application/json")
+        )
+
+        apiService.syncBloodPressure(
+            listOf(
+                BloodPressureData(
+                    systolic = 120,
+                    diastolic = 80,
+                    measuredAt = "2024-01-01T00:00:00Z",
+                    pulse = 62,
+                    context = "resting",
+                    deviceName = "Pixel Watch"
+                )
+            )
+        )
+
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains(""""measured_at":"2024-01-01T00:00:00Z""""))
+        assertTrue(body.contains(""""device_name":"Pixel Watch""""))
+        assertFalse(body.contains("measuredAt"))
+        assertFalse(body.contains("deviceName"))
+    }
+
     // -------------------------------------------------------------------------
     // syncSleep — spot-check a second method to confirm shared logic
     // -------------------------------------------------------------------------
@@ -108,6 +139,86 @@ class ApiServiceTest {
 
         assertTrue(result.isSuccess)
         assertTrue(result.getOrThrow().success)
+    }
+
+    @Test
+    fun `syncSleep serializes snake case fields`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setBody("""{"success":true,"synced":1,"sync_id":null}""")
+                .addHeader("Content-Type", "application/json")
+        )
+
+        apiService.syncSleep(
+            listOf(
+                SleepData(
+                    sleepStart = "2024-01-01T22:00:00Z",
+                    sleepEnd = "2024-01-02T06:00:00Z",
+                    durationMinutes = 480,
+                    deepSleepMinutes = 90,
+                    remSleepMinutes = 80,
+                    lightSleepMinutes = 310,
+                    sleepScore = 84,
+                    deviceName = "Pixel Watch"
+                )
+            )
+        )
+
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains(""""sleep_start":"2024-01-01T22:00:00Z""""))
+        assertTrue(body.contains(""""sleep_end":"2024-01-02T06:00:00Z""""))
+        assertTrue(body.contains(""""duration_minutes":480"""))
+        assertTrue(body.contains(""""deep_sleep_minutes":90"""))
+        assertTrue(body.contains(""""rem_sleep_minutes":80"""))
+        assertTrue(body.contains(""""light_sleep_minutes":310"""))
+        assertTrue(body.contains(""""sleep_score":84"""))
+        assertTrue(body.contains(""""device_name":"Pixel Watch""""))
+        assertFalse(body.contains("sleepStart"))
+        assertFalse(body.contains("sleepEnd"))
+        assertFalse(body.contains("durationMinutes"))
+        assertFalse(body.contains("deviceName"))
+    }
+
+    @Test
+    fun `syncBodyMeasurements serializes snake case fields and filters null weights`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setBody("""{"success":true,"synced":1,"sync_id":null}""")
+                .addHeader("Content-Type", "application/json")
+        )
+
+        val result = apiService.syncBodyMeasurements(
+            listOf(
+                BodyMeasurementData(
+                    measuredAt = "2024-01-01T07:00:00Z",
+                    weightKg = 90.5,
+                    bodyFatPercent = 18.2,
+                    muscleMassKg = 38.4,
+                    deviceName = "Scale"
+                ),
+                BodyMeasurementData(
+                    measuredAt = "2024-01-02T07:00:00Z",
+                    weightKg = null,
+                    bodyFatPercent = 18.0,
+                    muscleMassKg = 38.5,
+                    deviceName = "Scale"
+                )
+            )
+        )
+
+        assertTrue(result.isSuccess)
+
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains(""""measured_at":"2024-01-01T07:00:00Z""""))
+        assertTrue(body.contains(""""weight_kg":90.5"""))
+        assertTrue(body.contains(""""body_fat_percent":18.2"""))
+        assertTrue(body.contains(""""muscle_mass_kg":38.4"""))
+        assertTrue(body.contains(""""device_name":"Scale""""))
+        assertFalse(body.contains("measuredAt"))
+        assertFalse(body.contains("weightKg"))
+        assertFalse(body.contains("bodyFatPercent"))
+        assertFalse(body.contains("muscleMassKg"))
+        assertFalse(body.contains("2024-01-02T07:00:00Z"))
     }
 
     @Test
