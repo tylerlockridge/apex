@@ -2,10 +2,10 @@ package com.healthplatform.sync.service
 
 import com.google.gson.Gson
 import com.healthplatform.sync.Config
-import com.healthplatform.sync.data.BloodPressureData
-import com.healthplatform.sync.data.BodyMeasurementData
-import com.healthplatform.sync.data.HrvData
-import com.healthplatform.sync.data.SleepData
+import com.healthplatform.sync.data.health.BloodPressureData
+import com.healthplatform.sync.data.health.BodyMeasurementData
+import com.healthplatform.sync.data.health.HrvData
+import com.healthplatform.sync.data.health.SleepData
 import okhttp3.CertificatePinner
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient

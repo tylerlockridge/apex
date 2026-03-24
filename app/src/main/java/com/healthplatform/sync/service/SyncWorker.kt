@@ -1,10 +1,12 @@
 package com.healthplatform.sync.service
 
+import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.core.app.NotificationCompat
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
@@ -12,11 +14,12 @@ import androidx.work.*
 import com.healthplatform.sync.Config
 import com.healthplatform.sync.NotificationChannels
 import com.healthplatform.sync.SyncPrefsKeys
-import com.healthplatform.sync.data.BloodPressureData
-import com.healthplatform.sync.data.BodyMeasurementData
-import com.healthplatform.sync.data.HealthConnectReader
-import com.healthplatform.sync.data.HrvData
-import com.healthplatform.sync.data.SleepData
+import com.healthplatform.sync.data.health.BloodPressureData
+import com.healthplatform.sync.data.health.BodyMeasurementData
+import com.healthplatform.sync.data.health.HealthConnectProvider
+import com.healthplatform.sync.data.health.HealthDataProvider
+import com.healthplatform.sync.data.health.HrvData
+import com.healthplatform.sync.data.health.SleepData
 import com.healthplatform.sync.data.db.ApexDatabase
 import com.healthplatform.sync.data.db.SyncQueueEntity
 import com.healthplatform.sync.data.db.computeRecordHash
@@ -47,7 +50,7 @@ class SyncWorker(
             val prefs = applicationContext
                 .getSharedPreferences(SyncPrefsKeys.FILE_NAME, Context.MODE_PRIVATE)
 
-            val reader = HealthConnectReader(applicationContext)
+            val provider: HealthDataProvider = providerOverride ?: HealthConnectProvider(applicationContext)
             val serverUrl = Config.getServerUrl(applicationContext)
             val deviceSecret = com.healthplatform.sync.security.SecurePrefs
                 .getDeviceSecret(applicationContext, Config.DEVICE_SECRET)
@@ -82,17 +85,17 @@ class SyncWorker(
                     val (records, newToken) = try {
                         if (storedToken != null) {
                             Log.d(TAG, "BP: incremental read using change token")
-                            reader.readBloodPressureChanges(storedToken)
+                            provider.readBloodPressureChanges(storedToken)
                         } else {
                             Log.d(TAG, "BP: full 30-day read (no token)")
-                            reader.readBloodPressure(since) to reader.getBpChangesToken()
+                            provider.readBloodPressure(since) to provider.getBpChangesToken()
                         }
                     } catch (e: Exception) {
                         // Token expired — clear it and fall back to a full read immediately
                         // so this run still captures current data instead of waiting 15 min.
                         Log.w(TAG, "BP token expired/invalid — falling back to full read", e)
                         prefs.edit().remove(SyncPrefsKeys.CHANGE_TOKEN_BP).apply()
-                        reader.readBloodPressure(since) to reader.getBpChangesToken()
+                        provider.readBloodPressure(since) to provider.getBpChangesToken()
                     }
                     dao.insertAll(records.map { it.toQueueEntity() })
                     prefs.edit().putString(SyncPrefsKeys.CHANGE_TOKEN_BP, newToken).apply()
@@ -108,15 +111,15 @@ class SyncWorker(
                     val (records, newToken) = try {
                         if (storedToken != null) {
                             Log.d(TAG, "Sleep: incremental read using change token")
-                            reader.readSleepChanges(storedToken)
+                            provider.readSleepChanges(storedToken)
                         } else {
                             Log.d(TAG, "Sleep: full 30-day read (no token)")
-                            reader.readSleep(since) to reader.getSleepChangesToken()
+                            provider.readSleep(since) to provider.getSleepChangesToken()
                         }
                     } catch (e: Exception) {
                         Log.w(TAG, "Sleep token expired/invalid — falling back to full read", e)
                         prefs.edit().remove(SyncPrefsKeys.CHANGE_TOKEN_SLEEP).apply()
-                        reader.readSleep(since) to reader.getSleepChangesToken()
+                        provider.readSleep(since) to provider.getSleepChangesToken()
                     }
                     dao.insertAll(records.map { it.toQueueEntity() })
                     prefs.edit().putString(SyncPrefsKeys.CHANGE_TOKEN_SLEEP, newToken).apply()
@@ -130,7 +133,7 @@ class SyncWorker(
                 // Body measurements: full read (weight/body-fat/lean-mass merge is not
                 // easily incremental). Room IGNORE strategy prevents duplicates.
                 try {
-                    val records = reader.readWeight(since)
+                    val records = provider.readWeight(since)
                     dao.insertAll(records.map { it.toQueueEntity() })
                     Log.d(TAG, "Queued ${records.size} body records from Health Connect")
                 } catch (e: Exception) {
@@ -144,15 +147,15 @@ class SyncWorker(
                     val (records, newToken) = try {
                         if (storedToken != null) {
                             Log.d(TAG, "HRV: incremental read using change token")
-                            reader.readHrvChanges(storedToken)
+                            provider.readHrvChanges(storedToken)
                         } else {
                             Log.d(TAG, "HRV: full 30-day read (no token)")
-                            reader.readHeartRateVariability(since) to reader.getHrvChangesToken()
+                            provider.readHeartRateVariability(since) to provider.getHrvChangesToken()
                         }
                     } catch (e: Exception) {
                         Log.w(TAG, "HRV token expired/invalid — falling back to full read", e)
                         prefs.edit().remove(SyncPrefsKeys.CHANGE_TOKEN_HRV).apply()
-                        reader.readHeartRateVariability(since) to reader.getHrvChangesToken()
+                        provider.readHeartRateVariability(since) to provider.getHrvChangesToken()
                     }
                     dao.insertAll(records.map { it.toQueueEntity() })
                     prefs.edit().putString(SyncPrefsKeys.CHANGE_TOKEN_HRV, newToken).apply()
@@ -417,6 +420,11 @@ class SyncWorker(
     }
 
     companion object {
+        /** Test-only override — inject a mock [HealthDataProvider] for unit tests. */
+        @SuppressLint("StaticFieldLeak") // Provider holds applicationContext, same lifecycle as WorkManager
+        @VisibleForTesting
+        internal var providerOverride: HealthDataProvider? = null
+
         private const val TAG = "SyncWorker"
         private const val NOTIF_ID_BP = 1001
 

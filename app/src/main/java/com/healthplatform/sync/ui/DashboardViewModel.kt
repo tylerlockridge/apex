@@ -5,6 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import com.healthplatform.sync.SyncPrefsKeys
+import com.healthplatform.sync.readiness.ReadinessConfigStore
+import com.healthplatform.sync.readiness.ReadinessEngine
+import com.healthplatform.sync.readiness.ReadinessInputId
+import com.healthplatform.sync.readiness.ReadinessResult
 import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.service.ServerApiClient
 import com.healthplatform.sync.service.SyncWorker
@@ -43,7 +47,8 @@ data class DashboardState(
     val lastHrvTime: String? = null,
     val lastWorkoutTitle: String? = null,
     val lastWorkoutDate: String? = null,
-    // Readiness score derived from BP + sleep + HRV (null until data is available)
+    // Readiness — engine-backed (ADR-003)
+    val readinessResult: ReadinessResult? = null,
     val readinessLabel: String? = null,
     val readinessReason: String? = null,
 )
@@ -107,7 +112,41 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 ServerApiClient(SecurePrefs.getApiKey(context), serverUrl, deviceSecret)
             } catch (_: Exception) { null }
 
-            val (readinessLabel, readinessReason) = computeReadiness(bpSystolic, sleepDurationMin, hrvMs)
+            // Fetch training load from server progression summary
+            var trainingLoadScore: Double? = null
+            var trainingLoadTime: String? = null
+            try {
+                serverClient?.getProgressionSummary(7)?.fold(
+                    onSuccess = { summary ->
+                        trainingLoadScore = summary.trainingLoadScore.toDouble()
+                        trainingLoadTime = java.time.Instant.now().toString()
+                    },
+                    onFailure = { /* Training load is non-critical */ }
+                )
+            } catch (_: Exception) { /* Training load is non-critical */ }
+
+            // Readiness engine (ADR-003) — replaces inline computeReadiness()
+            val configStore = ReadinessConfigStore(context)
+            // Activate training-load weight if we have data (Phase 3)
+            val effectiveTrainingWeight = if (trainingLoadScore != null)
+                maxOf(configStore.trainingLoadWeight, 0.10) else configStore.trainingLoadWeight
+            val engineConfig = ReadinessEngine.Config(
+                sleepWeight = configStore.sleepWeight,
+                bpWeight = configStore.bpWeight,
+                hrvWeight = configStore.hrvWeight,
+                subjectiveWeight = configStore.subjectiveWeight,
+                trainingLoadWeight = effectiveTrainingWeight,
+                normalHours = configStore.normalHours,
+                degradedHours = configStore.degradedHours,
+            )
+            val rawInputs = listOf(
+                ReadinessEngine.RawInput(ReadinessInputId.SLEEP, sleepDurationMin?.toDouble(), sleepTime),
+                ReadinessEngine.RawInput(ReadinessInputId.BLOOD_PRESSURE, bpSystolic?.toDouble(), bpTime),
+                ReadinessEngine.RawInput(ReadinessInputId.HRV, hrvMs, hrvTime),
+                ReadinessEngine.RawInput(ReadinessInputId.SUBJECTIVE, null, null),
+                ReadinessEngine.RawInput(ReadinessInputId.TRAINING_LOAD, trainingLoadScore, trainingLoadTime),
+            )
+            val readinessResult = ReadinessEngine.compute(rawInputs, engineConfig)
 
             _state.update { current ->
                 current.copy(
@@ -126,8 +165,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     lastWeightTime           = weightTime,
                     lastHrvMs                = hrvMs,
                     lastHrvTime              = hrvTime,
-                    readinessLabel           = readinessLabel,
-                    readinessReason          = readinessReason,
+                    readinessResult          = readinessResult,
+                    readinessLabel           = readinessResult.label,
+                    readinessReason          = readinessResult.summary,
                 )
             }
 
@@ -152,55 +192,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 onFailure = { /* Non-critical — silently ignore */ }
             )
         }
-    }
-
-    /**
-     * Derives a readiness label from the most recent BP, sleep, and HRV values.
-     * Uses fixed population thresholds — no server call required.
-     * Returns (label, reason) where reason summarises the limiting factor(s).
-     */
-    private fun computeReadiness(
-        systolic: Int?,
-        sleepMin: Int?,
-        hrvMs: Double?
-    ): Pair<String?, String?> {
-        if (listOfNotNull(systolic, sleepMin, hrvMs).isEmpty()) return null to null
-
-        var score = 0
-        val concerns = mutableListOf<String>()
-
-        systolic?.let {
-            when {
-                it < 120 -> score += 2
-                it < 130 -> score += 1
-                it < 140 -> concerns.add("BP elevated")
-                else     -> { score -= 1; concerns.add("BP high ($it)") }
-            }
-        }
-
-        sleepMin?.let {
-            when {
-                it >= 420 -> score += 2                          // 7+ h
-                it >= 360 -> { score += 1; concerns.add("Under 7h sleep") }
-                else      -> { score -= 1; concerns.add("Low sleep (${it / 60}h)") }
-            }
-        }
-
-        hrvMs?.let {
-            when {
-                it >= 60 -> score += 2
-                it >= 30 -> score += 1
-                else     -> { score -= 1; concerns.add("Low HRV (${it.toInt()} ms)") }
-            }
-        }
-
-        val label = when {
-            score >= 4 -> "Good to go"
-            score >= 2 -> "Take it easy"
-            else       -> "Recovery day"
-        }
-        val reason = if (concerns.isEmpty()) "All metrics looking good" else concerns.joinToString(" · ")
-        return label to reason
     }
 
     /**

@@ -1,5 +1,8 @@
 package com.healthplatform.sync.ui
 
+import com.healthplatform.sync.readiness.ReadinessInputResult
+import com.healthplatform.sync.readiness.ReadinessInputStatus
+
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -112,12 +115,23 @@ fun DashboardScreen(
                     onSyncNow = { haptic.click(); viewModel.triggerSync() }
                 )
 
-                // Readiness card — only shown once we have enough data
+                // Readiness section — engine-backed (ADR-003)
+                val readinessResult = state.readinessResult
                 val readinessLabel = state.readinessLabel
-                if (readinessLabel != null) {
+                if (readinessLabel != null && readinessResult != null) {
+                    // Aggregate card
                     ReadinessCard(
                         label = readinessLabel,
-                        reason = state.readinessReason ?: ""
+                        reason = state.readinessReason ?: "",
+                        score = readinessResult.aggregateScore
+                    )
+                    // Per-input breakdown rows
+                    ReadinessInputBreakdown(inputs = readinessResult.inputs)
+                } else if (readinessResult != null && readinessResult.aggregateScore == null) {
+                    ReadinessCard(
+                        label = "No readiness data",
+                        reason = readinessResult.summary,
+                        score = null
                     )
                 }
 
@@ -292,11 +306,12 @@ private fun SectionLabel(text: String) {
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun ReadinessCard(label: String, reason: String) {
+private fun ReadinessCard(label: String, reason: String, score: Int? = null) {
     val (icon, color) = when (label) {
-        "Good to go"   -> Icons.Rounded.CheckCircle to ApexStatusGreen
-        "Take it easy" -> Icons.Rounded.Info        to ApexStatusYellow
-        else           -> Icons.Rounded.Warning     to ApexStatusRed
+        "Good to go"        -> Icons.Rounded.CheckCircle to ApexStatusGreen
+        "Take it easy"      -> Icons.Rounded.Info        to ApexStatusYellow
+        "No readiness data" -> Icons.Rounded.Info        to ApexStatusYellow
+        else                -> Icons.Rounded.Warning     to ApexStatusRed
     }
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -310,7 +325,7 @@ private fun ReadinessCard(label: String, reason: String) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(28.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -321,6 +336,76 @@ private fun ReadinessCard(label: String, reason: String) {
                     style = MaterialTheme.typography.bodySmall,
                     color = ApexOnSurfaceVariant
                 )
+            }
+            if (score != null) {
+                Text(
+                    text = "$score",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    color = color
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadinessInputBreakdown(inputs: List<ReadinessInputResult>) {
+    val visible = inputs.filter { it.status != ReadinessInputStatus.EXCLUDED }
+    if (visible.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        visible.forEach { input ->
+            val statusColor = when (input.status) {
+                ReadinessInputStatus.FRESH    -> ApexStatusGreen
+                ReadinessInputStatus.DEGRADED -> ApexStatusYellow
+                ReadinessInputStatus.MISSING  -> ApexOnSurfaceVariant
+                ReadinessInputStatus.EXCLUDED -> ApexOnSurfaceVariant
+            }
+            val inputLabel = when (input.id) {
+                com.healthplatform.sync.readiness.ReadinessInputId.SLEEP -> "Sleep"
+                com.healthplatform.sync.readiness.ReadinessInputId.BLOOD_PRESSURE -> "Blood Pressure"
+                com.healthplatform.sync.readiness.ReadinessInputId.HRV -> "HRV"
+                com.healthplatform.sync.readiness.ReadinessInputId.SUBJECTIVE -> "Subjective"
+                com.healthplatform.sync.readiness.ReadinessInputId.TRAINING_LOAD -> "Training Load"
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Staleness dot
+                Canvas(modifier = Modifier.size(8.dp)) {
+                    drawCircle(color = statusColor)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                // Input label + reason
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = inputLabel,
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = ApexOnSurfaceVariant
+                    )
+                    Text(
+                        text = input.reason,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ApexOnSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+                // Score
+                if (input.score != null) {
+                    Text(
+                        text = "${input.score}",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                        color = statusColor
+                    )
+                } else {
+                    Text(
+                        text = "—",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ApexOnSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
             }
         }
     }

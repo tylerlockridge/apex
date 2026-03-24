@@ -5,6 +5,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.healthplatform.sync.security.SecurePrefs
+import com.healthplatform.sync.service.ProgressionSummaryResponse
 import com.healthplatform.sync.service.ServerApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +41,7 @@ data class WorkoutStats(
 data class ActivityState(
     val workouts: List<WorkoutSession> = emptyList(),
     val stats: WorkoutStats? = null,
+    val progressionSummary: ProgressionSummaryResponse? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val isSyncing: Boolean = false,
@@ -98,6 +100,7 @@ class ActivityViewModel(
         if (_state.value.isLoading) return
         loadWorkouts()
         loadStats()
+        loadProgressionSummary()
     }
 
     fun loadWorkouts(limit: Int = 20, offset: Int = 0) {
@@ -142,6 +145,17 @@ class ActivityViewModel(
                     _state.update { it.copy(stats = stats) }
                 },
                 onFailure = { /* stats are non-critical, silently ignore */ }
+            )
+        }
+    }
+
+    private fun loadProgressionSummary(days: Int = 7) {
+        viewModelScope.launch {
+            client.getProgressionSummary(days).fold(
+                onSuccess = { summary ->
+                    _state.update { it.copy(progressionSummary = summary) }
+                },
+                onFailure = { /* non-critical */ }
             )
         }
     }
