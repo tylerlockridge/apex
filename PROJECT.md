@@ -22,11 +22,11 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-26 -->
 ## Quick Resume
 **Last Active:** 2026-03-26
-**Current Phase:** UI overhaul implemented on `codex/apex-ui-overhaul`
-**Current Task:** UI overhaul + PR-readiness cleanup complete. Dead code removed (`triggerBpSync`/`triggerSleepSync`), stale strings fixed ("Back to Training"), docs reconciled. 11 files changed, build passes, 129/130 tests pass (1 pre-existing Robolectric SQLite failure unchanged).
-**Current Branch:** `codex/apex-ui-overhaul` (based on `origin/master` at `6c3f8a2`)
-**Blockers:** None. Ready to commit, push, and PR to master.
-**Next Action:** Commit the staged changes, push, create PR. Follow-up: address pre-existing icon deprecation warnings (AutoMirrored variants).
+**Current Phase:** UI overhaul merged to master
+**Current Task:** PR #4 merged to `master` via merge commit `810dc29`. QA passed (all screens PASS via on-device UIAutomator validation). CI build passed. 11 files changed, 129/130 tests pass (1 pre-existing Robolectric SQLite failure unchanged in `DashboardViewModelTest.triggerSync`).
+**Current Branch:** `master`
+**Blockers:** None.
+**Next Action:** Install merged master build on device for daily use. Re-provision API key and Health Connect permissions (wiped during QA-pass uninstall). Follow-up: address pre-existing icon deprecation warnings (AutoMirrored variants).
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
