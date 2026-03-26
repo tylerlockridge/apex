@@ -1,6 +1,6 @@
 # Feature: Testing Strategy
 
-*Created: 2026-03-02 | Updated: 2026-03-19 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-27 | Project: Apex*
 
 ---
 
@@ -18,20 +18,22 @@ Documents the current unit-test surface, test tooling, and the highest-value rem
 
 ## Current Test Inventory
 
-As of 2026-03-19, Apex has **12 unit-test files** under `app/src/test/java/com/healthplatform/sync` with **98 `@Test` methods**. No Kotlin test files currently exist under `app/src/androidTest`.
+As of 2026-03-27, Apex has **14 unit-test files** under `app/src/test/java/com/healthplatform/sync` with **129 `@Test` methods**. No Kotlin test files currently exist under `app/src/androidTest`.
 
 | File | Focus | `@Test` count |
 |------|-------|---------------|
 | `HealthConnectReaderTest.kt` | HC reader behavior | 12 |
 | `SyncQueueDaoTest.kt` | Room queue semantics | 6 |
 | `HealthConnectProviderTest.kt` | Package 0B provider adapter | 13 |
+| `ReadinessEngineTest.kt` | Readiness engine scoring, staleness, weights | 14 |
 | `BiometricLockManagerTest.kt` | biometric enable/auth gating | 6 |
 | `SecurePrefsTest.kt` | encrypted prefs behavior | 8 |
-| `ApiServiceTest.kt` | outbound sync client | 9 |
+| `ApiServiceTest.kt` | outbound sync client + HMAC signing | 12 |
 | `SyncWorkerTest.kt` | queue/sync worker behavior | 13 |
-| `ActivityViewModelTest.kt` | workout/activity state | 5 |
-| `DashboardViewModelTest.kt` | dashboard state + readiness heuristic | 10 |
+| `ActivityViewModelTest.kt` | workout/activity state + Hevy sync | 9 |
+| `DashboardViewModelTest.kt` | dashboard state + readiness engine integration | 11 |
 | `ErrorMessageTest.kt` | friendly error mapping | 4 |
+| `GeneratedRoutineViewModelTest.kt` | workout generation + accept/reject flow | 9 |
 | `SettingsViewModelTest.kt` | connectivity/permission/version checks | 5 |
 | `TrendsViewModelTest.kt` | trends state flows | 7 |
 
@@ -75,18 +77,13 @@ Compose UI test dependencies are present, but there are no committed Compose ins
 | No end-to-end Health Connect/device validation | unit tests cannot prove real HC permissions, background behavior, or device-specific data availability |
 | Widget behavior is not directly tested | lock-screen masking and Glance rendering remain effectively manual |
 | Weekly summary worker has no dedicated test file | notification cadence/content is only indirectly protected |
-| Future Phase 2 readiness engine tests do not exist yet | current dashboard heuristic is tested, but the planned configurable engine is not implemented yet |
+| ~~Phase 2 readiness engine tests~~ | ✅ `ReadinessEngineTest.kt` — 14 tests covering scoring, staleness, weight configuration, HRV exclusion |
 
 ---
 
 ## Recommended Next Test Priorities
 
-1. **Phase 2 readiness engine tests**
-   - fresh/degraded/excluded inputs
-   - HRV disabled path
-   - all-inputs-stale empty state
-   - dashboard viewmodel integration
-2. **Widget + weekly summary worker tests**
+1. **Widget + weekly summary worker tests**
    - widget masking on lock screen
    - weekly summary notification content gating
 3. **Compose instrumentation**

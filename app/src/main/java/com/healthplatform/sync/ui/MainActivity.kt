@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
@@ -52,7 +53,7 @@ private sealed class Destination(
     val icon: ImageVector
 ) {
     object Dashboard : Destination("dashboard", "Home", Icons.Rounded.Home)
-    object Trends : Destination("trends", "Trends", Icons.Rounded.TrendingUp)
+    object Trends : Destination("trends", "Trends", Icons.AutoMirrored.Rounded.TrendingUp)
     object Activity : Destination("activity", "Training", Icons.Rounded.FitnessCenter)
     object Settings : Destination("settings", "Settings", Icons.Rounded.Settings)
 }
