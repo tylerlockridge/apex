@@ -9,8 +9,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.healthplatform.sync.ui.charts.SparklineChart
 import com.healthplatform.sync.ui.theme.*
 import com.healthplatform.sync.ui.util.rememberApexHaptic
 import java.util.concurrent.TimeUnit
@@ -56,31 +53,18 @@ fun DashboardScreen(
     val haptic = rememberApexHaptic()
     var isRefreshing by remember { mutableStateOf(false) }
 
-    // A-2: Removed redundant LaunchedEffect(Unit) { viewModel.loadFromPrefs() }.
-    // ViewModel.init already calls loadFromPrefs(), and triggerSync() refreshes after
-    // sync completes. The duplicate call was creating a new HealthConnectReader on
-    // every tab switch and double-loading prefs.
-
-    // Dismiss PTR as soon as prefs have been reloaded (no hardcoded delay).
     LaunchedEffect(state.isLoadingPrefs) {
         if (!state.isLoadingPrefs) isRefreshing = false
     }
 
-    // Card visibility for staggered animation — rememberSaveable so the entrance
-    // animation fires once per app session rather than replaying on every tab switch.
-    var card0Visible by rememberSaveable { mutableStateOf(false) }
-    var card1Visible by rememberSaveable { mutableStateOf(false) }
-    var card2Visible by rememberSaveable { mutableStateOf(false) }
-    var card3Visible by rememberSaveable { mutableStateOf(false) }
+    // Staggered entrance — fires once per app session
+    var heroVisible by rememberSaveable { mutableStateOf(false) }
+    var gridVisible by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        card0Visible = true
-        kotlinx.coroutines.delay(100)
-        card1Visible = true
-        kotlinx.coroutines.delay(100)
-        card2Visible = true
-        kotlinx.coroutines.delay(100)
-        card3Visible = true
+        heroVisible = true
+        kotlinx.coroutines.delay(120)
+        gridVisible = true
     }
 
     Scaffold(
@@ -109,92 +93,75 @@ fun DashboardScreen(
                     .padding(top = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                DashboardHeader()
-                SyncStatusCard(
-                    state = state,
-                    onSyncNow = { haptic.click(); viewModel.triggerSync() }
-                )
+                HomeHeader()
 
-                // Readiness section — engine-backed (ADR-003)
-                val readinessResult = state.readinessResult
-                val readinessLabel = state.readinessLabel
-                if (readinessLabel != null && readinessResult != null) {
-                    // Aggregate card
-                    ReadinessCard(
-                        label = readinessLabel,
-                        reason = state.readinessReason ?: "",
-                        score = readinessResult.aggregateScore
-                    )
-                    // Per-input breakdown rows
-                    ReadinessInputBreakdown(inputs = readinessResult.inputs)
-                } else if (readinessResult != null && readinessResult.aggregateScore == null) {
-                    ReadinessCard(
-                        label = "No readiness data",
-                        reason = readinessResult.summary,
-                        score = null
+                // Hero: Readiness + Sync status combined
+                AnimatedVisibility(
+                    visible = heroVisible,
+                    enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                        slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 4 }
+                ) {
+                    HeroCard(
+                        state = state,
+                        onSyncNow = { haptic.click(); viewModel.triggerSync() }
                     )
                 }
 
+                // Permissions banner — only when HC is available but permissions missing
+                if (!state.hasAllPermissions && state.isHealthConnectAvailable) {
+                    PermissionsBanner(
+                        onRequestPermissions = { haptic.click(); onRequestPermissions() }
+                    )
+                } else if (!state.isHealthConnectAvailable) {
+                    HcUnavailableBanner()
+                }
+
+                // Health Metrics — 2×2 visible grid (replaces horizontal scroll)
                 SectionLabel(text = "Health Metrics")
 
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(start = 4.dp, end = 20.dp)
+                AnimatedVisibility(
+                    visible = gridVisible,
+                    enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                        slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 4 }
                 ) {
-                    item {
-                        AnimatedVisibility(
-                            visible = card0Visible,
-                            enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
-                            slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 3 }
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            BloodPressureCard(
+                            BloodPressureTile(
                                 systolic = state.lastBpSystolic,
                                 diastolic = state.lastBpDiastolic,
-                                time = state.lastBpTime
+                                time = state.lastBpTime,
+                                modifier = Modifier.weight(1f)
                             )
-                        }
-                    }
-                    item {
-                        AnimatedVisibility(
-                            visible = card1Visible,
-                            enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
-                            slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 3 }
-                        ) {
-                            SleepCard(
+                            SleepTile(
                                 durationMin = state.lastSleepDurationMin,
                                 deepMin = state.lastSleepDeepMin,
                                 remMin = state.lastSleepRemMin,
-                                time = state.lastSleepTime
+                                time = state.lastSleepTime,
+                                modifier = Modifier.weight(1f)
                             )
                         }
-                    }
-                    item {
-                        AnimatedVisibility(
-                            visible = card2Visible,
-                            enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
-                            slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 3 }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            WeightCard(
+                            WeightTile(
                                 weightKg = state.lastWeightKg,
-                                time = state.lastWeightTime
+                                time = state.lastWeightTime,
+                                modifier = Modifier.weight(1f)
                             )
-                        }
-                    }
-                    item {
-                        AnimatedVisibility(
-                            visible = card3Visible,
-                            enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
-                            slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { it / 3 }
-                        ) {
-                            HrvCard(
+                            HrvTile(
                                 hrvMs = state.lastHrvMs,
-                                time = state.lastHrvTime
+                                time = state.lastHrvTime,
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
                 }
 
-                // Recent workout snippet — capture to local val for smart cast
+                // Recent workout snippet
                 val workoutTitle = state.lastWorkoutTitle
                 if (workoutTitle != null) {
                     RecentWorkoutSnippet(
@@ -202,28 +169,17 @@ fun DashboardScreen(
                         date = state.lastWorkoutDate
                     )
                 }
-
-                HealthConnectStatusCard(
-                    state = state,
-                    onRequestPermissions = { haptic.click(); onRequestPermissions() }
-                )
-                QuickActionsRow(
-                    isSyncing = state.isSyncing,
-                    onSyncBp = { haptic.click(); viewModel.triggerBpSync() },
-                    onSyncSleep = { haptic.click(); viewModel.triggerSleepSync() }
-                )
             }
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// A — Header
+// Header
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun DashboardHeader() {
-    // A-4: Keyed by current hour so the greeting updates if the app spans midnight.
+private fun HomeHeader() {
     val currentHour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
     val greeting = when {
         currentHour < 12 -> "Good morning"
@@ -253,7 +209,6 @@ private fun DashboardHeader() {
                 color = ApexOnBackground
             )
         }
-        // Date chip
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
@@ -302,130 +257,23 @@ private fun SectionLabel(text: String) {
 }
 
 // ---------------------------------------------------------------------------
-// B — Readiness Score Card
+// Hero Card — Readiness + Sync combined
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun ReadinessCard(label: String, reason: String, score: Int? = null) {
-    val (icon, color) = when (label) {
-        "Good to go"        -> Icons.Rounded.CheckCircle to ApexStatusGreen
-        "Take it easy"      -> Icons.Rounded.Info        to ApexStatusYellow
-        "No readiness data" -> Icons.Rounded.Info        to ApexStatusYellow
-        else                -> Icons.Rounded.Warning     to ApexStatusRed
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.10f)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.35f))
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(28.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = color
-                )
-                Text(
-                    text = reason,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ApexOnSurfaceVariant
-                )
-            }
-            if (score != null) {
-                Text(
-                    text = "$score",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
-                    color = color
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReadinessInputBreakdown(inputs: List<ReadinessInputResult>) {
-    val visible = inputs.filter { it.status != ReadinessInputStatus.EXCLUDED }
-    if (visible.isEmpty()) return
-
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        visible.forEach { input ->
-            val statusColor = when (input.status) {
-                ReadinessInputStatus.FRESH    -> ApexStatusGreen
-                ReadinessInputStatus.DEGRADED -> ApexStatusYellow
-                ReadinessInputStatus.MISSING  -> ApexOnSurfaceVariant
-                ReadinessInputStatus.EXCLUDED -> ApexOnSurfaceVariant
-            }
-            val inputLabel = when (input.id) {
-                com.healthplatform.sync.readiness.ReadinessInputId.SLEEP -> "Sleep"
-                com.healthplatform.sync.readiness.ReadinessInputId.BLOOD_PRESSURE -> "Blood Pressure"
-                com.healthplatform.sync.readiness.ReadinessInputId.HRV -> "HRV"
-                com.healthplatform.sync.readiness.ReadinessInputId.SUBJECTIVE -> "Subjective"
-                com.healthplatform.sync.readiness.ReadinessInputId.TRAINING_LOAD -> "Training Load"
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Staleness dot
-                Canvas(modifier = Modifier.size(8.dp)) {
-                    drawCircle(color = statusColor)
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                // Input label + reason
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = inputLabel,
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = ApexOnSurfaceVariant
-                    )
-                    Text(
-                        text = input.reason,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ApexOnSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-                // Score
-                if (input.score != null) {
-                    Text(
-                        text = "${input.score}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                        color = statusColor
-                    )
-                } else {
-                    Text(
-                        text = "—",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ApexOnSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// C — Sync Status Card
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun SyncStatusCard(
+private fun HeroCard(
     state: DashboardState,
     onSyncNow: () -> Unit
 ) {
+    val readinessResult = state.readinessResult
+    val readinessLabel = state.readinessLabel
+
     val nowMs = System.currentTimeMillis()
     val ageMs = if (state.lastSyncMs > 0) nowMs - state.lastSyncMs else Long.MAX_VALUE
     val ageMinutes = TimeUnit.MILLISECONDS.toMinutes(ageMs)
     val ageHours = TimeUnit.MILLISECONDS.toHours(ageMs)
 
-    val dotColor = when {
+    val syncDotColor = when {
         state.lastSyncMs == 0L -> ApexStatusRed
         ageHours < 1 -> ApexStatusGreen
         ageHours < 24 -> ApexStatusYellow
@@ -435,176 +283,346 @@ private fun SyncStatusCard(
     val syncLabel = when {
         state.lastSyncMs == 0L -> "Never synced"
         ageMinutes < 1 -> "Just now"
-        ageMinutes < 60 -> "Last synced: ${ageMinutes}m ago"
-        else -> "Last synced: ${ageHours}h ago"
+        ageMinutes < 60 -> "${ageMinutes}m ago"
+        else -> "${ageHours}h ago"
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = ApexSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // L-3: compound indicator — color + icon so error state is accessible
-                // to colorblind users without relying on color alone.
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    PulsingDot(color = dotColor)
-                    if (state.syncError != null) {
-                        Icon(
-                            imageVector = Icons.Rounded.ErrorOutline,
-                            contentDescription = "Sync error",
-                            tint = ApexStatusRed,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-                Column {
-                    Text(
-                        text = syncLabel,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = ApexOnSurface
-                    )
-                    if (state.isSyncing) {
-                        Text(
-                            text = "Sync in progress...",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = ApexPrimary
-                        )
-                    }
-                }
-            }
-
-            OutlinedButton(
-                onClick = onSyncNow,
-                enabled = !state.isSyncing,
-                border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = ApexPrimary,
-                    disabledContentColor = ApexOnSurfaceVariant
-                )
-            ) {
-                if (state.isSyncing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = ApexPrimary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Syncing")
-                } else {
-                    Text("Sync Now")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PulsingDot(color: Color) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-    Box(
-        modifier = Modifier
-            .size(12.dp)
-            .scale(scale)
-            .clip(CircleShape)
-            .background(color.copy(alpha = alpha))
-    )
-}
-
-// ---------------------------------------------------------------------------
-// C — Sync FAB
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun SyncFab(isSyncing: Boolean, onSync: () -> Unit) {
-    // animateFloatAsState settles when isSyncing becomes false — no wasted GPU work
-    // at rest, unlike an infiniteRepeatable that loops between 1f and 1f.
-    val fabScale by animateFloatAsState(
-        targetValue = if (isSyncing) 1.08f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "fab_scale"
-    )
-
-    FloatingActionButton(
-        onClick = { if (!isSyncing) onSync() },
-        modifier = Modifier.scale(fabScale),
-        containerColor = ApexPrimary,
-        contentColor = ApexOnPrimary
-    ) {
-        if (isSyncing) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                strokeWidth = 2.dp,
-                color = ApexOnPrimary
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Rounded.Sync,
-                contentDescription = "Sync now"
-            )
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// D — Metric Cards (horizontal scroll)
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun MetricCard(
-    title: String,
-    icon: ImageVector,
-    accentColor: Color = ApexPrimary,
-    sparklinePoints: List<Float> = emptyList(),
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = Modifier.width(168.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ApexSurfaceVariant),
-        border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
-            color = accentColor.copy(alpha = 0.18f)
-        ),
+        colors = CardDefaults.cardColors(containerColor = ApexSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Metric color accent bar at top
+            // Gradient accent bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                ApexPrimary.copy(alpha = 0.85f),
+                                ApexPrimary.copy(alpha = 0.15f)
+                            )
+                        )
+                    )
+            )
+
+            Column(modifier = Modifier.padding(20.dp)) {
+                // Readiness section
+                if (readinessLabel != null && readinessResult != null && readinessResult.aggregateScore != null) {
+                    val readinessColor = when (readinessLabel) {
+                        "Good to go"   -> ApexStatusGreen
+                        "Take it easy" -> ApexStatusYellow
+                        else           -> ApexStatusRed
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "TODAY'S READINESS",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    letterSpacing = 1.2.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = ApexOnSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = readinessLabel,
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = readinessColor
+                            )
+                            if (!state.readinessReason.isNullOrBlank()) {
+                                Text(
+                                    text = state.readinessReason,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = ApexOnSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Large readiness score
+                        ReadinessGauge(
+                            score = readinessResult.aggregateScore,
+                            color = readinessColor,
+                            modifier = Modifier.size(72.dp)
+                        )
+                    }
+
+                    // Per-input breakdown (compact)
+                    val visibleInputs = readinessResult.inputs.filter {
+                        it.status != ReadinessInputStatus.EXCLUDED
+                    }
+                    if (visibleInputs.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            visibleInputs.forEach { input ->
+                                val statusColor = when (input.status) {
+                                    ReadinessInputStatus.FRESH    -> ApexStatusGreen
+                                    ReadinessInputStatus.DEGRADED -> ApexStatusYellow
+                                    ReadinessInputStatus.MISSING  -> ApexOnSurfaceVariant
+                                    ReadinessInputStatus.EXCLUDED -> ApexOnSurfaceVariant
+                                }
+                                val inputLabel = when (input.id) {
+                                    com.healthplatform.sync.readiness.ReadinessInputId.SLEEP -> "Sleep"
+                                    com.healthplatform.sync.readiness.ReadinessInputId.BLOOD_PRESSURE -> "BP"
+                                    com.healthplatform.sync.readiness.ReadinessInputId.HRV -> "HRV"
+                                    com.healthplatform.sync.readiness.ReadinessInputId.SUBJECTIVE -> "Feel"
+                                    com.healthplatform.sync.readiness.ReadinessInputId.TRAINING_LOAD -> "Load"
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Canvas(modifier = Modifier.size(6.dp)) {
+                                        drawCircle(color = statusColor)
+                                    }
+                                    Text(
+                                        text = inputLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = ApexOnSurfaceVariant
+                                    )
+                                    if (input.score != null) {
+                                        Text(
+                                            text = "${input.score}",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = statusColor
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (readinessResult != null && readinessResult.aggregateScore == null) {
+                    // Partial readiness data
+                    Text(
+                        text = "READINESS",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 1.2.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = ApexOnSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = readinessResult.summary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ApexOnSurfaceVariant
+                    )
+                } else {
+                    // No readiness data at all
+                    Text(
+                        text = "READINESS",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 1.2.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = ApexOnSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Sync health data to see your readiness score",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ApexOnSurfaceVariant
+                    )
+                }
+
+                // Divider between readiness and sync
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 14.dp),
+                    color = ApexOutline
+                )
+
+                // Sync status line
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            PulsingDot(color = syncDotColor)
+                            if (state.syncError != null) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ErrorOutline,
+                                    contentDescription = "Sync error",
+                                    tint = ApexStatusRed,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = syncLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ApexOnSurface
+                        )
+                        if (state.isSyncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = ApexPrimary
+                            )
+                        }
+                    }
+
+                    TextButton(
+                        onClick = onSyncNow,
+                        enabled = !state.isSyncing,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = ApexPrimary,
+                            disabledContentColor = ApexOnSurfaceVariant
+                        )
+                    ) {
+                        Text(
+                            text = if (state.isSyncing) "Syncing..." else "Sync Now",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 240° arc gauge showing readiness score — reused for sleep too. */
+@Composable
+private fun ReadinessGauge(score: Int, color: Color, modifier: Modifier = Modifier) {
+    val sweepAngle by animateFloatAsState(
+        targetValue = 240f * score / 100f,
+        animationSpec = tween(durationMillis = 900),
+        label = "readinessArc"
+    )
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = Stroke(width = size.minDimension * 0.10f, cap = StrokeCap.Round)
+            val inset = stroke.width / 2
+            val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
+            drawArc(color = ApexOutline, startAngle = 150f, sweepAngle = 240f, useCenter = false, topLeft = Offset(inset, inset), size = arcSize, style = stroke)
+            drawArc(color = color, startAngle = 150f, sweepAngle = sweepAngle, useCenter = false, topLeft = Offset(inset, inset), size = arcSize, style = stroke)
+        }
+        Text(
+            text = "$score",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+            color = color
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Permissions banners
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun PermissionsBanner(onRequestPermissions: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = ApexStatusYellow.copy(alpha = 0.08f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, ApexStatusYellow.copy(alpha = 0.25f))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Warning,
+                contentDescription = null,
+                tint = ApexStatusYellow,
+                modifier = Modifier.size(20.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Health Connect permissions needed",
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = ApexOnSurface
+                )
+                Text(
+                    text = "Grant access to read your health data",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ApexOnSurfaceVariant
+                )
+            }
+            TextButton(
+                onClick = onRequestPermissions,
+                colors = ButtonDefaults.textButtonColors(contentColor = ApexStatusYellow)
+            ) {
+                Text("Grant", fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HcUnavailableBanner() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = ApexStatusRed.copy(alpha = 0.08f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, ApexStatusRed.copy(alpha = 0.20f))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ErrorOutline,
+                contentDescription = null,
+                tint = ApexStatusRed,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = "Health Connect not available on this device",
+                style = MaterialTheme.typography.bodySmall,
+                color = ApexOnSurfaceVariant
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Metric Tiles (2×2 grid)
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun MetricTile(
+    title: String,
+    icon: ImageVector,
+    accentColor: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = ApexSurfaceVariant),
+        border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.18f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Accent bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -645,53 +663,37 @@ private fun MetricCard(
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 content()
-                if (sparklinePoints.size >= 2) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    SparklineChart(
-                        points = sparklinePoints,
-                        color = accentColor.copy(alpha = 0.6f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(28.dp)
-                    )
-                }
             }
         }
     }
 }
 
 @Composable
-private fun BloodPressureCard(
+private fun BloodPressureTile(
     systolic: Int?,
     diastolic: Int?,
-    time: String?
+    time: String?,
+    modifier: Modifier = Modifier
 ) {
-    MetricCard(
+    MetricTile(
         title = "Blood Pressure",
         icon = Icons.Rounded.Favorite,
-        accentColor = ApexBpAccent
+        accentColor = ApexBpAccent,
+        modifier = modifier
     ) {
         if (systolic != null && diastolic != null) {
             Text(
                 text = "$systolic/$diastolic",
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 26.sp
+                    fontSize = 24.sp
                 ),
                 color = ApexOnSurface
             )
-            Text(
-                text = "mmHg",
-                style = MaterialTheme.typography.labelSmall,
-                color = ApexOnSurfaceVariant
-            )
+            Text(text = "mmHg", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             if (time != null) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = formatIsoTime(time),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = ApexOnSurfaceVariant
-                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = formatIsoTime(time), style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             }
         } else {
             MetricEmptyState()
@@ -700,28 +702,30 @@ private fun BloodPressureCard(
 }
 
 @Composable
-private fun SleepCard(
+private fun SleepTile(
     durationMin: Int?,
     deepMin: Int?,
     remMin: Int?,
-    time: String?
+    time: String?,
+    modifier: Modifier = Modifier
 ) {
-    MetricCard(
+    MetricTile(
         title = "Sleep",
         icon = Icons.Rounded.Bedtime,
-        accentColor = ApexSleepAccent
+        accentColor = ApexSleepAccent,
+        modifier = modifier
     ) {
         if (durationMin != null) {
             val score = sleepScore(durationMin, deepMin ?: 0, remMin ?: 0)
-            SleepArcGauge(score = score, accentColor = ApexSleepAccent, modifier = Modifier.size(68.dp))
-            Spacer(modifier = Modifier.height(6.dp))
+            SleepArcGauge(score = score, accentColor = ApexSleepAccent, modifier = Modifier.size(56.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             val h = durationMin / 60
             val m = durationMin % 60
             Text(
                 text = "${h}h ${m}m",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 18.sp
+                    fontSize = 16.sp
                 ),
                 color = ApexOnSurface
             )
@@ -734,94 +738,30 @@ private fun SleepCard(
     }
 }
 
-/** Arc gauge spanning 240° showing sleep quality score (0–100). */
 @Composable
-private fun SleepArcGauge(score: Int, accentColor: Color = ApexSleepAccent, modifier: Modifier = Modifier) {
-    val arcColor = when {
-        score >= 80 -> ApexStatusGreen
-        score >= 60 -> ApexStatusYellow
-        else        -> ApexStatusRed
-    }
-    val sweepAngle by animateFloatAsState(
-        targetValue = 240f * score / 100f,
-        animationSpec = tween(durationMillis = 900),
-        label = "sleepArc"
-    )
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val stroke = Stroke(width = size.minDimension * 0.12f, cap = StrokeCap.Round)
-            val inset  = stroke.width / 2
-            val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
-            val startAngle = 150f  // bottom-left
-            // Track (background arc)
-            drawArc(
-                color = ApexOutline,
-                startAngle = startAngle,
-                sweepAngle = 240f,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
-                style = stroke
-            )
-            // Progress arc
-            drawArc(
-                color = arcColor,
-                startAngle = startAngle,
-                sweepAngle = sweepAngle,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
-                style = stroke
-            )
-        }
-        Text(
-            text = "$score",
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-            color = arcColor
-        )
-    }
-}
-
-private fun sleepScore(durationMin: Int, deepMin: Int, remMin: Int): Int {
-    val durationScore = when {
-        durationMin in 420..540 -> 75   // 7–9 h ideal
-        durationMin >= 360      -> 55   // 6–7 h ok
-        durationMin >= 300      -> 35   // 5–6 h poor
-        else                    -> 20
-    }
-    val qualityBonus = if (durationMin > 0) {
-        val ratio = (deepMin + remMin) * 100 / durationMin
-        when {
-            ratio >= 40 -> 20
-            ratio >= 25 -> 10
-            else        -> 0
-        }
-    } else 0
-    return (durationScore + qualityBonus).coerceIn(0, 100)
-}
-
-@Composable
-private fun WeightCard(
+private fun WeightTile(
     weightKg: Double?,
-    time: String?
+    time: String?,
+    modifier: Modifier = Modifier
 ) {
-    MetricCard(
+    MetricTile(
         title = "Weight",
         icon = Icons.Rounded.Scale,
-        accentColor = ApexWeightAccent
+        accentColor = ApexWeightAccent,
+        modifier = modifier
     ) {
         if (weightKg != null) {
             Text(
                 text = "%.1f".format(weightKg),
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 26.sp
+                    fontSize = 24.sp
                 ),
                 color = ApexOnSurface
             )
             Text(text = "kg", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             if (time != null) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(text = formatIsoTime(time), style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             }
         } else {
@@ -831,27 +771,29 @@ private fun WeightCard(
 }
 
 @Composable
-private fun HrvCard(
+private fun HrvTile(
     hrvMs: Double?,
-    time: String?
+    time: String?,
+    modifier: Modifier = Modifier
 ) {
-    MetricCard(
+    MetricTile(
         title = "HRV",
         icon = Icons.Rounded.MonitorHeart,
-        accentColor = ApexHrvAccent
+        accentColor = ApexHrvAccent,
+        modifier = modifier
     ) {
         if (hrvMs != null) {
             Text(
                 text = "%.0f".format(hrvMs),
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 26.sp
+                    fontSize = 24.sp
                 ),
                 color = ApexOnSurface
             )
             Text(text = "ms", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             if (time != null) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(text = formatIsoTime(time), style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             }
         } else {
@@ -860,7 +802,6 @@ private fun HrvCard(
     }
 }
 
-// Empty state for metric cards — consistent across all four metrics
 @Composable
 private fun MetricEmptyState() {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -878,7 +819,58 @@ private fun MetricEmptyState() {
 }
 
 // ---------------------------------------------------------------------------
-// E — Recent Workout Snippet
+// Sleep Arc Gauge
+// ---------------------------------------------------------------------------
+
+@Composable
+@Suppress("UNUSED_PARAMETER")
+private fun SleepArcGauge(score: Int, accentColor: Color = ApexSleepAccent, modifier: Modifier = Modifier) {
+    val arcColor = when {
+        score >= 80 -> ApexStatusGreen
+        score >= 60 -> ApexStatusYellow
+        else        -> ApexStatusRed
+    }
+    val sweepAngle by animateFloatAsState(
+        targetValue = 240f * score / 100f,
+        animationSpec = tween(durationMillis = 900),
+        label = "sleepArc"
+    )
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = Stroke(width = size.minDimension * 0.12f, cap = StrokeCap.Round)
+            val inset = stroke.width / 2
+            val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
+            drawArc(color = ApexOutline, startAngle = 150f, sweepAngle = 240f, useCenter = false, topLeft = Offset(inset, inset), size = arcSize, style = stroke)
+            drawArc(color = arcColor, startAngle = 150f, sweepAngle = sweepAngle, useCenter = false, topLeft = Offset(inset, inset), size = arcSize, style = stroke)
+        }
+        Text(
+            text = "$score",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = arcColor
+        )
+    }
+}
+
+private fun sleepScore(durationMin: Int, deepMin: Int, remMin: Int): Int {
+    val durationScore = when {
+        durationMin in 420..540 -> 75
+        durationMin >= 360      -> 55
+        durationMin >= 300      -> 35
+        else                    -> 20
+    }
+    val qualityBonus = if (durationMin > 0) {
+        val ratio = (deepMin + remMin) * 100 / durationMin
+        when {
+            ratio >= 40 -> 20
+            ratio >= 25 -> 10
+            else        -> 0
+        }
+    } else 0
+    return (durationScore + qualityBonus).coerceIn(0, 100)
+}
+
+// ---------------------------------------------------------------------------
+// Recent Workout Snippet
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -887,7 +879,8 @@ private fun RecentWorkoutSnippet(title: String, date: String?) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = ApexSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary.copy(alpha = 0.15f))
     ) {
         Row(
             modifier = Modifier
@@ -904,8 +897,11 @@ private fun RecentWorkoutSnippet(title: String, date: String?) {
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Last Workout",
-                    style = MaterialTheme.typography.labelSmall,
+                    text = "LAST WORKOUT",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        letterSpacing = 0.8.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
                     color = ApexOnSurfaceVariant
                 )
                 Text(
@@ -926,142 +922,65 @@ private fun RecentWorkoutSnippet(title: String, date: String?) {
 }
 
 // ---------------------------------------------------------------------------
-// F — Health Connect Status Card
+// Shared components
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun HealthConnectStatusCard(
-    state: DashboardState,
-    onRequestPermissions: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = ApexSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+private fun PulsingDot(color: Color) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+    Box(
+        modifier = Modifier
+            .size(12.dp)
+            .scale(scale)
+            .clip(CircleShape)
+            .background(color.copy(alpha = alpha))
+    )
+}
+
+@Composable
+private fun SyncFab(isSyncing: Boolean, onSync: () -> Unit) {
+    val fabScale by animateFloatAsState(
+        targetValue = if (isSyncing) 1.08f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "fab_scale"
+    )
+    FloatingActionButton(
+        onClick = { if (!isSyncing) onSync() },
+        modifier = Modifier.scale(fabScale),
+        containerColor = ApexPrimary,
+        contentColor = ApexOnPrimary
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Health Connect",
-                style = MaterialTheme.typography.titleMedium,
-                color = ApexOnSurface
+        if (isSyncing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 2.dp,
+                color = ApexOnPrimary
             )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            when {
-                !state.isHealthConnectAvailable -> {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(imageVector = Icons.Rounded.ErrorOutline, contentDescription = null, tint = ApexStatusRed, modifier = Modifier.size(20.dp))
-                        Text(text = "Health Connect not available on this device", style = MaterialTheme.typography.bodyMedium, color = ApexOnSurfaceVariant)
-                    }
-                }
-                state.hasAllPermissions -> {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = null, tint = ApexStatusGreen, modifier = Modifier.size(20.dp))
-                        Text(text = "All permissions granted", style = MaterialTheme.typography.bodyMedium, color = ApexOnSurface)
-                    }
-                }
-                else -> {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(imageVector = Icons.Rounded.Warning, contentDescription = null, tint = ApexStatusYellow, modifier = Modifier.size(20.dp))
-                        Text(
-                            text = "Permissions required to read health data",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = ApexOnSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = onRequestPermissions,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
-                    ) {
-                        Text("Grant Permissions")
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// G — Quick Actions Row
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun QuickActionsRow(
-    isSyncing: Boolean,
-    onSyncBp: () -> Unit,
-    onSyncSleep: () -> Unit
-) {
-    SectionLabel(text = "Quick Actions")
-    Spacer(modifier = Modifier.height(8.dp))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        QuickActionChip(
-            label = "Sync BP",
-            icon = Icons.Rounded.Favorite,
-            accentColor = ApexBpAccent,
-            enabled = !isSyncing,
-            onClick = onSyncBp,
-            modifier = Modifier.weight(1f)
-        )
-        QuickActionChip(
-            label = "Sync Sleep",
-            icon = Icons.Rounded.Bedtime,
-            accentColor = ApexSleepAccent,
-            enabled = !isSyncing,
-            onClick = onSyncSleep,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun QuickActionChip(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    accentColor: Color,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val containerColor = if (enabled) accentColor.copy(alpha = 0.12f) else ApexSurfaceVariant.copy(alpha = 0.5f)
-    val contentColor   = if (enabled) accentColor else ApexOnSurfaceVariant.copy(alpha = 0.4f)
-    val borderColor    = if (enabled) accentColor.copy(alpha = 0.35f) else ApexOutline.copy(alpha = 0.3f)
-    Surface(
-        onClick = { if (enabled) onClick() },
-        modifier = modifier,
-        enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
-        color = containerColor,
-        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp, horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(15.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = contentColor
+        } else {
+            Icon(
+                imageVector = Icons.Rounded.Sync,
+                contentDescription = "Sync now"
             )
         }
     }

@@ -67,7 +67,7 @@ fun ActivityScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Activity",
+                    text = "Training",
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 38.sp
@@ -142,23 +142,46 @@ fun ActivityScreen(
                                 WeeklySummaryCard(stats)
                             }
 
-                            // Generate workout button
-                            Button(
+                            // Generate workout — hero CTA
+                            Card(
                                 onClick = { haptic.confirm(); onNavigateToGenerate() },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = ApexPrimary,
-                                    contentColor = ApexOnPrimary
-                                ),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = ApexPrimary.copy(alpha = 0.12f)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary.copy(alpha = 0.35f))
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.AutoAwesome,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Generate Workout", fontWeight = FontWeight.SemiBold)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = ApexPrimary,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Generate Workout",
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = ApexPrimary
+                                        )
+                                        Text(
+                                            text = "AI-powered routine based on your readiness and training load",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = ApexOnSurfaceVariant
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Rounded.ChevronRight,
+                                        contentDescription = null,
+                                        tint = ApexPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
 
                             // Progression summary card (Phase 3)
@@ -207,7 +230,7 @@ fun ActivityScreen(
                                             color = ApexOnSurfaceVariant
                                         )
                                         Text(
-                                            text = "Pull your workouts from Hevy to see them here",
+                                            text = "Sync your Hevy workouts to see them here",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = ApexOnSurfaceVariant
                                         )

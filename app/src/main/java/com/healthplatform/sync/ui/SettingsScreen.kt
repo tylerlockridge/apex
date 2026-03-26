@@ -162,7 +162,188 @@ fun SettingsScreen(
             )
 
             // ----------------------------------------------------------------
-            // A — Sync Section
+            // 1 — Server Connection (first-use priority)
+            // ----------------------------------------------------------------
+            SettingsCard(title = "Server") {
+                // Server connection status — at the top so users see it immediately
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "Server Connection", style = MaterialTheme.typography.bodyMedium, color = ApexOnSurface)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                        ) {
+                            drawCircle(
+                                color = when (serverState.serverStatus) {
+                                    true -> ApexStatusGreen
+                                    false -> ApexStatusRed
+                                    null -> ApexStatusYellow
+                                }
+                            )
+                        }
+                        Text(
+                            text = when (serverState.serverStatus) {
+                                true -> "Connected"
+                                false -> "Unreachable"
+                                null -> "Checking..."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when (serverState.serverStatus) {
+                                true -> ApexStatusGreen
+                                false -> ApexStatusRed
+                                null -> ApexStatusYellow
+                            }
+                        )
+                    }
+                }
+
+                if (serverState.serverVersionOk == false) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(ApexStatusRed.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Warning,
+                            contentDescription = "Outdated server",
+                            tint = ApexStatusRed,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Server version is outdated. Update Health Platform Desktop for best results.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ApexStatusRed
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
+
+                if (onScanQr != null) {
+                    OutlinedButton(
+                        onClick = { haptic.click(); onScanQr() },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.QrCodeScanner,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Scan QR Code")
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
+                }
+                Text(
+                    text = "API Key",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ApexOnSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = { apiKey = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Enter API key", color = ApexOnSurfaceVariant) },
+                    singleLine = true,
+                    visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
+                            Icon(
+                                imageVector = if (apiKeyVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                contentDescription = if (apiKeyVisible) "Hide key" else "Show key",
+                                tint = ApexOnSurfaceVariant
+                            )
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        SecurePrefs.setApiKey(context, apiKey)
+                        scope.launch { snackbarHostState.showSnackbar("API key saved") }
+                    }),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = ApexPrimary,
+                        unfocusedBorderColor = ApexOutline,
+                        focusedTextColor = ApexOnSurface,
+                        unfocusedTextColor = ApexOnSurface,
+                        cursorColor = ApexPrimary
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        haptic.click()
+                        SecurePrefs.setApiKey(context, apiKey)
+                        scope.launch { snackbarHostState.showSnackbar("API key saved") }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = ApexPrimary, contentColor = ApexOnPrimary)
+                ) {
+                    Text("Save API Key")
+                }
+            }
+
+            // ----------------------------------------------------------------
+            // 2 — Health Connect Permissions
+            // ----------------------------------------------------------------
+            SettingsCard(title = "Health Connect") {
+                val dataTypes = listOf("Blood Pressure", "Sleep", "Weight", "Body Composition", "HRV")
+                dataTypes.forEachIndexed { index, type ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = type, style = MaterialTheme.typography.bodyMedium, color = ApexOnSurface)
+                        when {
+                            !serverState.isHcAvailable ->
+                                Icon(imageVector = Icons.Rounded.Cancel, contentDescription = "Unavailable", tint = ApexStatusRed, modifier = Modifier.size(18.dp))
+                            serverState.hcPermissions[type] == true ->
+                                Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = "Granted", tint = ApexStatusGreen, modifier = Modifier.size(18.dp))
+                            else ->
+                                Icon(imageVector = Icons.Rounded.Cancel, contentDescription = "Not granted", tint = ApexStatusRed, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    if (index < dataTypes.lastIndex) {
+                        HorizontalDivider(color = ApexOutline.copy(alpha = 0.5f))
+                    }
+                }
+
+                val allGranted = serverState.hcPermissions.values.all { it }
+                if (!allGranted && serverState.isHcAvailable) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onRequestPermissions,
+                        modifier = Modifier.fillMaxWidth(),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
+                    ) {
+                        Text("Manage Permissions")
+                    }
+                }
+            }
+
+            // ----------------------------------------------------------------
+            // 3 — Sync
             // ----------------------------------------------------------------
             SettingsCard(title = "Sync") {
                 Row(
@@ -270,7 +451,7 @@ fun SettingsScreen(
             }
 
             // ----------------------------------------------------------------
-            // B — Security Section
+            // 4 — Security
             // ----------------------------------------------------------------
             SettingsCard(title = "Security") {
                 Row(
@@ -331,135 +512,37 @@ fun SettingsScreen(
             }
 
             // ----------------------------------------------------------------
-            // C — Health Connect Section
+            // 5 — About
             // ----------------------------------------------------------------
-            SettingsCard(title = "Health Connect") {
-                val dataTypes = listOf("Blood Pressure", "Sleep", "Weight", "Body Composition", "HRV")
-                dataTypes.forEachIndexed { index, type ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = type, style = MaterialTheme.typography.bodyMedium, color = ApexOnSurface)
-                        // L-7: per-type granted/denied status rather than all-or-nothing
-                        when {
-                            !serverState.isHcAvailable ->
-                                Icon(imageVector = Icons.Rounded.Cancel, contentDescription = "Unavailable", tint = ApexStatusRed, modifier = Modifier.size(18.dp))
-                            serverState.hcPermissions[type] == true ->
-                                Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = "Granted", tint = ApexStatusGreen, modifier = Modifier.size(18.dp))
-                            else ->
-                                Icon(imageVector = Icons.Rounded.Cancel, contentDescription = "Not granted", tint = ApexStatusRed, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                    if (index < dataTypes.lastIndex) {
-                        HorizontalDivider(color = ApexOutline.copy(alpha = 0.5f))
-                    }
-                }
-
-                val allGranted = serverState.hcPermissions.values.all { it }
-                if (!allGranted && serverState.isHcAvailable) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = onRequestPermissions,
-                        modifier = Modifier.fillMaxWidth(),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
-                    ) {
-                        Text("Manage Permissions")
-                    }
-                }
-            }
-
-            // ----------------------------------------------------------------
-            // D — Server API Key
-            // ----------------------------------------------------------------
-            SettingsCard(title = "Server") {
-                if (onScanQr != null) {
-                    OutlinedButton(
-                        onClick = { haptic.click(); onScanQr() },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.QrCodeScanner,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Scan QR Code")
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
-                }
-                Text(
-                    text = "API Key",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = ApexOnSurface
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = { apiKey = it },
+            SettingsCard(title = "About") {
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Enter API key", color = ApexOnSurfaceVariant) },
-                    singleLine = true,
-                    visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
-                            Icon(
-                                imageVector = if (apiKeyVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                                contentDescription = if (apiKeyVisible) "Hide key" else "Show key",
-                                tint = ApexOnSurfaceVariant
-                            )
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(onDone = {
-                        SecurePrefs.setApiKey(context, apiKey)
-                        scope.launch { snackbarHostState.showSnackbar("API key saved") }
-                    }),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ApexPrimary,
-                        unfocusedBorderColor = ApexOutline,
-                        focusedTextColor = ApexOnSurface,
-                        unfocusedTextColor = ApexOnSurface,
-                        cursorColor = ApexPrimary
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        haptic.click()
-                        SecurePrefs.setApiKey(context, apiKey)
-                        // M-4: ApiService.get() refreshes the key on next sync call — no restart needed.
-                        // ViewModels with cached ServerApiClient will pick up the key after next recompose.
-                        scope.launch { snackbarHostState.showSnackbar("API key saved") }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = ApexPrimary, contentColor = ApexOnPrimary)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Save API Key")
+                    Text(text = "Version", style = MaterialTheme.typography.bodyMedium, color = ApexOnSurface)
+                    Text(text = "v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = ApexOnSurfaceVariant)
                 }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
+                Text(
+                    text = "Apex — Peak health, always.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ApexOnSurfaceVariant
+                )
             }
 
             // ----------------------------------------------------------------
-            // E — Data Management
+            // 6 — Danger Zone (destructive actions last)
             // ----------------------------------------------------------------
-            SettingsCard(title = "Data") {
+            SettingsCard(title = "Danger Zone") {
                 Column {
                     Text(
                         text = "Clear all data",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = ApexOnSurface
+                        color = ApexStatusRed
                     )
                     Text(
-                        text = "Removes your API key, biometric setting, sync history, and all cached health values from this device.",
+                        text = "Removes your API key, biometric setting, sync history, and all cached health values from this device. This cannot be undone.",
                         style = MaterialTheme.typography.labelSmall,
                         color = ApexOnSurfaceVariant
                     )
@@ -479,93 +562,6 @@ fun SettingsScreen(
                         Text("Clear All Data")
                     }
                 }
-            }
-
-            // ----------------------------------------------------------------
-            // F — About Section
-            // ----------------------------------------------------------------
-            SettingsCard(title = "About") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Version", style = MaterialTheme.typography.bodyMedium, color = ApexOnSurface)
-                    Text(text = "v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = ApexOnSurfaceVariant)
-                }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
-
-                // Server connection status
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Server Connection", style = MaterialTheme.typography.bodyMedium, color = ApexOnSurface)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        androidx.compose.foundation.Canvas(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                        ) {
-                            drawCircle(
-                                color = when (serverState.serverStatus) {
-                                    true -> ApexStatusGreen
-                                    false -> ApexStatusRed
-                                    null -> ApexStatusYellow
-                                }
-                            )
-                        }
-                        Text(
-                            text = when (serverState.serverStatus) {
-                                true -> "Connected"
-                                false -> "Unreachable"
-                                null -> "Checking..."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = when (serverState.serverStatus) {
-                                true -> ApexStatusGreen
-                                false -> ApexStatusRed
-                                null -> ApexStatusYellow
-                            }
-                        )
-                    }
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ApexOutline)
-
-                if (serverState.serverVersionOk == false) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(ApexStatusRed.copy(alpha = 0.12f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Warning,
-                            contentDescription = "Outdated server",
-                            tint = ApexStatusRed,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "Server version is outdated. Update Health Platform Desktop for best results.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ApexStatusRed
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                Text(
-                    text = "Apex v${BuildConfig.VERSION_NAME} — Peak health, always.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ApexOnSurfaceVariant
-                )
             }
         }
     }

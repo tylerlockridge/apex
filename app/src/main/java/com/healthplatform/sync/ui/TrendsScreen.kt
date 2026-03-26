@@ -219,12 +219,26 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     val readings = state.bpReadings
 
     if (readings.isEmpty()) {
-        EmptyState("No blood pressure data for this range")
+        EmptyState("No blood pressure data for this range", hint = "Sync Health Connect to see BP trends")
         return
     }
 
-    // Build data points for systolic and diastolic — keyed by readings so this only
-    // recomputes when the data changes, not on every recomposition during animations.
+    // Summary first — key numbers at a glance
+    val avgSys = remember(readings) { readings.map { it.systolic }.average() }
+    val avgDia = remember(readings) { readings.map { it.diastolic }.average() }
+    val minSys = remember(readings) { readings.minOf { it.systolic } }
+    val maxSys = remember(readings) { readings.maxOf { it.systolic } }
+    StatsRow(
+        items = listOf(
+            "Avg Sys" to "%.0f".format(avgSys),
+            "Avg Dia" to "%.0f".format(avgDia),
+            "Min Sys" to "$minSys",
+            "Max Sys" to "$maxSys"
+        ),
+        accentColor = ApexBpAccent
+    )
+
+    // Charts
     val systolicPoints = remember(readings) {
         readings.mapNotNull { reading ->
             try {
@@ -242,11 +256,10 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         }
     }
 
-    // BP normal/elevated/high baselines
     val bpBaselines = listOf(
-        Triple(0f, 120f, ApexStatusGreen),       // normal systolic
-        Triple(120f, 129f, ApexStatusYellow),     // elevated
-        Triple(129f, 200f, ApexStatusRed)         // high
+        Triple(0f, 120f, ApexStatusGreen),
+        Triple(120f, 129f, ApexStatusYellow),
+        Triple(129f, 200f, ApexStatusRed)
     )
 
     TrendsCard(title = "Systolic (mmHg)", accentColor = ApexBpAccent) {
@@ -272,21 +285,6 @@ private fun BpTabContent(state: TrendsState, viewModel: TrendsViewModel) {
             yLabel = "mmHg"
         )
     }
-
-    // Stats row
-    val avgSys = remember(readings) { readings.map { it.systolic }.average() }
-    val avgDia = remember(readings) { readings.map { it.diastolic }.average() }
-    val minSys = remember(readings) { readings.minOf { it.systolic } }
-    val maxSys = remember(readings) { readings.maxOf { it.systolic } }
-    StatsRow(
-        items = listOf(
-            "Avg Sys" to "%.0f".format(avgSys),
-            "Avg Dia" to "%.0f".format(avgDia),
-            "Min Sys" to "$minSys",
-            "Max Sys" to "$maxSys"
-        ),
-        accentColor = ApexBpAccent
-    )
 
     // Anomaly list (systolic >= 130 or diastolic >= 80)
     val anomalies = remember(readings) { readings.filter { it.systolic >= 130 || it.diastolic >= 80 } }
@@ -328,7 +326,7 @@ private fun SleepTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     val sessions = state.sleepSessions
 
     if (sessions.isEmpty()) {
-        EmptyState("No sleep data for this range")
+        EmptyState("No sleep data for this range", hint = "Sleep sessions sync from Health Connect")
         return
     }
 
@@ -402,7 +400,7 @@ private fun BodyTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     val measurements = state.bodyMeasurements
 
     if (measurements.isEmpty()) {
-        EmptyState("No body measurement data for this range")
+        EmptyState("No body measurement data for this range", hint = "Log weight in Health Connect or a connected scale")
         return
     }
 
@@ -485,9 +483,26 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
     val readings = state.hrvReadings
 
     if (readings.isEmpty()) {
-        EmptyState("No HRV data for this range")
+        EmptyState("No HRV data for this range", hint = "HRV readings appear after Health Connect sync")
         return
     }
+
+    // Summary first
+    val avgHrv = remember(readings) { readings.map { it.hrvMs }.average() }
+    val minHrv = remember(readings) { readings.minOf { it.hrvMs } }
+    val maxHrv = remember(readings) { readings.maxOf { it.hrvMs } }
+    val trend = remember(readings) {
+        if (readings.size >= 2) readings.last().hrvMs - readings.first().hrvMs else null
+    }
+    StatsRow(
+        items = listOf(
+            "Avg" to "%.1f ms".format(avgHrv),
+            "Min" to "%.1f ms".format(minHrv),
+            "Max" to "%.1f ms".format(maxHrv),
+            "Trend" to if (trend != null) "%+.1f".format(trend) else "—"
+        ),
+        accentColor = ApexHrvAccent
+    )
 
     val points = remember(readings) {
         readings.mapNotNull { r ->
@@ -533,22 +548,6 @@ private fun HrvTabContent(state: TrendsState, viewModel: TrendsViewModel) {
         }
     }
 
-    val avgHrv = remember(readings) { readings.map { it.hrvMs }.average() }
-    val minHrv = remember(readings) { readings.minOf { it.hrvMs } }
-    val maxHrv = remember(readings) { readings.maxOf { it.hrvMs } }
-    val trend = remember(readings) {
-        if (readings.size >= 2) readings.last().hrvMs - readings.first().hrvMs else null
-    }
-
-    StatsRow(
-        items = listOf(
-            "Avg" to "%.1f ms".format(avgHrv),
-            "Min" to "%.1f ms".format(minHrv),
-            "Max" to "%.1f ms".format(maxHrv),
-            "Trend" to if (trend != null) "%+.1f".format(trend) else "—"
-        ),
-        accentColor = ApexHrvAccent
-    )
 }
 
 // ---------------------------------------------------------------------------
@@ -630,7 +629,7 @@ private fun StatsRow(items: List<Pair<String, String>>, accentColor: Color = Ape
 }
 
 @Composable
-private fun EmptyState(message: String) {
+private fun EmptyState(message: String, hint: String? = null) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -641,6 +640,14 @@ private fun EmptyState(message: String) {
             Text(text = "—", style = MaterialTheme.typography.headlineLarge, color = ApexOnSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = message, style = MaterialTheme.typography.bodyMedium, color = ApexOnSurfaceVariant)
+            if (hint != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ApexOnSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
         }
     }
 }

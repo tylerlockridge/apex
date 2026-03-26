@@ -1,6 +1,6 @@
 # Feature: Theme & Styling
 
-*Created: 2026-03-02 | Updated: 2026-03-02 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-26 | Project: Apex*
 
 ---
 
@@ -61,17 +61,31 @@ All haptic calls are safe to invoke from Compose composables via `LocalView.curr
 
 ---
 
+## UI Layout Patterns (added 2026-03-26)
+
+| Pattern | Screen(s) | Detail |
+|---------|-----------|--------|
+| Hero card | Home | Combined readiness arc + sync status in one prominent card |
+| 2×2 metric grid | Home | Full-width metric tiles replace horizontal LazyRow carousel |
+| Hero CTA card | Training | Generate Workout as clickable card with icon, title, subtitle, chevron |
+| Target chips | Generated Routine | Exercise targets shown as labeled pills with background fill |
+| Summary-first | Trends (BP, HRV) | Stats row shown before chart cards for at-a-glance reading |
+| Inline banners | Home | HC permissions/unavailable shown as compact inline cards, not full sections |
+| Danger zone | Settings | Destructive actions isolated at bottom with red styling |
+
 ## Animation Inventory
 
 | Animation | Location | Detail |
 |-----------|----------|--------|
 | Screen transitions | MainActivity | AnimatedContent, 200ms fade-in / 150ms fade-out |
-| Card stagger reveal | Dashboard | Cards animate in with staggered delay |
+| Hero + grid stagger | Home | Hero fades in first, grid follows 120ms later with spring bounce |
 | Tab content switch | Trends sub-tabs | AnimatedContent |
-| Counter morphing | Stats values | Animated number increment on load |
+| Readiness arc | Home hero | 240° arc animates to score via tween(900ms) |
+| Sleep arc | Home sleep tile | 240° arc animates to score via tween(900ms) |
 | Chart data reveal | LineChart | Left-to-right reveal, 900ms |
 | Shimmer skeleton | Trends / Activity | InfiniteTransition horizontal sweep |
-| FAB pulse | Dashboard | Pulsing scale animation on sync FAB |
+| FAB pulse | Home | Pulsing scale animation on sync FAB |
+| Pulsing sync dot | Home hero | Scale + alpha pulse on sync status indicator |
 
 ---
 

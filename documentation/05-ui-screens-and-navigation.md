@@ -1,6 +1,6 @@
 # Feature: UI Screens & Navigation
 
-*Created: 2026-03-02 | Updated: 2026-03-19 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-26 | Project: Apex*
 
 ---
 
@@ -12,7 +12,7 @@ Defines the current Compose app shell, biometric lock flow, top-level navigation
 **What it does NOT do:**
 - Does not document chart rendering internals in detail (see `06-charts-and-data-visualization.md`)
 - Does not act as the source of truth for sync semantics (see `03-data-sync-protocol.md` and `07-background-sync-and-workers.md`)
-- Does not yet include the planned Phase 3 workout-generation review route
+- Does not document the workout-generation review screen's server API contract (see `03-data-sync-protocol.md`)
 
 ---
 
@@ -29,11 +29,12 @@ Current routes:
 MainActivity
 ├── LockScreen (shown when biometric lock is enabled and user is unauthenticated)
 └── NavigationSuiteScaffold
-    ├── dashboard
-    ├── trends
-    ├── activity
-    ├── settings
-    └── qrscan
+    ├── dashboard  (label: "Home")
+    ├── trends     (label: "Trends")
+    ├── activity   (label: "Training")
+    ├── settings   (label: "Settings")
+    ├── generatedRoutine  (secondary — navigated from Training)
+    └── qrscan            (secondary — navigated from Settings)
 ```
 
 Adaptive behavior:
@@ -41,14 +42,15 @@ Adaptive behavior:
 - medium widths: navigation rail
 - larger layouts: navigation drawer via `NavigationSuiteScaffold`
 
-Current top-level destinations:
-- Dashboard
-- Trends
-- Activity
-- Settings
+Current top-level destinations (as of UI overhaul 2026-03-26):
+- Home (was "Dashboard") — icon: Home
+- Trends — icon: TrendingUp
+- Training (was "Activity") — icon: FitnessCenter
+- Settings — icon: Settings
 
-Secondary route:
-- QR scan screen launched from Settings
+Secondary routes:
+- Generated Routine screen (launched from Training "Generate Workout" CTA)
+- QR scan screen (launched from Settings)
 
 ---
 
@@ -86,29 +88,26 @@ Splash behavior is standard Android 12+ `SplashScreen` API:
 
 ## Screen Details
 
-### Dashboard
+### Home (was "Dashboard")
 
 Primary role:
-- show the latest synced health snapshot and quick sync actions
+- "today" screen: show current readiness, sync freshness, and latest health snapshot
 
-Current surface:
-- greeting header
-- sync status card
-- readiness card based on current dashboard heuristic
-- horizontally scrolling health metric cards:
-  - blood pressure
-  - sleep
-  - weight
-  - HRV
+Current surface (after UI overhaul 2026-03-26):
+- greeting header with date chip
+- **hero card** combining readiness score (240° arc gauge) + readiness input breakdown + sync status line with pulsing dot + "Sync Now" action
+- inline permissions banner (when HC permissions missing) or HC unavailable banner
+- **2×2 metric grid** (blood pressure, sleep, weight, HRV) — full-width tiles replacing the old horizontal LazyRow carousel
 - recent workout snippet when available
-- Health Connect status card
-- quick-action chips for BP and sleep sync
 - floating sync FAB
 - pull-to-refresh that reloads locally cached prefs-backed values
+- staggered entrance animations (hero, then grid)
 
-Notes:
-- Dashboard data is still local-summary driven, not a repository-backed read model
-- readiness is still the pre-Phase-2 heuristic and not yet the richer engine-backed breakdown
+Removed in overhaul:
+- separate sync status card (merged into hero)
+- separate readiness card (merged into hero)
+- Health Connect status card (replaced by inline banner)
+- quick-action chips for BP/sleep sync (redundant with FAB and hero sync button)
 
 ### Trends
 
@@ -124,66 +123,81 @@ Current surface:
 - 7 / 30 / 90 day range selector
 - shimmer loading skeletons
 - animated tab content transitions
-- per-tab stats summaries
+- **summary stats shown before charts** (BP and HRV tabs show StatsRow above chart cards)
+- improved empty states with actionable hints
 - retry state for failed reads
 
 Notes:
 - Trends currently reads live server data through `TrendsViewModel`
 - there is still no durable inbound local cache for these server-fed charts
 
-### Activity
+### Training (was "Activity")
 
 Primary role:
-- show workout history and let the user pull fresh Hevy workout data
+- show workout history, training load, and provide the workout generation entry point
 
-Current surface:
+Current surface (after UI overhaul 2026-03-26):
+- "Training" header with Hevy sync icon
+- **hero generate-workout CTA card** with icon, title, subtitle, and chevron — prominently placed above content
 - 30-day workout summary card
+- progression/training load card with MRV warnings and 2-for-2 signals
 - recent workout list with expandable rows
 - pull-to-refresh
-- top-right manual Hevy sync trigger
-- empty state with `Sync Hevy` CTA when no workouts exist
+- empty state with `Sync Hevy` CTA
 
 Current backing behavior:
 - workouts and workout stats come from `ServerApiClient`
 - `ActivityViewModel` loads both workouts and stats at init
 - successful manual Hevy sync reloads activity data
+- generate-workout navigates to `generatedRoutine` route
 
-Notes:
-- Activity is the natural entry point for the planned Phase 3 workout-generation flow
-- no generated-routine review screen exists yet
+### Generated Routine
+
+Primary role:
+- review AI-generated workout routine and accept/reject
+
+Current surface:
+- routine title + reasoning summary + readiness context
+- collapsible warnings card
+- exercise cards with **target chips** (sets, reps, weight, RPE) shown as labeled background pills
+- muscle tags per exercise
+- flags (e.g., "weight increase") highlighted
+- **prominent accept/reject buttons** (accept: green, 52dp tall; reject: outlined)
+- post-decision result card with Hevy instructions
 
 ### Settings
 
 Primary role:
-- control sync, security, Health Connect permissions, server configuration, and local device data
+- control server connection, permissions, sync, security, and local device data
 
-Current sections:
-- Sync
-  - auto-sync toggle
-  - last sync time
-  - sync history
-  - `Sync All Now`
-- Security
-  - biometric lock toggle
-  - `Lock App Now`
-- Health Connect
-  - per-type permission status
-  - `Manage Permissions`
-- Server
-  - `Scan QR Code`
-  - API key field with show/hide
-  - save button
-- Data
-  - `Clear All Data`
-- About
-  - app version
-  - server connection status
-  - outdated-server warning when compatibility check fails
+Current sections (reordered for first-use priority, 2026-03-26):
+1. **Server** (first-use critical)
+   - server connection status with live indicator
+   - outdated-server warning
+   - `Scan QR Code`
+   - API key field with show/hide
+   - save button
+2. **Health Connect**
+   - per-type permission status
+   - `Manage Permissions`
+3. **Sync**
+   - auto-sync toggle
+   - sync window info
+   - last sync time
+   - sync history
+   - `Sync All Now`
+4. **Security**
+   - biometric lock toggle
+   - `Lock App Now`
+5. **About**
+   - app version
+   - tagline
+6. **Danger Zone** (destructive actions isolated at bottom)
+   - `Clear All Data` with red styling
 
 Notes:
-- `Clear All Data` is implemented, not a stub
-- QR onboarding entry is implemented, not a stub
-- server compatibility is warning-based, not enforced as a hard block
+- all sections are implemented, not stubs
+- destructive actions moved to bottom with "Danger Zone" heading for clarity
 
 ### QR Scan Screen
 
@@ -208,9 +222,9 @@ Current navigation/screen polish:
 - adaptive navigation shell via `NavigationSuiteScaffold`
 - fade transitions between top-level routes
 - lock/unlock transitions via `AnimatedVisibility`
-- dashboard staggered entrance animation for metric cards
+- Home hero + metric grid staggered entrance animation
 - trends tab content crossfade
-- pull-to-refresh on Dashboard and Activity
+- pull-to-refresh on Home and Training
 - haptic feedback integrated into major taps and sync actions
 
 ---
@@ -219,10 +233,8 @@ Current navigation/screen polish:
 
 | Gap | Current state |
 |-----|---------------|
-| Phase 2 readiness UI | Dashboard still shows a simple label/reason card rather than the planned per-input breakdown |
-| Phase 3 generation route | No dedicated generated-workout review screen exists yet |
-| Durable inbound cache for server-fed screens | Trends and Activity still depend on live server reads |
-| Activity generation CTA | Not yet implemented; planned for Phase 3 |
+| Durable inbound cache for server-fed screens | Trends and Training still depend on live server reads; no offline read model |
+| Subjective readiness input | No UI/data path exists yet (post-MVP) |
 
 ---
 
@@ -230,13 +242,13 @@ Current navigation/screen polish:
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Adaptive navigation shell | PASS | `NavigationSuiteScaffold` with Dashboard / Trends / Activity / Settings |
+| Adaptive navigation shell | PASS | `NavigationSuiteScaffold` with Home / Trends / Training / Settings |
 | Lock screen | PASS | biometric/device-credential-backed app lock |
 | Screenshot protection | PASS | `FLAG_SECURE` in `MainActivity` |
-| Dashboard summary experience | PASS | sync status, metric cards, recent workout snippet, quick actions |
-| Trends tabs | PASS | BP / Sleep / Body / HRV |
-| Activity workout history | PASS | stats + expandable recent workouts + manual Hevy sync |
-| Settings data management | PASS | clear-all-data flow is implemented |
-| QR onboarding | PASS | CameraX + ML Kit scanner route exists |
-| Rich readiness breakdown | GAP | planned for Phase 2 |
-| Workout-generation review flow | GAP | planned for Phase 3 |
+| Home hero + metric grid | PASS | readiness arc, sync status, 2×2 metric tiles, inline HC banners |
+| Trends tabs | PASS | BP / Sleep / Body / HRV with summary-first layout |
+| Training + workout history | PASS | hero generate CTA, stats, expandable workouts, Hevy sync |
+| Generated Routine review | PASS | exercise cards with target chips, accept/reject flow |
+| Settings (reordered) | PASS | Server → HC → Sync → Security → About → Danger Zone |
+| QR onboarding | PASS | CameraX + ML Kit scanner route |
+| Readiness breakdown | PASS | per-input scores + staleness indicators in Home hero card |
