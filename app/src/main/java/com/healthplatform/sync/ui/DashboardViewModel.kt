@@ -230,6 +230,4 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun triggerBpSync()    = triggerSync(SyncWorker.DATA_TYPE_BP)
-    fun triggerSleepSync() = triggerSync(SyncWorker.DATA_TYPE_SLEEP)
 }

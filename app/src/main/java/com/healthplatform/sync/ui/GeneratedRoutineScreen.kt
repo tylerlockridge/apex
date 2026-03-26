@@ -111,7 +111,7 @@ fun GeneratedRoutineScreen(
                             border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
                         ) {
-                            Text("Back to Activity")
+                            Text("Back to Training")
                         }
                     }
                 }
@@ -312,8 +312,8 @@ private fun ExerciseCard(exercise: GeneratedRoutineExerciseResponse) {
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Targets row
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Targets row — chips with background for scannability
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TargetChip("${exercise.targetSets} sets")
                     exercise.targetReps?.let { TargetChip("$it reps") }
                     exercise.targetWeightKg?.let { TargetChip("${"%.1f".format(it)} kg") }
@@ -361,11 +361,20 @@ private fun ExerciseCard(exercise: GeneratedRoutineExerciseResponse) {
 
 @Composable
 private fun TargetChip(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = ApexPrimary
-    )
+    Box(
+        modifier = Modifier
+            .background(
+                ApexPrimary.copy(alpha = 0.12f),
+                RoundedCornerShape(6.dp)
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = ApexPrimary
+        )
+    }
 }
 
 @Composable
@@ -384,38 +393,47 @@ private fun DecisionButtons(
     onAccept: () -> Unit,
     onReject: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Button(
             onClick = onAccept,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
             enabled = !isDeciding,
+            shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = ApexPrimary,
+                containerColor = ApexWeightAccent,
                 contentColor = ApexOnPrimary
             )
         ) {
             if (isDeciding) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(20.dp),
                     color = ApexOnPrimary,
                     strokeWidth = 2.dp
                 )
             } else {
-                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Accept Workout")
+                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    "Accept Workout",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                )
             }
         }
         OutlinedButton(
             onClick = onReject,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
             enabled = !isDeciding,
-            border = androidx.compose.foundation.BorderStroke(1.dp, ApexOnSurfaceVariant),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, ApexOnSurfaceVariant.copy(alpha = 0.5f)),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexOnSurfaceVariant)
         ) {
             Icon(Icons.Rounded.Close, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Reject")
+            Text("Reject & Regenerate")
         }
     }
 }
@@ -477,7 +495,7 @@ private fun DecisionResult(
                 border = androidx.compose.foundation.BorderStroke(1.dp, ApexPrimary),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = ApexPrimary)
             ) {
-                Text("Back to Activity")
+                Text("Back to Training")
             }
         }
     }

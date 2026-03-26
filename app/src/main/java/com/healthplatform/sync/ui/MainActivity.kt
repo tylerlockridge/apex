@@ -51,9 +51,9 @@ private sealed class Destination(
     val label: String,
     val icon: ImageVector
 ) {
-    object Dashboard : Destination("dashboard", "Dashboard", Icons.Rounded.FavoriteBorder)
+    object Dashboard : Destination("dashboard", "Home", Icons.Rounded.Home)
     object Trends : Destination("trends", "Trends", Icons.Rounded.TrendingUp)
-    object Activity : Destination("activity", "Activity", Icons.Rounded.FitnessCenter)
+    object Activity : Destination("activity", "Training", Icons.Rounded.FitnessCenter)
     object Settings : Destination("settings", "Settings", Icons.Rounded.Settings)
 }
 

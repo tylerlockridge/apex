@@ -1,6 +1,6 @@
 # Feature: Unimplemented Features & Known Gaps
 
-*Created: 2026-03-02 | Updated: 2026-03-23 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-26 | Project: Apex*
 
 ---
 
@@ -48,7 +48,7 @@ These items were previously listed as missing and are now implemented:
 | Gap | Current state |
 |-----|---------------|
 | ~~Configurable readiness engine~~ | ✅ Implemented — `ReadinessEngine.kt` + `ReadinessConfigStore.kt` with configurable weights via SharedPreferences |
-| ~~Per-input readiness breakdown~~ | ✅ Implemented — Dashboard shows per-input scores, staleness indicators, and aggregate score |
+| ~~Per-input readiness breakdown~~ | ✅ Implemented — Home hero card shows per-input scores, staleness indicators, and aggregate score |
 | HRV readiness activation | HRV weight is `0.0` for MVP (A-01 inconclusive). Config-ready for `0.25` when validated. |
 | Subjective readiness input | No UI/data path exists yet (post-MVP) |
 | ~~Training-load readiness input~~ | ✅ Implemented — wired into readiness engine from workout generation data |
@@ -90,7 +90,7 @@ These items were previously listed as missing and are now implemented:
 |------|--------|-------|
 | Offline queue | ✅ PASS | implemented and durable |
 | QR onboarding | ✅ PASS | CameraX + ML Kit flow exists |
-| Hevy activity sync trigger | ✅ PASS | server-triggered from Activity screen |
+| Hevy activity sync trigger | ✅ PASS | server-triggered from Training screen |
 | Server version awareness | ✅ PARTIAL | warning/check exists, not a hard gate |
 | Incremental sync | ✅ PARTIAL | body remains full-read |
 | Readiness engine (ADR-003-style) | ✅ PASS | implemented with configurable weights, staleness, per-input breakdown |
