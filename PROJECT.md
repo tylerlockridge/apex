@@ -19,13 +19,16 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-24 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-25 -->
 ## Quick Resume
-**Last Active:** 2026-03-24
-**Current Phase:** v2 MVP shipped
-**Current Task:** Post-MVP Health Connect sync stabilization. Server-side HMAC/raw-body bug is fixed and deployed; HRV now syncs successfully to production (139 records). Apex-side wire-contract fix is implemented locally on branch `codex/health-connect-wire-fix` so blood pressure, sleep, and body payloads use the server's snake_case schema. `assembleDebug` passes; targeted `ApiServiceTest` passes; full `./gradlew test` still has the same single pre-existing Robolectric SQLite failure. Live retry is pending because no Android device was connected at the end of the session.
-**Blockers:** Physical device not connected for post-fix live sync verification. Sleep/body/BP production counts remain unverified after the Apex payload fix.
-**Next Action:** Reconnect and unlock the phone, install the patched Apex build from `codex/health-connect-wire-fix`, trigger a manual Health Connect sync, verify `sleep_sessions` and `body_measurements` begin populating on production, then decide whether A-01/H-04 monitoring can officially begin.
+**Last Active:** 2026-03-25
+**Current Phase:** Post-MVP stabilization complete; UI overhaul prep
+**Current Task:** Cross-repo workflow cleanup before the Apex UI overhaul. The Health Connect wire-contract fix is implemented on `codex/health-connect-wire-fix` and verified live against production.
+**Current Branch:** `codex/health-connect-wire-fix`
+**Counterpart Repo:** `C:\Users\tyler\Documents\health-rollout-worktree\Health-Platform-Desktop` on `codex/health-platform-rollout`
+**Verified State:** Apex v2 MVP shipped on `master` via merge commit `3729117`. This branch adds the post-MVP Health Connect payload fix (`3ce33bd`) so BP/sleep/body payloads use server-compatible snake_case DTOs. Production now shows `sleep_sessions=4`, `body_measurements=1`, `hrv_readings=139`, `blood_pressure_readings=0`; dashboard sync updates cleanly to `Just now`. `H-04` monitoring can begin. `A-01` remains disabled because HRV is not current within the required 24h repeat-morning window.
+**Blockers:** (1) `codex/health-connect-wire-fix` still needs PR/merge to `master`. (2) `codex/health-platform-rollout` still needs PR/merge so the deployed server rollout and HMAC fix are recorded on the mainline branch. (3) BP end-to-end remains unverified only because there is no BP data on the phone.
+**Next Action:** Open/merge the two pending fix branches, keep `WORKSPACE-STATE.md` + both `PROJECT.md` files in sync, then start the Apex UI overhaul on a fresh Apex-only branch.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
