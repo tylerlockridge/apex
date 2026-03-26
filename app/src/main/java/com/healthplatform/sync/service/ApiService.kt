@@ -40,6 +40,37 @@ data class SyncRequest<out T>(
     val records: List<T>
 )
 
+/** Wire format for blood pressure records — maps from [BloodPressureData] to server field names. */
+data class BpSyncRecord(
+    val systolic: Int,
+    val diastolic: Int,
+    val measured_at: String,
+    val pulse: Int? = null,
+    val context: String? = null,
+    val device_name: String? = null
+)
+
+/** Wire format for sleep records — maps from [SleepData] to server field names. */
+data class SleepSyncRecord(
+    val sleep_start: String,
+    val sleep_end: String,
+    val duration_minutes: Int? = null,
+    val deep_sleep_minutes: Int? = null,
+    val rem_sleep_minutes: Int? = null,
+    val light_sleep_minutes: Int? = null,
+    val sleep_score: Int? = null,
+    val device_name: String? = null
+)
+
+/** Wire format for body records — maps from [BodyMeasurementData] to server field names. */
+data class BodySyncRecord(
+    val measured_at: String,
+    val weight_kg: Double,
+    val body_fat_percent: Double? = null,
+    val muscle_mass_kg: Double? = null,
+    val device_name: String? = null
+)
+
 /** Wire format for HRV records — maps from [HrvData] to the server's expected field names. */
 data class HrvSyncRecord(
     val measured_at: String,
@@ -142,13 +173,56 @@ class ApiService private constructor(
     // -------------------------------------------------------------------------
 
     suspend fun syncBloodPressure(records: List<BloodPressureData>): Result<SyncResponse> =
-        sync(SyncRequest(data_type = "blood_pressure", records = records))
+        sync(SyncRequest(
+            data_type = "blood_pressure",
+            records = records.map { bp ->
+                BpSyncRecord(
+                    systolic = bp.systolic,
+                    diastolic = bp.diastolic,
+                    measured_at = bp.measuredAt,
+                    pulse = bp.pulse,
+                    context = bp.context,
+                    device_name = bp.deviceName
+                )
+            }
+        ))
 
     suspend fun syncSleep(records: List<SleepData>): Result<SyncResponse> =
-        sync(SyncRequest(data_type = "sleep", records = records))
+        sync(SyncRequest(
+            data_type = "sleep",
+            records = records.map { sleep ->
+                SleepSyncRecord(
+                    sleep_start = sleep.sleepStart,
+                    sleep_end = sleep.sleepEnd,
+                    duration_minutes = sleep.durationMinutes,
+                    deep_sleep_minutes = sleep.deepSleepMinutes,
+                    rem_sleep_minutes = sleep.remSleepMinutes,
+                    light_sleep_minutes = sleep.lightSleepMinutes,
+                    sleep_score = sleep.sleepScore,
+                    device_name = sleep.deviceName
+                )
+            }
+        ))
 
-    suspend fun syncBodyMeasurements(records: List<BodyMeasurementData>): Result<SyncResponse> =
-        sync(SyncRequest(data_type = "body_measurements", records = records))
+    suspend fun syncBodyMeasurements(records: List<BodyMeasurementData>): Result<SyncResponse> {
+        val bodyRecords = records.mapNotNull { body ->
+            body.weightKg?.let { weightKg ->
+                BodySyncRecord(
+                    measured_at = body.measuredAt,
+                    weight_kg = weightKg,
+                    body_fat_percent = body.bodyFatPercent,
+                    muscle_mass_kg = body.muscleMassKg,
+                    device_name = body.deviceName
+                )
+            }
+        }
+
+        return if (bodyRecords.isEmpty()) {
+            Result.success(SyncResponse(success = true, synced = 0, sync_id = null))
+        } else {
+            sync(SyncRequest(data_type = "body_measurements", records = bodyRecords))
+        }
+    }
 
     suspend fun syncHrv(records: List<HrvData>): Result<SyncResponse> =
         sync(SyncRequest(

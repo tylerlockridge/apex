@@ -19,13 +19,16 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-23 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-25 -->
 ## Quick Resume
-**Last Active:** 2026-03-23
-**Current Phase:** v2 MVP shipped
-**Current Task:** Apex v2 workout-first MVP is formally shipped. Phase 4 is fully complete. Production is live with migrations 001-013, 82 Hevy workouts, 311 exercise templates, 26 muscle overrides. Task 7 passed end-to-end on a real device. H-06 validated (>= 30 req/min, Tier 2 defaults confirmed). A-01 inconclusive — HRV weight ships at 0.0, config-ready for activation post-ship. VD-1 deferred — Path B (display-only) shipped by design. ADR-001, ADR-003, ADR-005 accepted by Tyler on 2026-03-23. All 5 ADRs now accepted.
-**Blockers:** None. MVP is shipped.
-**Next Action:** Daily use as primary workout companion alongside Hevy. Post-MVP: A-01 re-evaluation after HC data observed over multiple days; H-02/H-03 weight tuning after 4+ weeks of daily use; VD-1 push path if validated.
+**Last Active:** 2026-03-25
+**Current Phase:** Post-MVP stabilization complete; UI overhaul prep
+**Current Task:** Cross-repo workflow cleanup before the Apex UI overhaul. The Health Connect wire-contract fix is implemented on `codex/health-connect-wire-fix` and verified live against production.
+**Current Branch:** `codex/health-connect-wire-fix`
+**Counterpart Repo:** `C:\Users\tyler\Documents\health-rollout-worktree\Health-Platform-Desktop` on `codex/health-platform-rollout`
+**Verified State:** Apex v2 MVP shipped on `master` via merge commit `3729117`. This branch adds the post-MVP Health Connect payload fix (`3ce33bd`) so BP/sleep/body payloads use server-compatible snake_case DTOs. Production now shows `sleep_sessions=4`, `body_measurements=1`, `hrv_readings=139`, `blood_pressure_readings=0`; dashboard sync updates cleanly to `Just now`. `H-04` monitoring can begin. `A-01` remains disabled because HRV is not current within the required 24h repeat-morning window.
+**Blockers:** (1) `codex/health-connect-wire-fix` still needs PR/merge to `master`. (2) `codex/health-platform-rollout` still needs PR/merge so the deployed server rollout and HMAC fix are recorded on the mainline branch. (3) BP end-to-end remains unverified only because there is no BP data on the phone.
+**Next Action:** Open/merge the two pending fix branches, keep `WORKSPACE-STATE.md` + both `PROJECT.md` files in sync, then start the Apex UI overhaul on a fresh Apex-only branch.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
