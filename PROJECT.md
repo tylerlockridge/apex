@@ -22,11 +22,11 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-26 -->
 ## Quick Resume
 **Last Active:** 2026-03-26
-**Current Phase:** HC SDK fix merged. App in daily-use posture.
-**Current Task:** PR #6 merged to `master` (merge commit `58981c6`). Health Connect SDK `1.1.0-alpha08` fix for Android 16 `getSdkStatus()` bug is now on `master`. HC permissions restored on device; first post-fix sync succeeded: 4 sleep + 1 body + 139 HRV records. Biometric lock re-enabled. 129/129 tests pass.
+**Current Phase:** Daily-use posture. Live monitoring session completed.
+**Current Task:** Live monitoring session 2026-03-26. Sync pipeline verified healthy — manual sync succeeded (22:09 EDT), all 6 HC permissions granted, biometric lock active, server reachable via HTTPS. Auto-sync is OFF (user has not enabled periodic 15-min worker). HC data is stale: sleep/HRV from 2026-03-16, weight from 2026-02-25 — staleness is a source-device issue, not an Apex bug. No BP data exists. No crashes, ANRs, or auth failures. 129/129 tests pass.
 **Current Branch:** `master`
-**Blockers:** None. Server connectivity to `tyler-health.duckdns.org` is intermittent (DNS resolution flaky) but sync succeeded when reachable.
-**Next Action:** Resume daily use. Monitor H-04 (sleep/HRV freshness). BP remains unverified until real BP data exists. Remaining low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
+**Blockers:** None. SSH to server timed out (port 22) but HTTPS sync endpoint works. HC data staleness is a wearable/data-source gap, not an app issue.
+**Next Action:** Continue daily use. A-01 remains unresolved (HRV 10 days stale, not within 24h window). BP remains unverified until real BP data exists. Consider enabling auto-sync in Settings for passive monitoring. Remaining low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
