@@ -126,7 +126,7 @@ dependencies {
     implementation("com.airbnb.android:lottie-compose:6.3.0")
 
     // Health Connect
-    implementation("androidx.health.connect:connect-client:1.1.0-alpha06")
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha08")
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
