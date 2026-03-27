@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.TrendingDown
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -579,7 +581,7 @@ private fun ProgressionSummaryCard(summary: ProgressionSummaryResponse) {
                 if (alerts.isNotEmpty()) Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Rounded.TrendingDown,
+                        imageVector = Icons.AutoMirrored.Rounded.TrendingDown,
                         contentDescription = null,
                         tint = ApexOnSurfaceVariant,
                         modifier = Modifier.size(14.dp)
@@ -599,7 +601,7 @@ private fun ProgressionSummaryCard(summary: ProgressionSummaryResponse) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Rounded.TrendingUp,
+                        imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
                         contentDescription = null,
                         tint = ApexWeightAccent,
                         modifier = Modifier.size(14.dp)

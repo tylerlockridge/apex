@@ -717,7 +717,7 @@ private fun SleepTile(
     ) {
         if (durationMin != null) {
             val score = sleepScore(durationMin, deepMin ?: 0, remMin ?: 0)
-            SleepArcGauge(score = score, accentColor = ApexSleepAccent, modifier = Modifier.size(56.dp))
+            SleepArcGauge(score = score, modifier = Modifier.size(56.dp))
             Spacer(modifier = Modifier.height(4.dp))
             val h = durationMin / 60
             val m = durationMin % 60
@@ -823,8 +823,7 @@ private fun MetricEmptyState() {
 // ---------------------------------------------------------------------------
 
 @Composable
-@Suppress("UNUSED_PARAMETER")
-private fun SleepArcGauge(score: Int, accentColor: Color = ApexSleepAccent, modifier: Modifier = Modifier) {
+private fun SleepArcGauge(score: Int, modifier: Modifier = Modifier) {
     val arcColor = when {
         score >= 80 -> ApexStatusGreen
         score >= 60 -> ApexStatusYellow

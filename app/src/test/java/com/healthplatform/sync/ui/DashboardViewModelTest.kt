@@ -3,6 +3,8 @@ package com.healthplatform.sync.ui
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.WorkManagerTestInitHelper
 import app.cash.turbine.test
 import com.healthplatform.sync.SyncPrefsKeys
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +33,16 @@ class DashboardViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         app = ApplicationProvider.getApplicationContext()
+
+        // Initialize WorkManager for tests — DashboardViewModel accesses
+        // WorkManager.getInstance() at construction and triggerSync() queries
+        // its internal SQLite DB. Without this, the debounce test crashes with
+        // ShadowLegacySQLiteConnection errors.
+        val config = Configuration.Builder()
+            .setMinimumLoggingLevel(android.util.Log.DEBUG)
+            .build()
+        WorkManagerTestInitHelper.initializeTestWorkManager(app, config)
+
         // Clear prefs before each test for isolation
         app.getSharedPreferences(SyncPrefsKeys.FILE_NAME, Context.MODE_PRIVATE)
             .edit().clear().commit()

@@ -19,14 +19,14 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-26 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-27 -->
 ## Quick Resume
-**Last Active:** 2026-03-26
-**Current Phase:** UI overhaul merged to master
-**Current Task:** PR #4 merged to `master` via merge commit `810dc29`. QA passed (all screens PASS via on-device UIAutomator validation). CI build passed. 11 files changed, 129/130 tests pass (1 pre-existing Robolectric SQLite failure unchanged in `DashboardViewModelTest.triggerSync`).
-**Current Branch:** `master`
+**Last Active:** 2026-03-27
+**Current Phase:** Post-merge audit pass on `codex/apex-post-merge-audit-pass`
+**Current Task:** Multi-perspective audit complete. Fixed: pre-existing DashboardViewModelTest.triggerSync Robolectric SQLite failure (WorkManager test init), deprecated icon warnings (AutoMirrored), unused SleepArcGauge param, 3 factually wrong doc sections. 129/129 tests pass. Build clean.
+**Current Branch:** `codex/apex-post-merge-audit-pass` (based on `master` at `7cdbd53`)
 **Blockers:** None.
-**Next Action:** Install merged master build on device for daily use. Re-provision API key and Health Connect permissions (wiped during QA-pass uninstall). Follow-up: address pre-existing icon deprecation warnings (AutoMirrored variants).
+**Next Action:** Merge audit PR, install on device, re-provision API key + HC permissions.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff

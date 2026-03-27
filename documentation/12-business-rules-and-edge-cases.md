@@ -1,6 +1,6 @@
 # Feature: Business Rules & Edge Cases
 
-*Created: 2026-03-02 | Updated: 2026-03-02 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-27 | Project: Apex*
 
 ---
 
@@ -28,8 +28,9 @@ Documents the authoritative business rules baked into Apex's implementation — 
 
 | Rule | Detail |
 |------|--------|
-| 30-day rolling window | `SyncWorker` reads the last 30 days from Health Connect on every sync run |
-| Not incremental | Change tokens are not used; all 30 days are read regardless of prior syncs |
+| 30-day rolling window | `SyncWorker` reads the last 30 days from Health Connect when no change token exists |
+| Incremental for BP/Sleep/HRV | Change tokens are saved after successful HC reads; subsequent syncs read only changed records. Token expiry falls back to a full 30-day read. |
+| Full read for body measurements | Body measurements (weight/fat/lean-mass) still use a full 30-day read because merging incremental changes is complex |
 
 ### Body Measurement Matching
 
@@ -57,7 +58,9 @@ Documents the authoritative business rules baked into Apex's implementation — 
 
 | Rule | Detail |
 |------|--------|
-| Dual credential requirement | Every sync payload requires BOTH `Authorization: Bearer <api_key>` header AND `device_secret` in request body |
+| Bearer token | Every request includes `Authorization: Bearer <api_key>` header |
+| HMAC signature | Every request with a body includes `X-Signature: sha256=HMAC(secret, timestamp\n body)` and `X-Timestamp` headers. The `device_secret` is never sent in the request body — authentication is via HMAC only. |
+| Replay protection | Server rejects timestamps older than ±5 minutes |
 | Server-side deduplication key | Composite key: `measured_at + data_type + source_device` |
 
 ### Permission Requirements
@@ -100,12 +103,12 @@ Documents the authoritative business rules baked into Apex's implementation — 
 | Rule / Edge Case | Status | Notes |
 |-----------------|--------|-------|
 | Oura Ring preference (sleep + HRV) | ✅ PASS | Package filter applied in HealthConnectReader |
-| 30-day rolling window | ✅ PASS | Consistent across all data types |
+| 30-day rolling window / incremental | ✅ PASS | BP/Sleep/HRV use change tokens; body is full 30-day read |
 | ±1h body measurement matching | ✅ PASS | Weight-only fallback implemented |
 | BIOMETRIC_STRONG enforcement | ✅ PASS | Class 1 biometrics rejected |
 | 5-minute inactivity re-auth | ✅ PASS | elapsedRealtime() >= check in onResume() |
 | ISO 8601 timestamps | ✅ PASS | Instant.toString() + ZoneId.systemDefault() display |
-| Dual credential requirement | ✅ PASS | Bearer + device_secret on all sync POSTs |
+| Bearer + HMAC auth | ✅ PASS | Bearer header + HMAC signature on all requests |
 | Empty data handling (charts + cards) | ✅ PASS | All charts + prefs reads handle missing data |
 | Network failure retry | ✅ PASS | Result.retry() + WorkManager backoff |
 | Server ping timeout | ✅ PASS | 4s + 4s; exception → red indicator |
