@@ -19,14 +19,14 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-27 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-26 -->
 ## Quick Resume
-**Last Active:** 2026-03-27
-**Current Phase:** Post-merge audit and device QA complete. Master is stable.
-**Current Task:** PR #4 (UI overhaul) and PR #5 (audit fixes) both merged to master. On-device QA passed all screens via UIAutomator verification. 129/129 tests pass (pre-existing DashboardViewModelTest.triggerSync failure is resolved). No crashes, no regressions.
-**Current Branch:** `master` (HEAD: `99f1076`)
-**Blockers:** None.
-**Next Action:** Re-provision Health Connect permissions on device (lost during QA-pass uninstall). Daily use as primary workout companion. Remaining low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in).
+**Last Active:** 2026-03-26
+**Current Phase:** HC reprovision complete. PR #6 open for SDK fix.
+**Current Task:** Health Connect SDK bumped from `1.1.0-alpha06` to `1.1.0-alpha08` to fix `getSdkStatus()` returning `SDK_UNAVAILABLE` on Android 16 (API 36). HC permissions restored on device. First post-merge sync succeeded: 4 sleep + 1 body + 139 HRV records. PR #6 open (`codex/apex-hc-reprovision-followup`). 129/129 tests pass. Biometric lock was temporarily cleared for automated QA (re-enable via Settings after merge).
+**Current Branch:** `codex/apex-hc-reprovision-followup` (PR #6)
+**Blockers:** None. Server connectivity to `tyler-health.duckdns.org` is intermittent (DNS resolution flaky) but sync succeeded when reachable.
+**Next Action:** Merge PR #6, re-enable biometric lock in Settings, resume daily use. Monitor H-04 (sleep/HRV freshness). BP remains unverified until real BP data exists. Remaining low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
