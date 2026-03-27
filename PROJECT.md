@@ -22,11 +22,11 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-27 -->
 ## Quick Resume
 **Last Active:** 2026-03-27
-**Current Phase:** Post-merge audit pass on `codex/apex-post-merge-audit-pass`
-**Current Task:** Multi-perspective audit complete. Fixed: pre-existing DashboardViewModelTest.triggerSync Robolectric SQLite failure (WorkManager test init), deprecated icon warnings (AutoMirrored), unused SleepArcGauge param, 3 factually wrong doc sections. 129/129 tests pass. Build clean.
-**Current Branch:** `codex/apex-post-merge-audit-pass` (based on `master` at `7cdbd53`)
+**Current Phase:** Post-merge audit and device QA complete. Master is stable.
+**Current Task:** PR #4 (UI overhaul) and PR #5 (audit fixes) both merged to master. On-device QA passed all screens via UIAutomator verification. 129/129 tests pass (pre-existing DashboardViewModelTest.triggerSync failure is resolved). No crashes, no regressions.
+**Current Branch:** `master` (HEAD: `99f1076`)
 **Blockers:** None.
-**Next Action:** Merge audit PR, install on device, re-provision API key + HC permissions.
+**Next Action:** Re-provision Health Connect permissions on device (lost during QA-pass uninstall). Daily use as primary workout companion. Remaining low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in).
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
