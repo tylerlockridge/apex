@@ -22,11 +22,11 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-26 -->
 ## Quick Resume
 **Last Active:** 2026-03-26
-**Current Phase:** HC reprovision complete. PR #6 open for SDK fix.
-**Current Task:** Health Connect SDK bumped from `1.1.0-alpha06` to `1.1.0-alpha08` to fix `getSdkStatus()` returning `SDK_UNAVAILABLE` on Android 16 (API 36). HC permissions restored on device. First post-merge sync succeeded: 4 sleep + 1 body + 139 HRV records. PR #6 open (`codex/apex-hc-reprovision-followup`). 129/129 tests pass. Biometric lock was temporarily cleared for automated QA (re-enable via Settings after merge).
-**Current Branch:** `codex/apex-hc-reprovision-followup` (PR #6)
+**Current Phase:** HC SDK fix merged. App in daily-use posture.
+**Current Task:** PR #6 merged to `master` (merge commit `58981c6`). Health Connect SDK `1.1.0-alpha08` fix for Android 16 `getSdkStatus()` bug is now on `master`. HC permissions restored on device; first post-fix sync succeeded: 4 sleep + 1 body + 139 HRV records. Biometric lock re-enabled. 129/129 tests pass.
+**Current Branch:** `master`
 **Blockers:** None. Server connectivity to `tyler-health.duckdns.org` is intermittent (DNS resolution flaky) but sync succeeded when reachable.
-**Next Action:** Merge PR #6, re-enable biometric lock in Settings, resume daily use. Monitor H-04 (sleep/HRV freshness). BP remains unverified until real BP data exists. Remaining low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
+**Next Action:** Resume daily use. Monitor H-04 (sleep/HRV freshness). BP remains unverified until real BP data exists. Remaining low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
