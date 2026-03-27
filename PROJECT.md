@@ -19,14 +19,14 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-26 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-27 -->
 ## Quick Resume
-**Last Active:** 2026-03-26
-**Current Phase:** Daily-use posture. Live monitoring session completed.
-**Current Task:** Live monitoring session 2026-03-26. Sync pipeline verified healthy — manual sync succeeded (22:09 EDT), all 6 HC permissions granted, biometric lock active, server reachable via HTTPS. Auto-sync is OFF (user has not enabled periodic 15-min worker). HC data is stale: sleep/HRV from 2026-03-16, weight from 2026-02-25 — staleness is a source-device issue, not an Apex bug. No BP data exists. No crashes, ANRs, or auth failures. 129/129 tests pass.
-**Current Branch:** `master`
-**Blockers:** None. SSH to server timed out (port 22) but HTTPS sync endpoint works. HC data staleness is a wearable/data-source gap, not an app issue.
-**Next Action:** Continue daily use. A-01 remains unresolved (HRV 10 days stale, not within 24h window). BP remains unverified until real BP data exists. Consider enabling auto-sync in Settings for passive monitoring. Remaining low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
+**Last Active:** 2026-03-27
+**Current Phase:** Daily-use posture. Passive monitoring active.
+**Current Task:** Auto-sync enabled and verified 2026-03-27. `health_sync_periodic` (15-min interval, network-constrained, exponential backoff) registered in JobScheduler as `JOB #u0a696/2`. First periodic execution completed successfully within seconds of enablement. SharedPrefs `auto_sync=true` and job registration both persist across force-stop + relaunch. No crashes, ANRs, or auth errors in logcat. Evidence at `build/device-qa/auto-sync-enable/`. No code changes required.
+**Current Branch:** `master` at `4aef4bb`
+**Blockers:** A-01 unresolved (HRV data stale — not within 24h validation window). BP unverified (no BP data on device). Neither blocks daily use.
+**Next Action:** Continue daily use with passive auto-sync. Re-check A-01 after fresh morning HRV appears in Health Connect. Leave BP unverified until real data exists. Low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
