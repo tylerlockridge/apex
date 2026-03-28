@@ -9,6 +9,9 @@ import com.healthplatform.sync.readiness.ReadinessConfigStore
 import com.healthplatform.sync.readiness.ReadinessEngine
 import com.healthplatform.sync.readiness.ReadinessInputId
 import com.healthplatform.sync.readiness.ReadinessResult
+import com.healthplatform.sync.data.NutritionRepository
+import com.healthplatform.sync.data.db.NutritionTargetCacheEntity
+import com.healthplatform.sync.data.db.HydrationTargetCacheEntity
 import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.service.ServerApiClient
 import com.healthplatform.sync.service.SyncWorker
@@ -51,6 +54,11 @@ data class DashboardState(
     val readinessResult: ReadinessResult? = null,
     val readinessLabel: String? = null,
     val readinessReason: String? = null,
+    // Nutrition & Hydration
+    val nutritionCalories: Int? = null,
+    val nutritionTarget: NutritionTargetCacheEntity? = null,
+    val hydrationMl: Int? = null,
+    val hydrationTarget: HydrationTargetCacheEntity? = null,
 )
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -172,6 +180,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
 
             loadRecentWorkout()
+            loadNutritionSummary()
         }
     }
 
@@ -191,6 +200,26 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 },
                 onFailure = { /* Non-critical — silently ignore */ }
             )
+        }
+    }
+
+    private fun loadNutritionSummary() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val repo = NutritionRepository(getApplication())
+                val entries = repo.getFoodEntriesForDate()
+                val target = repo.getNutritionTarget()
+                val waterEntries = repo.getWaterEntriesForDate()
+                val hydrationTarget = repo.getHydrationTarget()
+                _state.update {
+                    it.copy(
+                        nutritionCalories = if (entries.isNotEmpty()) entries.sumOf { e -> e.calories }.toInt() else null,
+                        nutritionTarget = target,
+                        hydrationMl = if (waterEntries.isNotEmpty()) waterEntries.sumOf { e -> e.amountMl } else null,
+                        hydrationTarget = hydrationTarget,
+                    )
+                }
+            } catch (_: Exception) { /* Non-critical */ }
         }
     }
 

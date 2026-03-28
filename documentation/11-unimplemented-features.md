@@ -1,6 +1,6 @@
 # Feature: Unimplemented Features & Known Gaps
 
-*Created: 2026-03-02 | Updated: 2026-03-26 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-28 | Project: Apex*
 
 ---
 
@@ -71,6 +71,32 @@ These items were previously listed as missing and are now implemented:
 | ~~Phase 2 future-pillar schemas~~ | ✅ Implemented — Migrations 010-012 (nutrition, supplement, coaching tables created empty) |
 | ~~Phase 3 workout generation flow~~ | ✅ Implemented — `GeneratedRoutineScreen.kt`, `GeneratedRoutineViewModel.kt`, server-side `workoutGenerator.js`, `progressionEngine.js` |
 | Push-to-Hevy prescribed routine path | Deferred (VD-1 unvalidated). Path B (display-only, manual Hevy start) shipped. Post-MVP add-on if VD-1 passes. |
+| ~~Nutrition logging (manual)~~ | ✅ Implemented — `NutritionScreen`, `NutritionViewModel`, `NutritionRepository`, `NutritionSyncWorker`. Custom food creation, food search, food entry log with meal types, daily totals with target tracking, offline queue, dashboard integration. |
+| ~~Hydration logging~~ | ✅ Implemented — `HydrationScreen`, `HydrationViewModel`. Quick-add water entries (250/500/750ml + custom), daily total vs target, entry list with delete, dashboard integration. |
+| ~~Nutrition targets~~ | ✅ Implemented — `NutritionTargetsScreen`. Calorie + macro (protein/carbs/fat) targets with date-effective upsert. |
+| ~~Hydration targets~~ | ✅ Implemented — `HydrationTargetsScreen`. Daily ml target with presets (2000-3500). |
+
+---
+
+## Active Client Gaps (Post Nutrition/Hydration)
+
+### Nutrition — Not Yet Implemented
+
+| Gap | Current state |
+|-----|---------------|
+| Barcode scanning for food lookup | CameraX/ML Kit exists for QR; food barcode flow not yet built |
+| USDA / Open Food Facts food database | Server adapters not built; only custom foods for now |
+| Recent/favorite foods | Local cache exists; recent-food prioritization is by `lastUsedAt` but no dedicated favorites concept |
+| Quick-add (calories only) | Not yet implemented; all entries require a food record |
+| Adaptive TDEE | Algorithm designed in research brief; requires 7+ days of logging + weight data |
+| Food photo estimation | Research complete; depends on manual nutrition being reliable first |
+
+### Other
+
+| Gap | Current state |
+|-----|---------------|
+| Supplement tracking | Research done; no UI or schema activation |
+| AI coach | Research done; no endpoints, chat UI, or memory |
 
 ---
 
@@ -80,7 +106,7 @@ These items were previously listed as missing and are now implemented:
 |----------|-------|-------|
 | High | 0 | no client-critical missing features |
 | Medium | 3 | durable inbound cache, body incremental sync, strict compatibility enforcement |
-| Low / deferred | 3 | HRV activation (config-ready), subjective readiness UI, push-to-Hevy (VD-1 dependent) |
+| Low / deferred | 5 | HRV activation, subjective readiness, push-to-Hevy, barcode scanning, USDA/OFF |
 
 ---
 
@@ -95,5 +121,8 @@ These items were previously listed as missing and are now implemented:
 | Incremental sync | ✅ PARTIAL | body remains full-read |
 | Readiness engine (ADR-003-style) | ✅ PASS | implemented with configurable weights, staleness, per-input breakdown |
 | Workout generation (Phase 3) | ✅ PASS | server-side generation + client review/accept flow |
+| Manual nutrition logging | ✅ PASS | food search, custom food, food entries, daily totals, targets, offline queue |
+| Hydration logging | ✅ PASS | quick-add water, daily total vs target, entry list |
+| Dashboard nutrition/hydration | ✅ PASS | calorie + hydration tiles with target progress bars |
 | Durable inbound read cache | ❌ GAP | trends/workouts remain live-read (post-MVP) |
 | Alternative providers | ❌ GAP | seam exists; implementations do not (post-MVP, H-04 dependent) |

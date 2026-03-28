@@ -49,6 +49,8 @@ val ApexBpAccent     = Color(0xFFF87171)  // coral red  — blood pressure urgen
 val ApexSleepAccent  = Color(0xFF818CF8)  // indigo     — rest / night
 val ApexWeightAccent = Color(0xFF34D399)  // emerald    — body composition
 val ApexHrvAccent    = Color(0xFFFBBF24)  // amber      — HRV / readiness
+val ApexNutritionAccent = Color(0xFFFB923C) // orange     — nutrition / calories
+val ApexHydrationAccent = Color(0xFF38BDF8) // sky blue   — water / hydration
 
 // ---------------------------------------------------------------------------
 // Sleep-stage chart color (replaces hardcoded 0xFF3D4451)

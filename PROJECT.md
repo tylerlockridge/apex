@@ -22,11 +22,11 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-28 -->
 ## Quick Resume
 **Last Active:** 2026-03-28
-**Current Phase:** Daily-use posture. Auto-sync active.
-**Current Task:** Auto-sync re-verified 2026-03-28. `health_sync_periodic` (15-min interval, network-constrained, exponential backoff) registered as `JOB #u0a696/6`. `WeeklySummaryWorker` registered as `JOB #u0a696/0`. SharedPrefs `auto_sync=true` and both job registrations persist across force-stop + relaunch. 10 consecutive successful syncs in history. No crashes, ANRs, or auth errors in logcat. No code changes required.
-**Current Branch:** `master` at `524f021`
-**Blockers:** A-01 unresolved (HRV data stale — last reading 2026-03-16, not within 24h validation window). BP unverified (no BP data on device). Neither blocks daily use.
-**Next Action:** Continue daily use with passive auto-sync. Re-check A-01 after fresh morning HRV appears in Health Connect. Leave BP unverified until real data exists. Low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
+**Current Phase:** Active feature development. Nutrition/hydration foundation shipped.
+**Current Task:** Manual nutrition and hydration logging implemented on branch `codex/apex-nutrition-hydration-foundation`. New features: Nutrition tab (5th bottom nav item) with food search, custom food creation, food entry logging by meal, daily macro totals vs targets, offline write queue with background sync. Hydration screen with quick-add water (250/500/750ml + custom), daily total vs target, entry list. Targets editors for both. Dashboard integration with calorie + hydration tiles. Room DB v2 migration with 6 new tables. NutritionSyncWorker drains pending writes. 141 tests (139 pass, 2 pre-existing ordering issues).
+**Current Branch:** `codex/apex-nutrition-hydration-foundation`
+**Blockers:** Production server still at migration 013; nutrition endpoints require migration 014 deployment. A-01/BP unresolved (unchanged).
+**Next Action:** Deploy migration 014 to production, then verify nutrition/hydration end-to-end on device. After that: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
