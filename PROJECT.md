@@ -22,11 +22,11 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-28 -->
 ## Quick Resume
 **Last Active:** 2026-03-28
-**Current Phase:** Daily-use posture. Auto-sync active.
-**Current Task:** Auto-sync re-verified 2026-03-28. `health_sync_periodic` (15-min interval, network-constrained, exponential backoff) registered as `JOB #u0a696/6`. `WeeklySummaryWorker` registered as `JOB #u0a696/0`. SharedPrefs `auto_sync=true` and both job registrations persist across force-stop + relaunch. 10 consecutive successful syncs in history. No crashes, ANRs, or auth errors in logcat. No code changes required.
-**Current Branch:** `master` at `524f021`
-**Blockers:** A-01 unresolved (HRV data stale — last reading 2026-03-16, not within 24h validation window). BP unverified (no BP data on device). Neither blocks daily use.
-**Next Action:** Continue daily use with passive auto-sync. Re-check A-01 after fresh morning HRV appears in Health Connect. Leave BP unverified until real data exists. Low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
+**Current Phase:** Full-product reset / replan underway. The shipped workout-first MVP is now baseline context, not governing scope.
+**Current Task:** Docs-only product-reset audit in progress. `FULL-PRODUCT-GAP-MATRIX.md` maps intended full Apex product vs. current shipped workout-first state, with ownership split across the Apex app and Health-Platform-Desktop server. The immediate goal is to reset planning around the full application: nutrition, freshness/reliability, coaching, broader training history, and post-MVP workout depth.
+**Current Branch:** `codex/apex-full-product-reset`
+**Blockers:** The product plan is mis-scoped, not technically complete. Biggest gaps are nutrition logging, barcode/food database, durable inbound freshness, AI coach foundation, broader provider coverage, and workout depth beyond the MVP slice. A-01 stale HRV and BP unverified still matter, but they are no longer the only meaningful next-step constraints.
+**Next Action:** Convert the gap matrix into a full-product roadmap reset that replaces the MVP-centric plan. Keep the stable MVP sync/workout loop as a shipped baseline, but stop treating post-MVP pillars as optional or "later someday" placeholders.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
