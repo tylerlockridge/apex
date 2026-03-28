@@ -19,13 +19,13 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-27 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-28 -->
 ## Quick Resume
-**Last Active:** 2026-03-27
-**Current Phase:** Daily-use posture. Passive monitoring active.
-**Current Task:** Auto-sync enabled and verified 2026-03-27. `health_sync_periodic` (15-min interval, network-constrained, exponential backoff) registered in JobScheduler as `JOB #u0a696/2`. First periodic execution completed successfully within seconds of enablement. SharedPrefs `auto_sync=true` and job registration both persist across force-stop + relaunch. No crashes, ANRs, or auth errors in logcat. Evidence at `build/device-qa/auto-sync-enable/`. No code changes required.
-**Current Branch:** `master` at `4aef4bb`
-**Blockers:** A-01 unresolved (HRV data stale — not within 24h validation window). BP unverified (no BP data on device). Neither blocks daily use.
+**Last Active:** 2026-03-28
+**Current Phase:** Daily-use posture. Auto-sync active.
+**Current Task:** Auto-sync re-verified 2026-03-28. `health_sync_periodic` (15-min interval, network-constrained, exponential backoff) registered as `JOB #u0a696/6`. `WeeklySummaryWorker` registered as `JOB #u0a696/0`. SharedPrefs `auto_sync=true` and both job registrations persist across force-stop + relaunch. 10 consecutive successful syncs in history. No crashes, ANRs, or auth errors in logcat. No code changes required.
+**Current Branch:** `master` at `524f021`
+**Blockers:** A-01 unresolved (HRV data stale — last reading 2026-03-16, not within 24h validation window). BP unverified (no BP data on device). Neither blocks daily use.
 **Next Action:** Continue daily use with passive auto-sync. Re-check A-01 after fresh morning HRV appears in Health Connect. Leave BP unverified until real data exists. Low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
 
 ### v2 Architecture Artifacts
