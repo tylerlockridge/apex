@@ -22,11 +22,11 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-28 -->
 ## Quick Resume
 **Last Active:** 2026-03-28
-**Current Phase:** Full-product reset / replan underway. The shipped workout-first MVP is now baseline context, not governing scope.
-**Current Task:** Docs-only product-reset audit in progress. `FULL-PRODUCT-GAP-MATRIX.md` maps intended full Apex product vs. current shipped workout-first state, with ownership split across the Apex app and Health-Platform-Desktop server. The immediate goal is to reset planning around the full application: nutrition, freshness/reliability, coaching, broader training history, and post-MVP workout depth.
+**Current Phase:** Full-product reset complete. The workout-first MVP is now baseline context, and `IMPLEMENTATION-ROADMAP-FULL-PRODUCT.md` is the active cross-repo planning document.
+**Current Task:** Docs-only reset package completed in Apex. The repo now has a full-product gap audit plus an implementation-ready roadmap that sequences server and Android work by dependency and user value instead of MVP history.
 **Current Branch:** `codex/apex-full-product-reset`
-**Blockers:** The product plan is mis-scoped, not technically complete. Biggest gaps are nutrition logging, barcode/food database, durable inbound freshness, AI coach foundation, broader provider coverage, and workout depth beyond the MVP slice. A-01 stale HRV and BP unverified still matter, but they are no longer the only meaningful next-step constraints.
-**Next Action:** Convert the gap matrix into a full-product roadmap reset that replaces the MVP-centric plan. Keep the stable MVP sync/workout loop as a shipped baseline, but stop treating post-MVP pillars as optional or "later someday" placeholders.
+**Blockers:** The biggest blockers are now implementation blockers, not planning ambiguity: the server still lacks the nutrition/hydration API foundation, durable freshness/read-model layer, and broader product contracts the Android app depends on. A-01 stale HRV and BP unverified still matter, but they are now secondary validation concerns rather than the main planning constraint.
+**Next Action:** Start Phase 1 from `IMPLEMENTATION-ROADMAP-FULL-PRODUCT.md` in the Health-Platform-Desktop repo. That phase is server-first: nutrition/hydration foundations, freshness/read-model contracts, source provenance, and the migration/API work needed before new Apex UI slices can ship cleanly.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff

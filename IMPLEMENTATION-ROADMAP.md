@@ -6,6 +6,13 @@
 
 ---
 
+> Historical note (2026-03-28): this document is the workout-first MVP roadmap used
+> to ship the initial Apex v2 slice. It is retained for implementation history, but
+> it is superseded for current product planning by
+> `IMPLEMENTATION-ROADMAP-FULL-PRODUCT.md`.
+
+---
+
 ## 1. Purpose
 
 Convert the accepted architecture decisions into a sequenced build plan. This roadmap covers the workout-first MVP only (D-02). Nutrition, supplements, AI coaching, and photo estimation are designed-now-built-later per D-15 — their schemas ship empty in Phase 2 but their features are post-MVP.

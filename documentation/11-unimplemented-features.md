@@ -1,99 +1,93 @@
 # Feature: Unimplemented Features & Known Gaps
 
-*Created: 2026-03-02 | Updated: 2026-03-26 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-28 | Project: Apex*
 
 ---
 
 ## Feature Overview
 
 **What it does:**
-Tracks the meaningful client-side gaps that still exist in Apex and the major v2 roadmap work that is planned but not yet implemented.
+Tracks the gap between the intended full Apex product and the currently shipped
+workout-first baseline across both the Android app and the Health-Platform-Desktop server.
 
 **What it does NOT do:**
-- Does not duplicate test-gap tracking (see `10-testing-strategy.md`)
-- Does not duplicate security hardening details (see `04-security-implementation.md`)
-- Does not act as the authoritative multi-repo implementation roadmap; for that see `IMPLEMENTATION-ROADMAP.md`
+- Does not duplicate detailed testing strategy work (see `10-testing-strategy.md`)
+- Does not duplicate security implementation detail (see `04-security-implementation.md`)
+- Does not replace the authoritative cross-repo build sequence; see
+  `IMPLEMENTATION-ROADMAP-FULL-PRODUCT.md`
 
 ---
 
-## Recently Closed
+## Historical Note
 
-These items were previously listed as missing and are now implemented:
+This document previously read like an MVP close-out checklist and implied that the
+remaining gaps were mostly optional polish. That framing is no longer accurate.
 
-- Offline Room sync queue
-- HRV sync to server
-- Hevy workout display + manual Hevy sync trigger
-- QR code onboarding / scan flow
-- Certificate pinning
-- HMAC request signing
-- Sync history detail
-- Widget refresh after sync
-- Clear-all-data flow
+The shipped workout-first slice is now treated as a useful baseline, not the product
+definition. The intended product includes nutrition, hydration, food intelligence,
+freshness-aware health data, richer training intelligence, and AI coaching. Anything
+required to deliver that broader product remains a real gap even if the MVP shipped
+successfully.
 
 ---
 
-## Active Client Gaps
+## Current Shipped Baseline
 
-### Data & Sync
+| Area | What is already shipped |
+|------|-------------------------|
+| Health sync client | Health Connect sync for BP, sleep, HRV, and body data with background worker, HMAC signing, and offline queue |
+| Workout history | Hevy sync, activity display, workout history ingestion, and manual sync trigger |
+| Workout guidance | Server-side workout generation MVP with review-before-execute flow |
+| Readiness | Client-side readiness card with sleep/BP/training-load inputs and HRV-ready wiring |
+| Security / onboarding | QR onboarding, certificate pinning, API signing, lock flow, sync history detail |
 
-| Gap | Current state |
-|-----|---------------|
-| Body incremental sync | BP/sleep/HRV use change tokens; body measurements still do a full 30-day read |
-| Durable inbound cache | Trends and Activity still rely on live server reads; no local persisted read model exists for those screens |
-| Full transactional sync semantics | Per-type uploads can succeed or fail independently |
-| Strict server compatibility enforcement | Settings checks server version and can warn, but compatibility is not enforced as a hard gate |
-
-### Readiness
-
-| Gap | Current state |
-|-----|---------------|
-| ~~Configurable readiness engine~~ | ✅ Implemented — `ReadinessEngine.kt` + `ReadinessConfigStore.kt` with configurable weights via SharedPreferences |
-| ~~Per-input readiness breakdown~~ | ✅ Implemented — Home hero card shows per-input scores, staleness indicators, and aggregate score |
-| HRV readiness activation | HRV weight is `0.0` for MVP (A-01 inconclusive). Config-ready for `0.25` when validated. |
-| Subjective readiness input | No UI/data path exists yet (post-MVP) |
-| ~~Training-load readiness input~~ | ✅ Implemented — wired into readiness engine from workout generation data |
-
-### Provider / Data Source Flexibility
-
-| Gap | Current state |
-|-----|---------------|
-| Alternative health providers | Package 0B created the seam, but only `HealthConnectProvider` exists |
-| HC reliability fallback | No WHOOP/Oura/Garmin direct provider work exists; that remains validation-dependent |
+This baseline matters because the full-product plan should build on it rather than
+pretend the repo is starting from zero.
 
 ---
 
-## v2 Roadmap Work — Status as of MVP Close-Out (2026-03-23)
+## Full-Product Gaps
 
-| Roadmap area | Status |
-|-------------|--------|
-| ~~Phase 1 server Hevy adapter + workout schema~~ | ✅ Implemented — `hevyClient.js` with cache-through, backoff, rate-limit tracking. Migrations 008-009. 155 server tests. |
-| ~~Phase 2 readiness engine~~ | ✅ Implemented — `ReadinessEngine.kt`, `ReadinessConfigStore.kt`, `ReadinessModels.kt`, `ReadinessPayloadBuilder.kt` |
-| ~~Phase 2 future-pillar schemas~~ | ✅ Implemented — Migrations 010-012 (nutrition, supplement, coaching tables created empty) |
-| ~~Phase 3 workout generation flow~~ | ✅ Implemented — `GeneratedRoutineScreen.kt`, `GeneratedRoutineViewModel.kt`, server-side `workoutGenerator.js`, `progressionEngine.js` |
-| Push-to-Hevy prescribed routine path | Deferred (VD-1 unvalidated). Path B (display-only, manual Hevy start) shipped. Post-MVP add-on if VD-1 passes. |
-
----
-
-## Impact Summary
-
-| Severity | Count | Notes |
-|----------|-------|-------|
-| High | 0 | no client-critical missing features |
-| Medium | 3 | durable inbound cache, body incremental sync, strict compatibility enforcement |
-| Low / deferred | 3 | HRV activation (config-ready), subjective readiness UI, push-to-Hevy (VD-1 dependent) |
+| Area | Intended full-product target | Current shipped state | Repo owner | Gap status |
+|------|------------------------------|-----------------------|------------|------------|
+| Nutrition logging | Manual meal logging, food entry UX, macro/micro totals, daily targets, meal history | Nutrition tables exist on server but no active routes, sync contracts, or Android UX | Both | Researched foundation exists, feature remains unbuilt |
+| Hydration logging | Water intake capture, daily goal tracking, hydration contribution to readiness/coaching | No dedicated hydration schema, routes, local store, or UI | Both | Fully missing |
+| Barcode + food database | Barcode scan to validated food item, fallback search, source provenance, serving normalization | No barcode flow, no USDA/Open Food Facts integration, no canonical food search API | Both | Research partially ready, implementation missing |
+| Food photo estimation | Photo capture/import, estimate request, confidence handling, correction flow, nutrition-entry handoff | No API contract, no model pipeline, no Android capture flow for nutrition estimation | Both | Researched but unbuilt |
+| Durable inbound cache + freshness | Server-side durable inbound cache, freshness metadata, source provenance, stable read models for Apex | MVP relies heavily on live server reads and limited freshness semantics; no nutrition-grade read model layer | Both | Partial foundation only |
+| Sleep / HRV / BP freshness | Reliable freshness scoring, stale-data handling, historical durability, explicit source timestamps | Sync exists, but stale upstream data and weak freshness read models limit decision quality | Both | Partial |
+| Provider breadth beyond Health Connect | Clear strategy for when HC is enough vs when direct wearable/provider integrations are needed | Client seam exists via `HealthDataProvider`; no direct provider integrations or operational policy | Both | Targeted new research + implementation missing |
+| Training history beyond Hevy | Broader training history ingestion or normalization when Hevy is incomplete or not the only source | Hevy is the only real training history source in the shipped product | Both | Mostly missing |
+| Workout builder depth | Goal-driven blocks, mesocycle logic, deloads, broader exercise selection logic, progression intelligence beyond single-session generation | Workout generation MVP exists, but scope is narrow and focused on single-session generation from Hevy history | Both | Researched baseline exists, major expansion unbuilt |
+| Goal support | Support for hypertrophy, strength, fat loss / recomposition, recovery-aware modifications, and user goals that influence plans | No full goal model or end-to-end goal-aware progression system | Both | Mostly missing |
+| AI coach | Conversational guidance, context assembly, explanation layer, safety boundaries, memory/events, coaching actions grounded in user data | Coaching tables exist but no active endpoints, prompt pipeline, chat UI, or safety/validation loop | Both | Researched but unbuilt |
+| Data model + API contracts | Stable nutrition/hydration/photo/coach contracts across server and Android, with provenance and cache strategy | MVP contracts mainly cover sync + workout slice; broader product APIs are not yet built | Both | Partial / server-first gap |
+| Validation + testing | Cross-repo test coverage for nutrition, barcode, freshness, photo estimates, and coaching behaviors | Existing tests focus on MVP sync/workout flows; broader product validation harnesses do not exist | Both | Mostly missing |
 
 ---
 
-## Status
+## Scope Narrowing That Caused Drift
 
-| Area | Status | Notes |
-|------|--------|-------|
-| Offline queue | ✅ PASS | implemented and durable |
-| QR onboarding | ✅ PASS | CameraX + ML Kit flow exists |
-| Hevy activity sync trigger | ✅ PASS | server-triggered from Training screen |
-| Server version awareness | ✅ PARTIAL | warning/check exists, not a hard gate |
-| Incremental sync | ✅ PARTIAL | body remains full-read |
-| Readiness engine (ADR-003-style) | ✅ PASS | implemented with configurable weights, staleness, per-input breakdown |
-| Workout generation (Phase 3) | ✅ PASS | server-side generation + client review/accept flow |
-| Durable inbound read cache | ❌ GAP | trends/workouts remain live-read (post-MVP) |
-| Alternative providers | ❌ GAP | seam exists; implementations do not (post-MVP, H-04 dependent) |
+| Narrowed decision | Why it helped the MVP | Where it diverged from full-product intent |
+|-------------------|-----------------------|-------------------------------------------|
+| Workout generation shipped before other pillars | Delivered a concrete training loop quickly | The sequencing quietly normalized nutrition, hydration, and coaching as optional instead of simply later in sequence |
+| Nutrition/coaching schemas were created empty | Preserved future extensibility without blocking MVP | Schema existence was mistaken for product readiness even though no routes, UIs, or validated data flows were built |
+| Health Connect + Hevy were treated as sufficient sources | Simplified integration risk and let the app ship | Full product needs source freshness, fallback strategy, and training/health ingestion beyond a single happy-path provider mix |
+| Readiness focused on currently synced inputs | Kept the client shippable | Full readiness and coaching need hydration, nutrition quality, durable freshness, and better upstream data confidence |
+
+---
+
+## Priority View
+
+If Apex is being planned against the intended product, the highest-signal missing areas are:
+
+1. Nutrition + hydration foundation
+2. Barcode + canonical food database integration
+3. Durable inbound cache and freshness/read-model work
+4. Goal-driven workout builder expansion
+5. AI coach foundation
+6. Food photo estimation
+7. Provider expansion strategy where Health Connect is insufficient
+
+For execution order and acceptance criteria, use
+`IMPLEMENTATION-ROADMAP-FULL-PRODUCT.md` as the governing planning document.
