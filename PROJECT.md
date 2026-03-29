@@ -22,11 +22,11 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-29 -->
 ## Quick Resume
 **Last Active:** 2026-03-29
-**Current Phase:** Active feature development. Nutrition/hydration foundation shipped, server-verified, and on-device QA'd.
-**Current Task:** PR #7 merged to master (`15ffc72`). On-device QA on emulator (API 36) found and fixed a sync bug: custom food ID remapping race condition where `NutritionSyncWorker` processed food entries with stale local UUIDs after the food creation sync replaced them with server IDs. Fix: re-read pending writes from DB before processing (worker) + re-lookup food by name if ID is gone (ViewModel). Fix verified on emulator: `POST /api/food-entries` now returns 201 (was 404). Water entry sync also verified (201). 151 tests pass.
-**Current Branch:** `master`
-**Blockers:** A-01/BP unresolved (unchanged). Dashboard nutrition/hydration tiles don't auto-refresh after initial sync (minor UX, not blocking).
-**Next Action:** Push bugfix commit to master. Then: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE. On-device QA on physical Pixel for full touch flow (emulator screencap was black due to GPU rendering mismatch — UI verified via uiautomator dumps).
+**Current Phase:** Active feature development. Nutrition/hydration foundation shipped, server-verified, and QA'd on emulator + physical device.
+**Current Task:** PR #7 merged to master (`15ffc72`). Bugfix `da4808f` pushed to master. On-device QA: emulator (API 36) verified full UI flow via uiautomator dumps. Pixel 10 Pro XL verified server read round-trip (food entries 200, targets 200) and connected test confirmed bugfix code path on real hardware. Full UI tap-through on physical device blocked by `FLAG_SECURE` (no screencap) + Compose uiautomator idle-state issue (no UI dump) — these prevent automated QA but not manual QA by Tyler.
+**Current Branch:** `master` at `da4808f`
+**Blockers:** A-01/BP unresolved (unchanged). Dashboard nutrition/hydration tiles don't auto-refresh after initial sync (minor UX, not blocking). Physical device UI automation blocked by FLAG_SECURE + Compose idle state.
+**Next Action:** Tyler manual QA on Pixel (open app, tap through nutrition/hydration flows). Then: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
