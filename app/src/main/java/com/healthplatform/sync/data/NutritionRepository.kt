@@ -97,7 +97,14 @@ class NutritionRepository(private val context: Context) {
         val api = apiClient() ?: return
         val result = api.getFoodEntries(date)
         result.getOrNull()?.entries?.let { entries ->
+            // Filter out server entries whose IDs match locally-pending edits/deletes,
+            // so the server refresh doesn't overwrite uncommitted local changes.
+            val pendingIds = dao.getFoodEntriesForDate(date)
+                .filter { it.syncState != NutritionSyncState.SYNCED }
+                .map { it.id }
+                .toSet()
             val cached = entries.map { it.toCache(date) }
+                .filter { it.id !in pendingIds }
             dao.replaceSyncedFoodEntriesForDate(date, cached)
         }
     }
@@ -249,7 +256,12 @@ class NutritionRepository(private val context: Context) {
         val api = apiClient() ?: return
         val result = api.getWaterEntries(date)
         result.getOrNull()?.entries?.let { entries ->
+            val pendingIds = dao.getWaterEntriesForDate(date)
+                .filter { it.syncState != NutritionSyncState.SYNCED }
+                .map { it.id }
+                .toSet()
             val cached = entries.map { it.toCache(date) }
+                .filter { it.id !in pendingIds }
             dao.replaceSyncedWaterEntriesForDate(date, cached)
         }
     }
@@ -310,9 +322,13 @@ class NutritionRepository(private val context: Context) {
     suspend fun refreshNutritionTarget(date: String = todayString()) {
         val api = apiClient() ?: return
         api.getNutritionTarget(date).getOrNull()?.target?.let { target ->
+            val effectiveDate = target.effective_date ?: date
+            // Don't overwrite a locally-pending target with stale server state
+            val existing = dao.getActiveNutritionTarget(effectiveDate)
+            if (existing != null && existing.syncState != NutritionSyncState.SYNCED) return@let
             dao.upsertNutritionTarget(
                 NutritionTargetCacheEntity(
-                    effectiveDate = target.effective_date ?: date,
+                    effectiveDate = effectiveDate,
                     serverId = target.id,
                     calories = target.calories,
                     proteinG = target.protein_g,
@@ -367,9 +383,12 @@ class NutritionRepository(private val context: Context) {
     suspend fun refreshHydrationTarget(date: String = todayString()) {
         val api = apiClient() ?: return
         api.getHydrationTarget(date).getOrNull()?.target?.let { target ->
+            val effectiveDate = target.effective_date ?: date
+            val existing = dao.getActiveHydrationTarget(effectiveDate)
+            if (existing != null && existing.syncState != NutritionSyncState.SYNCED) return@let
             dao.upsertHydrationTarget(
                 HydrationTargetCacheEntity(
-                    effectiveDate = target.effective_date ?: date,
+                    effectiveDate = effectiveDate,
                     serverId = target.id,
                     targetMl = target.target_ml,
                     method = target.method ?: "manual",
