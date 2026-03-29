@@ -23,10 +23,10 @@ standalone repository for clearer AI assistant context and independent versionin
 ## Quick Resume
 **Last Active:** 2026-03-29
 **Current Phase:** Active feature development. Nutrition/hydration foundation shipped, server-verified, and QA'd on emulator + physical device.
-**Current Task:** PR #7 merged to master (`15ffc72`). Bugfix `da4808f` pushed to master. On-device QA: emulator (API 36) verified full UI flow via uiautomator dumps. Pixel 10 Pro XL verified server read round-trip (food entries 200, targets 200) and connected test confirmed bugfix code path on real hardware. Full UI tap-through on physical device blocked by `FLAG_SECURE` (no screencap) + Compose uiautomator idle-state issue (no UI dump) — these prevent automated QA but not manual QA by Tyler.
-**Current Branch:** `master` at `da4808f`
-**Blockers:** A-01/BP unresolved (unchanged). Dashboard nutrition/hydration tiles don't auto-refresh after initial sync (minor UX, not blocking). Physical device UI automation blocked by FLAG_SECURE + Compose idle state.
-**Next Action:** Tyler manual QA on Pixel (open app, tap through nutrition/hydration flows). Then: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
+**Current Task:** Tyler manual QA completed 2026-03-29. Found blocker (edit race) + 2 partials (target/dashboard refresh). Fix PR pending on `codex/apex-post-merge-nutrition-qa-fixes`: (1) loadAll(serverRefresh=false) prevents server refresh from overwriting local edits, (2) PENDING_CREATE edit updates queued payload, (3) ON_RESUME lifecycle observer re-reads local cache on Nutrition/Hydration/Dashboard screens. 152/152 tests pass.
+**Current Branch:** `codex/apex-post-merge-nutrition-qa-fixes`
+**Blockers:** A-01/BP unresolved (unchanged). Physical device UI automation blocked by FLAG_SECURE + Compose idle state.
+**Next Action:** Merge QA-fix PR after Tyler re-verifies the 3 fixed flows on device. Then: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff

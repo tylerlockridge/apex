@@ -53,6 +53,19 @@ fun DashboardScreen(
     val haptic = rememberApexHaptic()
     var isRefreshing by remember { mutableStateOf(false) }
 
+    // Re-read local state (including nutrition/hydration) when this screen resumes,
+    // so changes made on other tabs are reflected without manual pull-to-refresh.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.loadFromPrefs()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     LaunchedEffect(state.isLoadingPrefs) {
         if (!state.isLoadingPrefs) isRefreshing = false
     }
