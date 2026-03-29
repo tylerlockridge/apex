@@ -22,11 +22,11 @@ standalone repository for clearer AI assistant context and independent versionin
 <!-- QUICK-RESUME-UPDATED: 2026-03-29 -->
 ## Quick Resume
 **Last Active:** 2026-03-29
-**Current Phase:** Active feature development. Nutrition/hydration foundation shipped and server-verified.
-**Current Task:** PR #7 (`codex/apex-nutrition-hydration-foundation`) verified against live production. All 14 server endpoints return correct shapes. Full CRUD flow tested via curl against `tyler-health.duckdns.org` (create food, search, add/edit/delete entries, water CRUD, targets). 151 tests pass (0 failures). Client DTOs match production contract exactly, including `PatchField` tri-state for null-vs-absent distinction. CI green.
-**Current Branch:** `codex/apex-nutrition-hydration-foundation`
-**Blockers:** A-01/BP unresolved (unchanged). No server blockers — migration 014 deployed 2026-03-29.
-**Next Action:** Merge PR #7 to master. Then on-device QA (sideload APK, exercise full nutrition/hydration flows with real touch interaction). After that: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
+**Current Phase:** Active feature development. Nutrition/hydration foundation shipped, server-verified, and on-device QA'd.
+**Current Task:** PR #7 merged to master (`15ffc72`). On-device QA on emulator (API 36) found and fixed a sync bug: custom food ID remapping race condition where `NutritionSyncWorker` processed food entries with stale local UUIDs after the food creation sync replaced them with server IDs. Fix: re-read pending writes from DB before processing (worker) + re-lookup food by name if ID is gone (ViewModel). Fix verified on emulator: `POST /api/food-entries` now returns 201 (was 404). Water entry sync also verified (201). 151 tests pass.
+**Current Branch:** `master`
+**Blockers:** A-01/BP unresolved (unchanged). Dashboard nutrition/hydration tiles don't auto-refresh after initial sync (minor UX, not blocking).
+**Next Action:** Push bugfix commit to master. Then: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE. On-device QA on physical Pixel for full touch flow (emulator screencap was black due to GPU rendering mismatch — UI verified via uiautomator dumps).
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff

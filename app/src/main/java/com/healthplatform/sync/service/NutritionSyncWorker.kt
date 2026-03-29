@@ -41,15 +41,19 @@ class NutritionSyncWorker(
 
         var anyTransient = false
         for (write in pending) {
+            // Re-read the write from the DB so that any ID remapping from a prior
+            // processCreateFood() iteration is picked up. Without this, the in-memory
+            // snapshot retains stale local UUIDs after food ID→server ID replacement.
+            val freshWrite = dao.getPendingWriteById(write.id) ?: continue
             val success = try {
-                processWrite(api, write)
+                processWrite(api, freshWrite)
             } catch (e: Exception) {
-                Log.w(TAG, "Error processing ${write.actionType}: ${e.message}")
+                Log.w(TAG, "Error processing ${freshWrite.actionType}: ${e.message}")
                 anyTransient = true
                 false
             }
             if (success) {
-                dao.deletePendingWrite(write.id)
+                dao.deletePendingWrite(freshWrite.id)
             }
         }
 

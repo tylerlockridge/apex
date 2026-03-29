@@ -122,7 +122,14 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addFoodEntry(food: FoodCacheEntity, servings: Double, mealType: String?) {
         viewModelScope.launch(Dispatchers.IO) {
-            repo.createFoodEntry(food, servings, mealType)
+            // Re-read the food from the DB to pick up any ID remapping that occurred
+            // when the sync worker replaced the local UUID with the server-assigned ID.
+            // After sync, the local UUID entity is deleted and replaced with the
+            // server-ID entity, so fall back to a name search if the ID is gone.
+            val freshFood = repo.getFoodById(food.id)
+                ?: repo.searchFoods(food.name).firstOrNull { it.name == food.name }
+                ?: food
+            repo.createFoodEntry(freshFood, servings, mealType)
             NutritionSyncWorker.runOnce(getApplication())
             _state.update { it.copy(showAddEntrySheet = false, selectedFood = null) }
             loadAll()

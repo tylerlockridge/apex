@@ -173,6 +173,9 @@ interface NutritionCacheDao {
     @Query("SELECT * FROM nutrition_write_queue WHERE dedupeKey = :dedupeKey LIMIT 1")
     suspend fun getPendingWriteByDedupeKey(dedupeKey: String): PendingNutritionWriteEntity?
 
+    @Query("SELECT * FROM nutrition_write_queue WHERE id = :id LIMIT 1")
+    suspend fun getPendingWriteById(id: Long): PendingNutritionWriteEntity?
+
     @Query("DELETE FROM nutrition_write_queue WHERE id = :id")
     suspend fun deletePendingWrite(id: Long)
 
