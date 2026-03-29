@@ -19,14 +19,14 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-28 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-29 -->
 ## Quick Resume
-**Last Active:** 2026-03-28
-**Current Phase:** Active feature development. Nutrition/hydration foundation shipped.
-**Current Task:** Manual nutrition and hydration logging implemented on branch `codex/apex-nutrition-hydration-foundation`. New features: Nutrition tab (second in bottom nav: Home / Nutrition / Trends / Training / Settings) with food search, custom food creation, food entry add/edit/delete by meal, daily macro totals vs targets, offline write queue with background sync. Hydration screen with quick-add water (250/500/750ml + custom), daily total vs target, entry list. Targets editors for both. Dashboard integration with calorie + hydration tiles. Room DB v2 migration with 6 new tables. NutritionSyncWorker drains pending writes. 151 tests (149 pass, 2 pre-existing ordering issues).
+**Last Active:** 2026-03-29
+**Current Phase:** Active feature development. Nutrition/hydration foundation shipped and server-verified.
+**Current Task:** PR #7 (`codex/apex-nutrition-hydration-foundation`) verified against live production. All 14 server endpoints return correct shapes. Full CRUD flow tested via curl against `tyler-health.duckdns.org` (create food, search, add/edit/delete entries, water CRUD, targets). 151 tests pass (0 failures). Client DTOs match production contract exactly, including `PatchField` tri-state for null-vs-absent distinction. CI green.
 **Current Branch:** `codex/apex-nutrition-hydration-foundation`
-**Blockers:** Production server still at migration 013; nutrition endpoints require migration 014 deployment. A-01/BP unresolved (unchanged).
-**Next Action:** Deploy migration 014 to production, then verify nutrition/hydration end-to-end on device. After that: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
+**Blockers:** A-01/BP unresolved (unchanged). No server blockers — migration 014 deployed 2026-03-29.
+**Next Action:** Merge PR #7 to master. Then on-device QA (sideload APK, exercise full nutrition/hydration flows with real touch interaction). After that: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
