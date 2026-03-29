@@ -147,9 +147,18 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
     fun saveEditEntry(servings: Double, mealType: PatchField<String>) {
         val entry = _state.value.editingEntry ?: return
         viewModelScope.launch(Dispatchers.IO) {
+            // Re-read the entry from DB to pick up any ID remapping that occurred
+            // when the sync worker replaced the local UUID with the server-assigned ID.
+            val freshEntry = repo.getFoodEntryById(entry.id) ?: run {
+                // ID was remapped — search by food name + logged date as fallback
+                val todayEntries = repo.getFoodEntriesForDate(entry.loggedDate)
+                todayEntries.firstOrNull { it.foodName == entry.foodName && it.loggedAt == entry.loggedAt }
+            }
+            val targetId = freshEntry?.id ?: entry.id
+            val baseServings = freshEntry?.servings ?: entry.servings
             repo.updateFoodEntry(
-                id = entry.id,
-                servings = if (servings != entry.servings) servings else null,
+                id = targetId,
+                servings = if (servings != baseServings) servings else null,
                 mealType = mealType,
             )
             NutritionSyncWorker.runOnce(getApplication())

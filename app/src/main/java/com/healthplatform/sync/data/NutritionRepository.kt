@@ -89,6 +89,8 @@ class NutritionRepository(private val context: Context) {
     // Food Entries
     // -----------------------------------------------------------------------
 
+    suspend fun getFoodEntryById(id: String): FoodEntryCacheEntity? = dao.getFoodEntryById(id)
+
     suspend fun getFoodEntriesForDate(date: String = todayString()): List<FoodEntryCacheEntity> {
         return dao.getFoodEntriesForDate(date)
     }
@@ -198,7 +200,21 @@ class NutritionRepository(private val context: Context) {
             updatedAt = Instant.now().toString(),
         )
         dao.upsertFoodEntry(updated)
-        if (existing.syncState != NutritionSyncState.PENDING_CREATE) {
+        if (existing.syncState == NutritionSyncState.PENDING_CREATE) {
+            // The entry hasn't been synced yet — update the queued CREATE payload
+            // so the sync worker sends the edited values, not the originals.
+            val createKey = "create_food_entry:$id"
+            val pendingCreate = dao.getPendingWriteByDedupeKey(createKey)
+            if (pendingCreate != null) {
+                @Suppress("UNCHECKED_CAST")
+                val createMap = (gson.fromJson(pendingCreate.payload,
+                    Map::class.java) as MutableMap<String, Any?>).toMutableMap()
+                createMap["servings"] = updated.servings
+                createMap["meal_type"] = updated.mealType
+                createMap["notes"] = updated.notes
+                dao.upsertPendingWrite(pendingCreate.copy(payload = gson.toJson(createMap)))
+            }
+        } else {
             // Encode tri-state: missing key = unchanged, "__null__" = clear, value = set
             val patchMap = mutableMapOf<String, Any?>("id" to id)
             if (servings != null) patchMap["servings"] = servings

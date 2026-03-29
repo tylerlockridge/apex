@@ -3,6 +3,8 @@ package com.healthplatform.sync.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -110,6 +112,7 @@ fun HydrationScreen(
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Custom ml...", color = ApexOnSurfaceVariant) },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ApexHydrationAccent,
                         unfocusedBorderColor = ApexOutline,

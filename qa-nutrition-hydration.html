@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Nutrition/Hydration QA</title>
+<style>
+:root{--bg:#0C1320;--surface:#141E30;--surface2:#1a2740;--text:#e2e8f0;--muted:#94a3b8;--accent:#FB923C;--accent2:#38BDF8;--green:#34D399;--red:#F87171;--yellow:#FBBF24;--border:#2d3a50}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);padding:16px;max-width:800px;margin:0 auto;line-height:1.5}
+h1{font-size:1.4rem;margin-bottom:4px}
+h2{font-size:1.1rem;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+h3{font-size:0.95rem;margin:16px 0 8px;color:var(--accent)}
+.subtitle{color:var(--muted);font-size:0.85rem;margin-bottom:16px}
+.env-section{background:var(--surface);border-radius:10px;padding:14px;margin-bottom:20px}
+.env-section label{display:block;font-size:0.8rem;color:var(--muted);margin-bottom:2px;margin-top:8px}
+.env-section label:first-child{margin-top:0}
+.env-section input,.env-section select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:0.9rem}
+.flow-card{background:var(--surface);border-radius:10px;padding:14px;margin-bottom:12px;border-left:3px solid var(--border)}
+.flow-card.pass{border-left-color:var(--green)}
+.flow-card.fail{border-left-color:var(--red)}
+.flow-card.partial{border-left-color:var(--yellow)}
+.flow-card.optional{opacity:0.85}
+.flow-title{font-weight:600;font-size:0.95rem;margin-bottom:6px}
+.flow-steps{font-size:0.82rem;color:var(--muted);margin-bottom:8px;white-space:pre-line}
+.flow-expected{font-size:0.82rem;color:var(--accent2);margin-bottom:10px}
+.flow-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.result-btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--muted);cursor:pointer;font-size:0.8rem;transition:all 0.15s}
+.result-btn:hover{border-color:var(--text)}
+.result-btn.selected-pass{background:#065f46;color:var(--green);border-color:var(--green)}
+.result-btn.selected-fail{background:#7f1d1d;color:var(--red);border-color:var(--red)}
+.result-btn.selected-partial{background:#78350f;color:var(--yellow);border-color:var(--yellow)}
+.result-btn.selected-skip{background:var(--surface2);color:var(--muted);border-color:var(--muted)}
+.severity-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;font-size:0.82rem}
+.severity-row label{color:var(--muted);min-width:60px}
+.severity-row select{padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);font-size:0.8rem}
+textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:0.82rem;resize:vertical;min-height:40px}
+.ts-row{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:0.8rem;color:var(--muted)}
+.ts-row input{width:140px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);font-size:0.8rem}
+.ts-row button{padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--accent);cursor:pointer;font-size:0.8rem}
+.summary-section{background:var(--surface);border-radius:10px;padding:14px;margin:20px 0}
+.summary-section select,.summary-section textarea{margin-top:4px}
+.generate-btn{display:block;width:100%;padding:14px;border:none;border-radius:10px;background:var(--accent);color:#000;font-weight:700;font-size:1rem;cursor:pointer;margin:20px 0}
+.generate-btn:hover{opacity:0.9}
+.output-area{background:var(--surface);border-radius:10px;padding:14px;margin:12px 0;display:none}
+.output-area textarea{min-height:300px;font-family:"Cascadia Code","Fira Code",monospace;font-size:0.78rem;width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text)}
+.copy-btn{padding:8px 20px;border:1px solid var(--accent2);border-radius:6px;background:transparent;color:var(--accent2);cursor:pointer;font-size:0.85rem;margin-top:8px}
+.copy-btn:hover{background:var(--accent2);color:#000}
+.note{font-size:0.78rem;color:var(--muted);margin:12px 0;padding:10px;background:var(--surface2);border-radius:6px;border-left:3px solid var(--accent2)}
+.tag-optional{font-size:0.7rem;background:var(--surface2);color:var(--muted);padding:2px 6px;border-radius:4px;margin-left:6px}
+</style>
+</head>
+<body>
+
+<h1 id="page-title"></h1>
+<p class="subtitle" id="page-subtitle"></p>
+
+<div class="note" id="screenshot-note"></div>
+
+<h2>Verification Environment</h2>
+<div class="env-section" id="env-section"></div>
+
+<h2>Test Flows</h2>
+<div id="flows-container"></div>
+
+<h2>Summary</h2>
+<div class="summary-section" id="summary-section"></div>
+
+<button class="generate-btn" id="generate-btn">Generate Markdown Report</button>
+
+<div class="output-area" id="output-area">
+  <h3 id="output-title"></h3>
+  <textarea id="output-text" readonly></textarea>
+  <button class="copy-btn" id="copy-btn">Copy to Clipboard</button>
+  <p id="copy-confirm" style="font-size:0.8rem;color:var(--green);margin-top:6px;display:none"></p>
+</div>
+
+<script>
+"use strict";
+
+/* ── Static text ───────────────────────────────────────────────── */
+document.getElementById("page-title").textContent = "Apex Nutrition/Hydration QA";
+document.getElementById("page-subtitle").textContent =
+  "Manual QA checklist for merged PR #7 + bugfix da4808f";
+document.getElementById("screenshot-note").textContent =
+  "Screenshot protocol: Take screenshots as you go. Screenshots taken before you " +
+  "submit a flow\u2019s result belong to that flow. Reference by timestamp (e.g. " +
+  "\u201c10:32 AM\u201d), not filename.";
+document.getElementById("output-title").textContent = "Generated Report";
+document.getElementById("copy-confirm").textContent = "Copied!";
+
+/* ── Environment fields ────────────────────────────────────────── */
+var ENV_FIELDS = [
+  {id:"env-device",   label:"Device",         ph:"e.g. Pixel 10 Pro XL"},
+  {id:"env-android",  label:"Android version", ph:"e.g. Android 16 (API 36)"},
+  {id:"env-build",    label:"App build",       ph:"e.g. debug da4808f"},
+  {id:"env-server",   label:"Server version",  ph:"e.g. 1.5.0 / migration 014 confirmed"},
+  {id:"env-datetime", label:"Date/time",       ph:"e.g. 2026-03-29 10:00 AM ET"}
+];
+(function buildEnv(){
+  var sec = document.getElementById("env-section");
+  ENV_FIELDS.forEach(function(f){
+    var lbl = document.createElement("label");
+    lbl.textContent = f.label;
+    var inp = document.createElement("input");
+    inp.type = "text"; inp.id = f.id; inp.placeholder = f.ph;
+    sec.appendChild(lbl); sec.appendChild(inp);
+  });
+})();
+
+/* ── Flow definitions ──────────────────────────────────────────── */
+var FLOWS = [
+  {id:"bugfix-remap", title:"1. Verify da4808f bugfix: food-ID remap race",
+   steps:"1. Open Nutrition tab\n2. Tap + FAB to add food\n3. Tap \u201cCreate custom food\u201d\n4. Enter: name=\u201cQA Test Food\u201d, calories=123, protein=10\n5. Tap Create\n6. The food should appear selected in the confirm view\n7. Set servings=1, meal=Lunch\n8. Tap \u201cLog Food\u201d",
+   expected:"Entry appears in Lunch section showing 123 kcal. No error toast, no crash, no 404. The entry should persist after pull-to-refresh.",
+   optional:false},
+  {id:"edit-servings", title:"2. Edit food entry: change servings",
+   steps:"1. Tap the entry created in flow 1\n2. Edit dialog opens showing \u201cQA Test Food\u201d\n3. Change servings from 1 to 2.5\n4. Tap Save",
+   expected:"Entry now shows 308 kcal (123 \u00d7 2.5). Macro summary updates. Servings shows \u00d72.5.",
+   optional:false},
+  {id:"edit-clear-meal", title:"3. Edit food entry: clear meal type",
+   steps:"1. Tap the same entry again\n2. Tap the \u201cLunch\u201d chip to deselect it (no chip selected)\n3. Tap Save",
+   expected:"Entry moves from Lunch section to Other section. Calories unchanged at 308.",
+   optional:false},
+  {id:"delete-food", title:"4. Delete food entry",
+   steps:"1. Tap the X button on the entry\n2. Confirm it disappears",
+   expected:"Entry removed from list. Macro summary resets (0 if no other entries). No crash.",
+   optional:false},
+  {id:"quick-add-water", title:"5. Quick-add water",
+   steps:"1. From Nutrition tab, tap the water drop icon (top right)\n2. Hydration screen opens\n3. Tap \u201c250 ml\u201d quick-add button\n4. Tap \u201c500 ml\u201d quick-add button\n5. Enter 350 in custom field, tap Add",
+   expected:"Three entries appear in today\u2019s log: 250, 500, 350 ml. Total shows 1100 ml. If a target is set, progress bar reflects it.",
+   optional:false},
+  {id:"delete-water", title:"6. Delete water entry",
+   steps:"1. Tap X on one of the water entries (e.g. the 250 ml one)\n2. Confirm it disappears",
+   expected:"Entry removed. Total decreases by 250 ml (now 850 ml).",
+   optional:false},
+  {id:"set-nutrition-target", title:"7. Set nutrition target",
+   steps:"1. From Nutrition tab, tap the target icon (top right)\n2. Enter: calories=2200, protein=160, carbs=250, fat=75\n3. Tap Save Targets",
+   expected:"Button changes to \u2018Saved\u2019 with checkmark. Navigate back to Nutrition tab: macro summary shows progress bars with /2200, /160g, /250g, /75g denominators.",
+   optional:false},
+  {id:"set-hydration-target", title:"8. Set hydration target",
+   steps:"1. From Hydration screen, tap the target icon\n2. Tap the 3000ml preset button\n3. Tap Save Target",
+   expected:"Button changes to \u2018Saved\u2019. Navigate back to Hydration: progress card shows \u2018of 3000 ml goal\u2019 and remaining ml.",
+   optional:false},
+  {id:"dashboard-tiles", title:"9. Dashboard nutrition/hydration tiles",
+   steps:"1. Navigate to Home tab\n2. Scroll down past the health metrics grid\n3. Look for \u2018Nutrition & Hydration\u2019 section",
+   expected:"Nutrition tile shows today\u2019s total calories with progress bar (if target set). Hydration tile shows today\u2019s total ml with progress bar. Both appear in a row below the 2\u00d72 health grid.",
+   optional:false},
+  {id:"offline-resume", title:"10. Offline/resume check",
+   steps:"1. Enable airplane mode\n2. Add a food entry and a water entry\n3. Both should appear locally with cloud icon\n4. Disable airplane mode\n5. Wait ~30 seconds or force-sync from Home tab",
+   expected:"Cloud icons disappear after sync. Entries persist. No duplicates.",
+   optional:true},
+  {id:"server-roundtrip", title:"11. Production round-trip proof",
+   steps:"1. Add a distinctive food entry (e.g. \u201cQA Proof 2026-03-29\u201d, 999 kcal)\n2. Wait for sync (cloud icon disappears)\n3. Force-close and reopen app\n4. Navigate to Nutrition tab",
+   expected:"The proof entry survives app restart (loaded from server). Calories match. If possible, check server logs or API response to confirm the entry exists server-side.",
+   optional:false}
+];
+
+/* ── Build flow cards using safe DOM methods ────────────────────── */
+var flowResults = {};
+var container = document.getElementById("flows-container");
+
+function el(tag, cls, text) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text) e.textContent = text;
+  return e;
+}
+
+function makeResultBtn(flowId, label, resultKey) {
+  var btn = document.createElement("button");
+  btn.className = "result-btn";
+  btn.textContent = label;
+  btn.addEventListener("click", function() { setResult(flowId, resultKey, btn); });
+  return btn;
+}
+
+FLOWS.forEach(function(flow) {
+  var card = el("div", "flow-card" + (flow.optional ? " optional" : ""));
+  card.id = "card-" + flow.id;
+
+  /* Title */
+  var titleDiv = el("div", "flow-title", flow.title);
+  if (flow.optional) {
+    var tag = el("span", "tag-optional", "optional");
+    titleDiv.appendChild(tag);
+  }
+  card.appendChild(titleDiv);
+
+  /* Steps */
+  card.appendChild(el("div", "flow-steps", flow.steps));
+
+  /* Expected */
+  var expDiv = el("div", "flow-expected");
+  var expBold = el("strong", null, "Expected: ");
+  expDiv.appendChild(expBold);
+  expDiv.appendChild(document.createTextNode(flow.expected));
+  card.appendChild(expDiv);
+
+  /* Result buttons */
+  var controls = el("div", "flow-controls");
+  controls.appendChild(makeResultBtn(flow.id, "Pass", "pass"));
+  controls.appendChild(makeResultBtn(flow.id, "Fail", "fail"));
+  controls.appendChild(makeResultBtn(flow.id, "Partial", "partial"));
+  if (flow.optional) {
+    controls.appendChild(makeResultBtn(flow.id, "Skip", "skip"));
+  }
+  card.appendChild(controls);
+
+  /* Severity (hidden by default) */
+  var sevRow = el("div", "severity-row");
+  sevRow.id = "severity-" + flow.id;
+  sevRow.style.display = "none";
+  var sevLabel = el("label", null, "Severity:");
+  var sevSelect = document.createElement("select");
+  sevSelect.id = "sev-" + flow.id;
+  var optBlocker = el("option", null, "Blocker"); optBlocker.value = "blocker";
+  var optMinor = el("option", null, "Minor"); optMinor.value = "minor"; optMinor.selected = true;
+  sevSelect.appendChild(optBlocker);
+  sevSelect.appendChild(optMinor);
+  sevRow.appendChild(sevLabel);
+  sevRow.appendChild(sevSelect);
+  card.appendChild(sevRow);
+
+  /* Notes */
+  var notes = document.createElement("textarea");
+  notes.id = "notes-" + flow.id;
+  notes.rows = 2;
+  notes.placeholder = "Notes (issues observed, deviations...)";
+  card.appendChild(notes);
+
+  /* Timestamp row */
+  var tsRow = el("div", "ts-row");
+  tsRow.appendChild(document.createTextNode("Screenshot timestamp: "));
+  var tsInput = document.createElement("input");
+  tsInput.type = "text"; tsInput.id = "ts-" + flow.id; tsInput.placeholder = "e.g. 10:32 AM";
+  var tsBtn = document.createElement("button");
+  tsBtn.textContent = "Now";
+  tsBtn.addEventListener("click", function() { stampNow(flow.id); });
+  tsRow.appendChild(tsInput);
+  tsRow.appendChild(tsBtn);
+  card.appendChild(tsRow);
+
+  container.appendChild(card);
+});
+
+/* ── Summary section ───────────────────────────────────────────── */
+(function buildSummary() {
+  var sec = document.getElementById("summary-section");
+  var fields = [
+    {type:"select", id:"summary-status", label:"Overall status",
+     options:["-- select --","All pass","Pass with minor issues","Blocked"]},
+    {type:"textarea", id:"summary-blockers", label:"Blockers", ph:"None, or describe..."},
+    {type:"textarea", id:"summary-minor", label:"Minor issues", ph:"None, or describe..."},
+    {type:"select", id:"summary-ready", label:"Ready for next slice?",
+     options:["-- select --","Yes","Yes, with caveats","No"]}
+  ];
+  fields.forEach(function(f) {
+    var lbl = el("label", null, f.label);
+    lbl.style.fontSize = "0.8rem"; lbl.style.color = "var(--muted)"; lbl.style.marginTop = "10px";
+    sec.appendChild(lbl);
+    if (f.type === "select") {
+      var sel = document.createElement("select"); sel.id = f.id;
+      f.options.forEach(function(o) {
+        var opt = el("option", null, o);
+        opt.value = o === "-- select --" ? "" : o;
+        sel.appendChild(opt);
+      });
+      sec.appendChild(sel);
+    } else {
+      var ta = document.createElement("textarea");
+      ta.id = f.id; ta.rows = 2; ta.placeholder = f.ph;
+      sec.appendChild(ta);
+    }
+  });
+})();
+
+/* ── Interaction handlers ──────────────────────────────────────── */
+function setResult(id, result, btn) {
+  flowResults[id] = result;
+  var card = document.getElementById("card-" + id);
+  var isOpt = FLOWS.filter(function(f){return f.id===id;})[0].optional;
+  card.className = "flow-card" + (isOpt ? " optional" : "") + (result !== "skip" ? " " + result : "");
+  var buttons = card.querySelectorAll(".result-btn");
+  buttons.forEach(function(b) { b.className = "result-btn"; });
+  btn.className = "result-btn selected-" + result;
+  document.getElementById("severity-" + id).style.display =
+    (result === "fail" || result === "partial") ? "flex" : "none";
+}
+
+function stampNow(id) {
+  var now = new Date();
+  var h = now.getHours();
+  var m = String(now.getMinutes()).padStart(2, "0");
+  var ampm = h >= 12 ? "PM" : "AM";
+  var h12 = h % 12 || 12;
+  document.getElementById("ts-" + id).value = h12 + ":" + m + " " + ampm;
+}
+
+/* ── Markdown generation ───────────────────────────────────────── */
+document.getElementById("generate-btn").addEventListener("click", generateMarkdown);
+document.getElementById("copy-btn").addEventListener("click", copyReport);
+
+function generateMarkdown() {
+  var env = {};
+  ENV_FIELDS.forEach(function(f) {
+    env[f.id.replace("env-","")] = document.getElementById(f.id).value || "(not specified)";
+  });
+
+  var summaryStatus  = document.getElementById("summary-status").value || "(not set)";
+  var summaryBlockers = document.getElementById("summary-blockers").value.trim() || "None";
+  var summaryMinor   = document.getElementById("summary-minor").value.trim() || "None";
+  var summaryReady   = document.getElementById("summary-ready").value || "(not set)";
+
+  var flowLines = "";
+  var bugs = "";
+  var bugCount = 0;
+
+  FLOWS.forEach(function(flow) {
+    var r = flowResults[flow.id] || "not tested";
+    var notes = document.getElementById("notes-" + flow.id).value.trim();
+    var ts = document.getElementById("ts-" + flow.id).value.trim();
+    var sev = document.getElementById("sev-" + flow.id).value;
+    var icon = {pass:"PASS",fail:"FAIL",partial:"PARTIAL",skip:"SKIP"}[r] || "NOT TESTED";
+
+    var shortTitle = flow.title.replace(/^\d+\.\s*/, "");
+    var line = "| " + shortTitle + " | " + icon + " |";
+    if (notes) line += " " + notes;
+    if (ts) line += " (screenshot " + ts + ")";
+    line += " |";
+    flowLines += line + "\n";
+
+    if ((r === "fail" || r === "partial") && notes) {
+      bugCount++;
+      bugs += bugCount + ". **[" + sev + "]** " + shortTitle + ": " + notes + "\n";
+    }
+  });
+
+  var md =
+    "# Nutrition/Hydration Manual QA Report\n\n" +
+    "**Date:** " + env.datetime + "\n" +
+    "**Device:** " + env.device + " / " + env.android + "\n" +
+    "**Build:** " + env.build + "\n" +
+    "**Server:** " + env.server + "\n\n" +
+    "---\n\n" +
+    "## Verification Results\n\n" +
+    "| Flow | Result | Notes |\n" +
+    "|------|--------|-------|\n" +
+    flowLines + "\n" +
+    "## Production Round-Trip Proof\n\n" +
+    "- Verified by flow 11 above. See notes for server-side confirmation details.\n\n" +
+    "## Bugs Found\n\n" +
+    (bugs || "None.\n") + "\n" +
+    "## Residual Risk\n\n" +
+    (summaryBlockers !== "None" ? "**Blockers:** " + summaryBlockers + "\n" : "No blockers.\n") +
+    (summaryMinor !== "None" ? "**Minor:** " + summaryMinor + "\n" : "No minor issues.\n") + "\n" +
+    "## Ready for Next Slice?\n\n" +
+    "**" + summaryReady + "**\n\n" +
+    "**Overall status:** " + summaryStatus + "\n\n" +
+    "---\n" +
+    "*Generated from qa-nutrition-hydration.html on " + new Date().toISOString().slice(0,10) + "*\n";
+
+  document.getElementById("output-text").value = md;
+  var outputArea = document.getElementById("output-area");
+  outputArea.style.display = "block";
+  outputArea.scrollIntoView({behavior:"smooth"});
+}
+
+function copyReport() {
+  var ta = document.getElementById("output-text");
+  ta.select();
+  document.execCommand("copy");
+  var confirm = document.getElementById("copy-confirm");
+  confirm.style.display = "block";
+  setTimeout(function(){ confirm.style.display = "none"; }, 2000);
+}
+</script>
+</body>
+</html>
