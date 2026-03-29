@@ -7,6 +7,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.healthplatform.sync.Config
 import com.healthplatform.sync.data.NutritionRepository
+import com.healthplatform.sync.data.NutritionRepository.Companion.SENTINEL_NULL
 import com.healthplatform.sync.data.NutritionRepository.Companion.toCache
 import com.healthplatform.sync.data.db.*
 import com.healthplatform.sync.security.SecurePrefs
@@ -142,12 +143,13 @@ class NutritionSyncWorker(
     private suspend fun processUpdateFoodEntry(api: ServerApiClient, write: PendingNutritionWriteEntity): Boolean {
         val map = parseMap(write.payload)
         val id = map["id"] as? String ?: return true
-        val request = UpdateFoodEntryRequest(
-            servings = (map["servings"] as? Number)?.toDouble(),
-            meal_type = map["meal_type"] as? String,
-            notes = map["notes"] as? String,
+        val patch = UpdateFoodEntryPatch(
+            servings = (map["servings"] as? Number)?.toDouble()
+                ?.let { PatchField.SetValue(it) } ?: PatchField.Unchanged,
+            meal_type = decodePatchString(map, "meal_type"),
+            notes = decodePatchString(map, "notes"),
         )
-        val result = api.updateFoodEntry(id, request)
+        val result = api.updateFoodEntry(id, patch)
         if (result.isSuccess) {
             val entry = dao.getFoodEntryById(id)
             if (entry != null && entry.syncState == NutritionSyncState.PENDING_UPDATE) {
@@ -155,6 +157,14 @@ class NutritionSyncWorker(
             }
         }
         return result.isSuccess
+    }
+
+    /** Decode a tri-state string from the pending-write JSON payload. */
+    private fun decodePatchString(map: Map<String, Any?>, key: String): PatchField<String> {
+        if (!map.containsKey(key)) return PatchField.Unchanged
+        val raw = map[key]
+        if (raw == NutritionRepository.SENTINEL_NULL) return PatchField.SetNull
+        return if (raw is String) PatchField.SetValue(raw) else PatchField.Unchanged
     }
 
     private suspend fun processDeleteFoodEntry(api: ServerApiClient, write: PendingNutritionWriteEntity): Boolean {

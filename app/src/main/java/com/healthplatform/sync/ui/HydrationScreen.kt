@@ -121,14 +121,14 @@ fun HydrationScreen(
                 Button(
                     onClick = {
                         val ml = customAmount.toIntOrNull() ?: return@Button
-                        if (ml > 0) {
+                        if (ml in 1..10000) {
                             haptic.click()
                             viewModel.quickAdd(ml)
                             customAmount = ""
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = ApexHydrationAccent),
-                    enabled = customAmount.toIntOrNull()?.let { it > 0 } ?: false,
+                    enabled = customAmount.toIntOrNull()?.let { it in 1..10000 } ?: false,
                 ) {
                     Text("Add", color = Color.White)
                 }

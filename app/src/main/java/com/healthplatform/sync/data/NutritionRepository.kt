@@ -6,6 +6,7 @@ import com.healthplatform.sync.Config
 import com.healthplatform.sync.data.db.*
 import com.healthplatform.sync.security.SecurePrefs
 import com.healthplatform.sync.service.*
+import com.healthplatform.sync.service.PatchField
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -149,15 +150,31 @@ class NutritionRepository(private val context: Context) {
         return entry
     }
 
+    /**
+     * Update a food entry. Uses tri-state for nullable fields:
+     * - [PatchField.Unchanged] — leave the field as-is locally and omit from server PATCH
+     * - [PatchField.SetNull] — clear the field locally and send explicit null to server
+     * - [PatchField.SetValue] — set to a new value
+     */
     suspend fun updateFoodEntry(
         id: String,
         servings: Double? = null,
-        mealType: String? = null,
-        notes: String? = null,
+        mealType: PatchField<String> = PatchField.Unchanged,
+        notes: PatchField<String> = PatchField.Unchanged,
     ) {
         val existing = dao.getFoodEntryById(id) ?: return
         val newServings = servings ?: existing.servings
         val factor = if (servings != null) newServings / existing.servings else 1.0
+        val resolvedMealType = when (mealType) {
+            is PatchField.Unchanged -> existing.mealType
+            is PatchField.SetNull -> null
+            is PatchField.SetValue -> mealType.value
+        }
+        val resolvedNotes = when (notes) {
+            is PatchField.Unchanged -> existing.notes
+            is PatchField.SetNull -> null
+            is PatchField.SetValue -> notes.value
+        }
         val updated = existing.copy(
             servings = newServings,
             calories = existing.calories * factor,
@@ -167,23 +184,31 @@ class NutritionRepository(private val context: Context) {
             fiberG = existing.fiberG?.let { it * factor },
             sugarG = existing.sugarG?.let { it * factor },
             sodiumMg = existing.sodiumMg?.let { it * factor },
-            mealType = mealType ?: existing.mealType,
-            notes = notes ?: existing.notes,
+            mealType = resolvedMealType,
+            notes = resolvedNotes,
             syncState = if (existing.syncState == NutritionSyncState.PENDING_CREATE)
                 NutritionSyncState.PENDING_CREATE else NutritionSyncState.PENDING_UPDATE,
             updatedAt = Instant.now().toString(),
         )
         dao.upsertFoodEntry(updated)
         if (existing.syncState != NutritionSyncState.PENDING_CREATE) {
+            // Encode tri-state: missing key = unchanged, "__null__" = clear, value = set
+            val patchMap = mutableMapOf<String, Any?>("id" to id)
+            if (servings != null) patchMap["servings"] = servings
+            when (mealType) {
+                is PatchField.Unchanged -> {}
+                is PatchField.SetNull -> patchMap["meal_type"] = SENTINEL_NULL
+                is PatchField.SetValue -> patchMap["meal_type"] = mealType.value
+            }
+            when (notes) {
+                is PatchField.Unchanged -> {}
+                is PatchField.SetNull -> patchMap["notes"] = SENTINEL_NULL
+                is PatchField.SetValue -> patchMap["notes"] = notes.value
+            }
             enqueuePendingWrite(
                 NutritionQueueAction.UPDATE_FOOD_ENTRY,
                 "update_food_entry:$id",
-                gson.toJson(mapOf(
-                    "id" to id,
-                    "servings" to servings,
-                    "meal_type" to mealType,
-                    "notes" to notes,
-                )),
+                gson.toJson(patchMap),
             )
         }
     }
@@ -230,6 +255,7 @@ class NutritionRepository(private val context: Context) {
     }
 
     suspend fun createWaterEntry(amountMl: Int, notes: String? = null): WaterEntryCacheEntity {
+        require(amountMl in 1..10000) { "Water amount must be 1–10000 ml, got $amountMl" }
         val localId = UUID.randomUUID().toString()
         val now = Instant.now().toString()
         val date = todayString()
@@ -403,6 +429,9 @@ class NutritionRepository(private val context: Context) {
     // -----------------------------------------------------------------------
 
     companion object {
+        /** Sentinel value stored in pending-write JSON to distinguish "clear to null" from "omitted/unchanged". */
+        const val SENTINEL_NULL = "__null__"
+
         fun FoodResponse.toCache(): FoodCacheEntity = FoodCacheEntity(
             id = id,
             name = name,

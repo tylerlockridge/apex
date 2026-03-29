@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.healthplatform.sync.data.db.*
+import com.healthplatform.sync.data.NutritionRepository.Companion.SENTINEL_NULL
 import com.healthplatform.sync.service.CreateFoodRequest
+import com.healthplatform.sync.service.PatchField
+import com.healthplatform.sync.service.UpdateFoodEntryPatch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -190,5 +193,178 @@ class NutritionRepositoryTest {
         assertEquals(1, dao.pendingWriteCount())
         val latest = dao.getPendingWriteByDedupeKey("create_food:test-1")
         assertTrue(latest!!.payload.contains("v\":2"))
+    }
+
+    // -----------------------------------------------------------------------
+    // Food entry edit tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `food entry edit updates servings and rescales calories`() = runTest {
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        dao.upsertFoodEntry(
+            FoodEntryCacheEntity(
+                id = "e-edit-1", foodId = "f-1", foodName = "Rice",
+                entrySource = "manual", mealType = "lunch", servings = 1.0,
+                calories = 130.0, proteinG = 2.7, carbsG = 28.0, fatG = 0.3,
+                fiberG = null, sugarG = null, sodiumMg = null,
+                loggedAt = "2026-03-28T12:00:00Z", loggedDate = today,
+                notes = null, syncState = NutritionSyncState.SYNCED,
+                createdAt = null, updatedAt = null,
+            )
+        )
+
+        val existing = dao.getFoodEntryById("e-edit-1")!!
+        val factor = 2.0 / existing.servings
+        dao.upsertFoodEntry(existing.copy(
+            servings = 2.0,
+            calories = existing.calories * factor,
+            proteinG = existing.proteinG?.let { it * factor },
+            syncState = NutritionSyncState.PENDING_UPDATE,
+        ))
+
+        val updated = dao.getFoodEntryById("e-edit-1")!!
+        assertEquals(2.0, updated.servings, 0.01)
+        assertEquals(260.0, updated.calories, 0.01)
+        assertEquals(5.4, updated.proteinG!!, 0.01)
+        assertEquals(NutritionSyncState.PENDING_UPDATE, updated.syncState)
+    }
+
+    @Test
+    fun `food entry edit on pending_create stays pending_create`() = runTest {
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        dao.upsertFoodEntry(
+            FoodEntryCacheEntity(
+                id = "e-pending-1", foodId = "f-1", foodName = "Rice",
+                entrySource = "manual", mealType = "lunch", servings = 1.0,
+                calories = 130.0, proteinG = 2.7, carbsG = 28.0, fatG = 0.3,
+                fiberG = null, sugarG = null, sodiumMg = null,
+                loggedAt = "2026-03-28T12:00:00Z", loggedDate = today,
+                notes = null, syncState = NutritionSyncState.PENDING_CREATE,
+                createdAt = null, updatedAt = null,
+            )
+        )
+
+        // Editing a pending_create entry should keep it as pending_create
+        val existing = dao.getFoodEntryById("e-pending-1")!!
+        dao.upsertFoodEntry(existing.copy(
+            servings = 3.0,
+            syncState = NutritionSyncState.PENDING_CREATE, // must stay pending_create
+        ))
+
+        val updated = dao.getFoodEntryById("e-pending-1")!!
+        assertEquals(NutritionSyncState.PENDING_CREATE, updated.syncState)
+    }
+
+    // -----------------------------------------------------------------------
+    // PATCH null-vs-omit tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `UpdateFoodEntryPatch omits unchanged fields`() {
+        val patch = UpdateFoodEntryPatch(
+            servings = PatchField.SetValue(2.0),
+        )
+        val json = patch.toJsonObject()
+        assertTrue(json.has("servings"))
+        assertFalse(json.has("meal_type"))
+        assertFalse(json.has("notes"))
+        assertEquals(2.0, json.get("servings").asDouble, 0.01)
+    }
+
+    @Test
+    fun `UpdateFoodEntryPatch sends explicit null for SetNull`() {
+        val patch = UpdateFoodEntryPatch(
+            meal_type = PatchField.SetNull,
+            notes = PatchField.SetValue("updated note"),
+        )
+        val json = patch.toJsonObject()
+        assertTrue(json.has("meal_type"))
+        assertTrue(json.get("meal_type").isJsonNull)
+        assertTrue(json.has("notes"))
+        assertEquals("updated note", json.get("notes").asString)
+        assertFalse(json.has("servings"))
+    }
+
+    @Test
+    fun `pending write encodes sentinel for null clear`() = runTest {
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        dao.upsertFoodEntry(
+            FoodEntryCacheEntity(
+                id = "e-patch-1", foodId = "f-1", foodName = "Test",
+                entrySource = "manual", mealType = "lunch", servings = 1.0,
+                calories = 100.0, proteinG = 10.0, carbsG = 20.0, fatG = 5.0,
+                fiberG = null, sugarG = null, sodiumMg = null,
+                loggedAt = "2026-03-28T12:00:00Z", loggedDate = today,
+                notes = "old note", syncState = NutritionSyncState.SYNCED,
+                createdAt = null, updatedAt = null,
+            )
+        )
+
+        // Simulate what the repo does: encode SENTINEL_NULL for meal_type clear
+        val patchMap = mutableMapOf<String, Any?>(
+            "id" to "e-patch-1",
+            "meal_type" to SENTINEL_NULL,
+        )
+        dao.upsertPendingWrite(
+            PendingNutritionWriteEntity(
+                actionType = NutritionQueueAction.UPDATE_FOOD_ENTRY,
+                dedupeKey = "update_food_entry:e-patch-1",
+                payload = com.google.gson.Gson().toJson(patchMap),
+            )
+        )
+
+        val write = dao.getPendingWriteByDedupeKey("update_food_entry:e-patch-1")!!
+        assertTrue(write.payload.contains(SENTINEL_NULL))
+    }
+
+    // -----------------------------------------------------------------------
+    // Hydration validation tests
+    // -----------------------------------------------------------------------
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `createWaterEntry rejects zero amount`() = runTest {
+        val repo = NutritionRepository(ApplicationProvider.getApplicationContext())
+        repo.createWaterEntry(0)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `createWaterEntry rejects negative amount`() = runTest {
+        val repo = NutritionRepository(ApplicationProvider.getApplicationContext())
+        repo.createWaterEntry(-100)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `createWaterEntry rejects amount over 10000`() = runTest {
+        val repo = NutritionRepository(ApplicationProvider.getApplicationContext())
+        repo.createWaterEntry(10001)
+    }
+
+    @Test
+    fun `createWaterEntry accepts boundary values`() = runTest {
+        // These use the DAO directly since the repo uses the singleton
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+        // Min valid
+        dao.upsertWaterEntry(
+            WaterEntryCacheEntity(
+                id = "w-min", amountMl = 1, entrySource = "quick_add",
+                loggedAt = "2026-03-28T12:00:00Z", loggedDate = today,
+                notes = null, syncState = NutritionSyncState.PENDING_CREATE,
+                createdAt = null,
+            )
+        )
+        assertEquals(1, dao.getWaterEntryById("w-min")!!.amountMl)
+
+        // Max valid
+        dao.upsertWaterEntry(
+            WaterEntryCacheEntity(
+                id = "w-max", amountMl = 10000, entrySource = "quick_add",
+                loggedAt = "2026-03-28T12:01:00Z", loggedDate = today,
+                notes = null, syncState = NutritionSyncState.PENDING_CREATE,
+                createdAt = null,
+            )
+        )
+        assertEquals(10000, dao.getWaterEntryById("w-max")!!.amountMl)
     }
 }

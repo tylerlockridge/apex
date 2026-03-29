@@ -9,6 +9,7 @@ import com.healthplatform.sync.data.db.FoodEntryCacheEntity
 import com.healthplatform.sync.data.db.NutritionTargetCacheEntity
 import com.healthplatform.sync.service.CreateFoodRequest
 import com.healthplatform.sync.service.NutritionSyncWorker
+import com.healthplatform.sync.service.PatchField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,7 @@ data class NutritionState(
     val showAddEntrySheet: Boolean = false,
     val showCreateFoodDialog: Boolean = false,
     val selectedFood: FoodCacheEntity? = null,
+    val editingEntry: FoodEntryCacheEntity? = null,
     val pendingWriteCount: Int = 0,
     val error: String? = null,
 )
@@ -123,6 +125,28 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
             repo.createFoodEntry(food, servings, mealType)
             NutritionSyncWorker.runOnce(getApplication())
             _state.update { it.copy(showAddEntrySheet = false, selectedFood = null) }
+            loadAll()
+        }
+    }
+
+    fun startEditEntry(entry: FoodEntryCacheEntity) {
+        _state.update { it.copy(editingEntry = entry) }
+    }
+
+    fun cancelEditEntry() {
+        _state.update { it.copy(editingEntry = null) }
+    }
+
+    fun saveEditEntry(servings: Double, mealType: PatchField<String>) {
+        val entry = _state.value.editingEntry ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            repo.updateFoodEntry(
+                id = entry.id,
+                servings = if (servings != entry.servings) servings else null,
+                mealType = mealType,
+            )
+            NutritionSyncWorker.runOnce(getApplication())
+            _state.update { it.copy(editingEntry = null) }
             loadAll()
         }
     }

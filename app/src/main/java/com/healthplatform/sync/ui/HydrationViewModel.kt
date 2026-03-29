@@ -68,6 +68,7 @@ class HydrationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun quickAdd(amountMl: Int) {
+        if (amountMl !in 1..10000) return
         viewModelScope.launch(Dispatchers.IO) {
             repo.createWaterEntry(amountMl)
             NutritionSyncWorker.runOnce(getApplication())

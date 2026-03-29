@@ -1,6 +1,6 @@
 # Feature: UI Screens & Navigation
 
-*Created: 2026-03-02 | Updated: 2026-03-26 | Project: Apex*
+*Created: 2026-03-02 | Updated: 2026-03-28 | Project: Apex*
 
 ---
 
@@ -30,6 +30,10 @@ MainActivity
 ├── LockScreen (shown when biometric lock is enabled and user is unauthenticated)
 └── NavigationSuiteScaffold
     ├── dashboard  (label: "Home")
+    ├── nutrition  (label: "Nutrition")
+    │   ├── nutritionTargets  (secondary — navigated from Nutrition)
+    │   ├── hydration         (secondary — navigated from Nutrition)
+    │   └── hydrationTargets  (secondary — navigated from Hydration)
     ├── trends     (label: "Trends")
     ├── activity   (label: "Training")
     ├── settings   (label: "Settings")
@@ -42,13 +46,17 @@ Adaptive behavior:
 - medium widths: navigation rail
 - larger layouts: navigation drawer via `NavigationSuiteScaffold`
 
-Current top-level destinations (as of UI overhaul 2026-03-26):
+Current top-level destinations (as of nutrition/hydration addition 2026-03-28):
 - Home (was "Dashboard") — icon: Home
+- Nutrition — icon: Restaurant
 - Trends — icon: TrendingUp
 - Training (was "Activity") — icon: FitnessCenter
 - Settings — icon: Settings
 
 Secondary routes:
+- Nutrition Targets screen (launched from Nutrition header)
+- Hydration screen (launched from Nutrition header)
+- Hydration Targets screen (launched from Hydration header)
 - Generated Routine screen (launched from Training "Generate Workout" CTA)
 - QR scan screen (launched from Settings)
 
@@ -242,7 +250,7 @@ Current navigation/screen polish:
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Adaptive navigation shell | PASS | `NavigationSuiteScaffold` with Home / Trends / Training / Settings |
+| Adaptive navigation shell | PASS | `NavigationSuiteScaffold` with Home / Nutrition / Trends / Training / Settings (5 tabs) |
 | Lock screen | PASS | biometric/device-credential-backed app lock |
 | Screenshot protection | PASS | `FLAG_SECURE` in `MainActivity` |
 | Home hero + metric grid | PASS | readiness arc, sync status, 2×2 metric tiles, inline HC banners |
@@ -252,3 +260,8 @@ Current navigation/screen polish:
 | Settings (reordered) | PASS | Server → HC → Sync → Security → About → Danger Zone |
 | QR onboarding | PASS | CameraX + ML Kit scanner route |
 | Readiness breakdown | PASS | per-input scores + staleness indicators in Home hero card |
+| Nutrition screen | PASS | food search, add/edit/delete entries, macro summary, meal grouping |
+| Hydration screen | PASS | quick-add water, daily total vs target, entry list |
+| Nutrition targets | PASS | calorie + macro target editor with date-effective upsert |
+| Hydration targets | PASS | daily ml target with presets |
+| Dashboard nutrition/hydration | PASS | calorie + hydration summary tiles with progress bars |

@@ -30,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.healthplatform.sync.data.db.FoodCacheEntity
 import com.healthplatform.sync.data.db.FoodEntryCacheEntity
 import com.healthplatform.sync.data.db.NutritionSyncState
+import com.healthplatform.sync.service.PatchField
 import com.healthplatform.sync.ui.theme.*
 import com.healthplatform.sync.ui.util.rememberApexHaptic
 
@@ -131,6 +132,7 @@ fun NutritionScreen(
                     MealSection(
                         label = mealLabels[meal] ?: meal,
                         entries = entries,
+                        onEdit = { viewModel.startEditEntry(it) },
                         onDelete = { viewModel.deleteFoodEntry(it) },
                     )
                 }
@@ -159,6 +161,16 @@ fun NutritionScreen(
                 viewModel.createCustomFood(name, cal, protein, carbs, fat, brand)
             },
             onDismiss = { viewModel.hideCreateFoodDialog() },
+        )
+    }
+
+    // Edit food entry dialog
+    val editingEntry = state.editingEntry
+    if (editingEntry != null) {
+        EditFoodEntryDialog(
+            entry = editingEntry,
+            onSave = { servings, mealType -> viewModel.saveEditEntry(servings, mealType) },
+            onDismiss = { viewModel.cancelEditEntry() },
         )
     }
 }
@@ -205,7 +217,7 @@ private fun MacroSummaryCard(state: NutritionState) {
                             Text("/ ${state.target.calories}", style = MaterialTheme.typography.titleMedium, color = ApexOnSurfaceVariant)
                             val remaining = state.target.calories - state.totalCalories.toInt()
                             Text(
-                                "${if (remaining >= 0) remaining else 0} left",
+                                if (remaining >= 0) "$remaining left" else "${-remaining} over",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = if (remaining >= 0) ApexStatusGreen else ApexStatusRed,
                             )
@@ -265,7 +277,7 @@ private fun MacroBar(label: String, current: Double, target: Int?, color: Color,
 }
 
 @Composable
-private fun MealSection(label: String, entries: List<FoodEntryCacheEntity>, onDelete: (String) -> Unit) {
+private fun MealSection(label: String, entries: List<FoodEntryCacheEntity>, onEdit: (FoodEntryCacheEntity) -> Unit, onDelete: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -280,18 +292,21 @@ private fun MealSection(label: String, entries: List<FoodEntryCacheEntity>, onDe
             )
         }
         entries.forEach { entry ->
-            FoodEntryRow(entry = entry, onDelete = { onDelete(entry.id) })
+            FoodEntryRow(entry = entry, onEdit = { onEdit(entry) }, onDelete = { onDelete(entry.id) })
         }
     }
 }
 
 @Composable
-private fun FoodEntryRow(entry: FoodEntryCacheEntity, onDelete: () -> Unit) {
+private fun FoodEntryRow(entry: FoodEntryCacheEntity, onEdit: () -> Unit, onDelete: () -> Unit) {
     val haptic = rememberApexHaptic()
     val isPending = entry.syncState != NutritionSyncState.SYNCED
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { haptic.tick(); onEdit() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = ApexSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -628,6 +643,95 @@ private fun CreateFoodDialog(
                 enabled = name.isNotBlank() && calories.toDoubleOrNull() != null,
             ) {
                 Text("Create", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = ApexOnSurfaceVariant) }
+        },
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Edit Food Entry Dialog
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun EditFoodEntryDialog(
+    entry: FoodEntryCacheEntity,
+    onSave: (servings: Double, mealType: PatchField<String>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var servings by remember { mutableStateOf(entry.servings.toString()) }
+    var selectedMeal by remember { mutableStateOf(entry.mealType) }
+    val haptic = rememberApexHaptic()
+
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = ApexNutritionAccent,
+        unfocusedBorderColor = ApexOutline,
+        cursorColor = ApexNutritionAccent,
+        focusedTextColor = ApexOnSurface,
+        unfocusedTextColor = ApexOnSurface,
+        focusedLabelColor = ApexNutritionAccent,
+        unfocusedLabelColor = ApexOnSurfaceVariant,
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = ApexSurface,
+        titleContentColor = ApexOnSurface,
+        textContentColor = ApexOnSurface,
+        title = { Text("Edit Entry") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(entry.foodName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = ApexOnSurface)
+
+                OutlinedTextField(
+                    value = servings,
+                    onValueChange = { servings = it },
+                    label = { Text("Servings") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors,
+                )
+
+                Text("Meal", style = MaterialTheme.typography.labelMedium, color = ApexOnSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("breakfast", "lunch", "dinner", "snack").forEach { meal ->
+                        FilterChip(
+                            selected = selectedMeal == meal,
+                            onClick = {
+                                haptic.tick()
+                                selectedMeal = if (selectedMeal == meal) null else meal
+                            },
+                            label = { Text(meal.replaceFirstChar { it.uppercase() }) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ApexNutritionAccent.copy(alpha = 0.2f),
+                                selectedLabelColor = ApexNutritionAccent,
+                            ),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val s = servings.toDoubleOrNull() ?: return@Button
+                    if (s <= 0) return@Button
+                    // Build tri-state meal type
+                    val mealPatch = when {
+                        selectedMeal == entry.mealType -> PatchField.Unchanged
+                        selectedMeal == null -> PatchField.SetNull
+                        else -> PatchField.SetValue(selectedMeal!!)
+                    }
+                    haptic.click()
+                    onSave(s, mealPatch)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = ApexNutritionAccent),
+                enabled = servings.toDoubleOrNull()?.let { it > 0 } ?: false,
+            ) {
+                Text("Save", color = Color.White)
             }
         },
         dismissButton = {

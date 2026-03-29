@@ -10,6 +10,8 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import com.healthplatform.sync.data.db.FoodEntryCacheEntity
+import com.healthplatform.sync.data.db.NutritionSyncState
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -68,5 +70,29 @@ class NutritionViewModelTest {
         assertTrue(vm.state.value.showCreateFoodDialog)
         vm.hideCreateFoodDialog()
         assertFalse(vm.state.value.showCreateFoodDialog)
+    }
+
+    @Test
+    fun `start and cancel edit entry`() {
+        val vm = NutritionViewModel(app)
+        Thread.sleep(500)
+        assertNull(vm.state.value.editingEntry)
+
+        val mockEntry = FoodEntryCacheEntity(
+            id = "test-entry", foodId = "f-1", foodName = "Test Food",
+            entrySource = "manual", mealType = "lunch", servings = 1.0,
+            calories = 200.0, proteinG = 20.0, carbsG = 30.0, fatG = 10.0,
+            fiberG = null, sugarG = null, sodiumMg = null,
+            loggedAt = "2026-03-28T12:00:00Z", loggedDate = "2026-03-28",
+            notes = null, syncState = NutritionSyncState.SYNCED,
+            createdAt = null, updatedAt = null,
+        )
+
+        vm.startEditEntry(mockEntry)
+        assertNotNull(vm.state.value.editingEntry)
+        assertEquals("Test Food", vm.state.value.editingEntry?.foodName)
+
+        vm.cancelEditEntry()
+        assertNull(vm.state.value.editingEntry)
     }
 }

@@ -282,12 +282,48 @@ data class CreateFoodEntryRequest(
     val entry_source: String? = null,
 )
 
-data class UpdateFoodEntryRequest(
-    val servings: Double? = null,
-    val meal_type: String? = null,
-    val logged_at: String? = null,
-    val notes: String? = null,
-)
+/**
+ * Tri-state wrapper for PATCH fields: [Unchanged] omits from JSON,
+ * [SetNull] sends explicit `null`, [SetValue] sends the value.
+ */
+sealed class PatchField<out T> {
+    object Unchanged : PatchField<Nothing>()
+    object SetNull : PatchField<Nothing>()
+    data class SetValue<T>(val value: T) : PatchField<T>()
+}
+
+/**
+ * Builds a PATCH body as a [com.google.gson.JsonObject] so that:
+ * - [PatchField.Unchanged] fields are omitted entirely (server preserves existing)
+ * - [PatchField.SetNull] fields are sent as explicit JSON `null` (server clears)
+ * - [PatchField.SetValue] fields are sent with their value
+ */
+data class UpdateFoodEntryPatch(
+    val servings: PatchField<Double> = PatchField.Unchanged,
+    val meal_type: PatchField<String> = PatchField.Unchanged,
+    val logged_at: PatchField<String> = PatchField.Unchanged,
+    val notes: PatchField<String> = PatchField.Unchanged,
+) {
+    fun toJsonObject(): com.google.gson.JsonObject {
+        val obj = com.google.gson.JsonObject()
+        fun <T> add(key: String, field: PatchField<T>) {
+            when (field) {
+                is PatchField.Unchanged -> {} // omit
+                is PatchField.SetNull -> obj.add(key, com.google.gson.JsonNull.INSTANCE)
+                is PatchField.SetValue -> when (val v = field.value) {
+                    is Double -> obj.addProperty(key, v)
+                    is String -> obj.addProperty(key, v)
+                    else -> obj.addProperty(key, v.toString())
+                }
+            }
+        }
+        add("servings", servings)
+        add("meal_type", meal_type)
+        add("logged_at", logged_at)
+        add("notes", notes)
+        return obj
+    }
+}
 
 data class NutritionDailyTotals(
     val calories: Double,
@@ -484,7 +520,7 @@ interface ServerReadApi {
     @PATCH("api/food-entries/{id}")
     suspend fun updateFoodEntry(
         @Path("id") id: String,
-        @Body body: UpdateFoodEntryRequest,
+        @Body body: com.google.gson.JsonObject,
     ): FoodEntryResponse
 
     @DELETE("api/food-entries/{id}")
@@ -752,8 +788,8 @@ class ServerApiClient(
     suspend fun getFoodEntries(date: String): Result<FoodEntryListResponse> =
         runCatching { api.getFoodEntries(date = date) }
 
-    suspend fun updateFoodEntry(id: String, request: UpdateFoodEntryRequest): Result<FoodEntryResponse> =
-        runCatching { api.updateFoodEntry(id, request) }
+    suspend fun updateFoodEntry(id: String, patch: UpdateFoodEntryPatch): Result<FoodEntryResponse> =
+        runCatching { api.updateFoodEntry(id, patch.toJsonObject()) }
 
     suspend fun deleteFoodEntry(id: String): Result<DeleteResponse> =
         runCatching { api.deleteFoodEntry(id) }
