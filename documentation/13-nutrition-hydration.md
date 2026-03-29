@@ -140,7 +140,7 @@ All endpoints are behind Bearer + HMAC auth (same as existing sync endpoints).
 
 ## UI Screens
 
-### Nutrition Tab (5th bottom nav item)
+### Nutrition Tab (second in nav: Home / Nutrition / Trends / Training / Settings)
 
 - **Macro summary card**: Calorie headline with target progress bar, protein/carbs/fat progress bars
 - **Overshoot display**: When calories exceed target, shows "X over" in red instead of clamping to zero
