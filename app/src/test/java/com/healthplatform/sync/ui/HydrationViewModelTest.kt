@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.testing.WorkManagerTestInitHelper
+import com.healthplatform.sync.data.db.ApexDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -27,6 +28,9 @@ class HydrationViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         app = ApplicationProvider.getApplicationContext()
+        // Reset the DB singleton so this test gets a fresh v2 database
+        // regardless of which tests ran before it.
+        ApexDatabase.resetForTesting()
         val config = Configuration.Builder()
             .setMinimumLoggingLevel(android.util.Log.DEBUG)
             .build()
@@ -35,6 +39,7 @@ class HydrationViewModelTest {
 
     @After
     fun tearDown() {
+        ApexDatabase.resetForTesting()
         Dispatchers.resetMain()
     }
 
@@ -52,12 +57,8 @@ class HydrationViewModelTest {
         val vm = HydrationViewModel(app)
         Thread.sleep(1000)
         vm.quickAdd(250)
-        // Wait for IO dispatched work
-        Thread.sleep(2000)
+        Thread.sleep(1500)
         val state = vm.state.value
-        // The entry is created in local cache even though server sync fails in test
-        // However, the loadAll() refresh may fail because server is unreachable,
-        // and the ViewModel re-reads local state which should include the entry.
         assertTrue("Expected totalMl >= 250, got ${state.totalMl}", state.totalMl >= 250)
     }
 }

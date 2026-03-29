@@ -4,14 +4,15 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.testing.WorkManagerTestInitHelper
+import com.healthplatform.sync.data.db.ApexDatabase
+import com.healthplatform.sync.data.db.FoodEntryCacheEntity
+import com.healthplatform.sync.data.db.NutritionSyncState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
-import com.healthplatform.sync.data.db.FoodEntryCacheEntity
-import com.healthplatform.sync.data.db.NutritionSyncState
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -29,6 +30,7 @@ class NutritionViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         app = ApplicationProvider.getApplicationContext()
+        ApexDatabase.resetForTesting()
         val config = Configuration.Builder()
             .setMinimumLoggingLevel(android.util.Log.DEBUG)
             .build()
@@ -37,6 +39,7 @@ class NutritionViewModelTest {
 
     @After
     fun tearDown() {
+        ApexDatabase.resetForTesting()
         Dispatchers.resetMain()
     }
 

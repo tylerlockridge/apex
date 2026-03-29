@@ -166,5 +166,18 @@ abstract class ApexDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_1_2)
                 .build().also { instance = it }
             }
+
+        /**
+         * Close and clear the singleton so the next [get] call creates a fresh
+         * database. Only intended for test isolation — production code must not
+         * call this.
+         */
+        @androidx.annotation.VisibleForTesting
+        fun resetForTesting() {
+            synchronized(this) {
+                try { instance?.close() } catch (_: Exception) {}
+                instance = null
+            }
+        }
     }
 }
