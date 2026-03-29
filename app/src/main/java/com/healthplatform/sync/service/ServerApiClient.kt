@@ -13,8 +13,12 @@ import okio.Buffer
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.HTTP
+import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -199,6 +203,238 @@ data class AppErrorResponse(
 )
 
 // ---------------------------------------------------------------------------
+// Nutrition & Hydration models
+// ---------------------------------------------------------------------------
+
+data class FoodResponse(
+    val id: String,
+    val name: String,
+    val brand: String?,
+    val barcode: String?,
+    val data_source: String?,
+    val source_id: String?,
+    val quality_flag: String?,
+    val is_custom: Boolean?,
+    val serving_size_g: Double?,
+    val calories: Double,
+    val protein_g: Double?,
+    val carbs_g: Double?,
+    val fat_g: Double?,
+    val fiber_g: Double?,
+    val sugar_g: Double?,
+    val sodium_mg: Double?,
+    val created_at: String?,
+    val updated_at: String?,
+)
+
+data class FoodSearchResponse(val foods: List<FoodResponse>)
+
+data class CreateFoodRequest(
+    val name: String,
+    val brand: String? = null,
+    val barcode: String? = null,
+    val serving_size_g: Double? = null,
+    val calories: Double,
+    val protein_g: Double? = null,
+    val carbs_g: Double? = null,
+    val fat_g: Double? = null,
+    val fiber_g: Double? = null,
+    val sugar_g: Double? = null,
+    val sodium_mg: Double? = null,
+)
+
+data class FoodEntryResponse(
+    val id: String,
+    val food_id: String?,
+    val food_name: String,
+    val entry_source: String?,
+    val meal_type: String?,
+    val servings: Double,
+    val calories: Double,
+    val protein_g: Double?,
+    val carbs_g: Double?,
+    val fat_g: Double?,
+    val fiber_g: Double?,
+    val sugar_g: Double?,
+    val sodium_mg: Double?,
+    val logged_at: String,
+    val notes: String?,
+    val created_at: String?,
+    val updated_at: String?,
+)
+
+data class FoodEntryListResponse(
+    val range: DateRange,
+    val entries: List<FoodEntryResponse>,
+)
+
+data class DateRange(
+    val start_date: String,
+    val end_date: String,
+)
+
+data class CreateFoodEntryRequest(
+    val food_id: String,
+    val servings: Double = 1.0,
+    val meal_type: String? = null,
+    val logged_at: String? = null,
+    val notes: String? = null,
+    val entry_source: String? = null,
+)
+
+/**
+ * Tri-state wrapper for PATCH fields: [Unchanged] omits from JSON,
+ * [SetNull] sends explicit `null`, [SetValue] sends the value.
+ */
+sealed class PatchField<out T> {
+    object Unchanged : PatchField<Nothing>()
+    object SetNull : PatchField<Nothing>()
+    data class SetValue<T>(val value: T) : PatchField<T>()
+}
+
+/**
+ * Builds a PATCH body as a [com.google.gson.JsonObject] so that:
+ * - [PatchField.Unchanged] fields are omitted entirely (server preserves existing)
+ * - [PatchField.SetNull] fields are sent as explicit JSON `null` (server clears)
+ * - [PatchField.SetValue] fields are sent with their value
+ */
+data class UpdateFoodEntryPatch(
+    val servings: PatchField<Double> = PatchField.Unchanged,
+    val meal_type: PatchField<String> = PatchField.Unchanged,
+    val logged_at: PatchField<String> = PatchField.Unchanged,
+    val notes: PatchField<String> = PatchField.Unchanged,
+) {
+    fun toJsonObject(): com.google.gson.JsonObject {
+        val obj = com.google.gson.JsonObject()
+        fun <T> add(key: String, field: PatchField<T>) {
+            when (field) {
+                is PatchField.Unchanged -> {} // omit
+                is PatchField.SetNull -> obj.add(key, com.google.gson.JsonNull.INSTANCE)
+                is PatchField.SetValue -> when (val v = field.value) {
+                    is Double -> obj.addProperty(key, v)
+                    is String -> obj.addProperty(key, v)
+                    else -> obj.addProperty(key, v.toString())
+                }
+            }
+        }
+        add("servings", servings)
+        add("meal_type", meal_type)
+        add("logged_at", logged_at)
+        add("notes", notes)
+        return obj
+    }
+}
+
+data class NutritionDailyTotals(
+    val calories: Double,
+    val protein_g: Double,
+    val carbs_g: Double,
+    val fat_g: Double,
+    val fiber_g: Double,
+    val sugar_g: Double,
+    val sodium_mg: Double,
+)
+
+data class NutritionDailyTarget(
+    val id: String?,
+    val effective_date: String?,
+    val calories: Int,
+    val protein_g: Int,
+    val carbs_g: Int,
+    val fat_g: Int,
+    val method: String?,
+)
+
+data class NutritionDailyRemaining(
+    val calories: Double,
+    val protein_g: Double,
+    val carbs_g: Double,
+    val fat_g: Double,
+)
+
+data class NutritionDay(
+    val date: String,
+    val entry_count: Int,
+    val totals: NutritionDailyTotals,
+    val target: NutritionDailyTarget?,
+    val remaining: NutritionDailyRemaining?,
+)
+
+data class NutritionDailyResponse(
+    val range: DateRange,
+    val days: List<NutritionDay>,
+)
+
+data class NutritionTargetWrapper(val target: NutritionDailyTarget?)
+
+data class PutNutritionTargetRequest(
+    val effective_date: String? = null,
+    val calories: Int,
+    val protein_g: Int,
+    val carbs_g: Int,
+    val fat_g: Int,
+    val method: String? = null,
+)
+
+data class WaterEntryResponse(
+    val id: String,
+    val amount_ml: Int,
+    val entry_source: String?,
+    val logged_at: String,
+    val notes: String?,
+    val created_at: String?,
+)
+
+data class WaterDailyTotal(
+    val date: String,
+    val total_ml: Int,
+    val target_ml: Int?,
+    val remaining_ml: Int?,
+    val goal_met: Boolean?,
+    val method: String?,
+)
+
+data class WaterEntrySummary(
+    val total_ml: Int,
+    val target_ml: Int?,
+    val remaining_ml: Int?,
+    val goal_met: Boolean?,
+)
+
+data class WaterEntryListResponse(
+    val range: DateRange,
+    val entries: List<WaterEntryResponse>,
+    val daily_totals: List<WaterDailyTotal>,
+    val summary: WaterEntrySummary,
+)
+
+data class CreateWaterEntryRequest(
+    val amount_ml: Int,
+    val logged_at: String? = null,
+    val notes: String? = null,
+    val entry_source: String? = null,
+)
+
+data class HydrationTargetResponse(
+    val id: String?,
+    val effective_date: String?,
+    val target_ml: Int,
+    val method: String?,
+    val created_at: String?,
+    val updated_at: String?,
+)
+
+data class HydrationTargetWrapper(val target: HydrationTargetResponse?)
+
+data class PutHydrationTargetRequest(
+    val effective_date: String? = null,
+    val target_ml: Int,
+    val method: String? = null,
+)
+
+data class DeleteResponse(val deleted: Boolean, val id: String)
+
+// ---------------------------------------------------------------------------
 // Retrofit interface
 // ---------------------------------------------------------------------------
 
@@ -256,6 +492,77 @@ interface ServerReadApi {
         @Path("id") id: String,
         @Body body: RoutineDecisionRequest
     ): RoutineDecisionResponse
+
+    // Nutrition & Hydration
+    @POST("api/foods")
+    suspend fun createFood(@Body body: CreateFoodRequest): FoodResponse
+
+    @GET("api/foods/search")
+    suspend fun searchFoods(
+        @Query("q") q: String? = null,
+        @Query("barcode") barcode: String? = null,
+        @Query("limit") limit: Int = 20,
+    ): FoodSearchResponse
+
+    @POST("api/food-entries")
+    suspend fun createFoodEntry(@Body body: CreateFoodEntryRequest): FoodEntryResponse
+
+    @GET("api/food-entries")
+    suspend fun getFoodEntries(
+        @Query("date") date: String? = null,
+        @Query("start_date") startDate: String? = null,
+        @Query("end_date") endDate: String? = null,
+        @Query("meal_type") mealType: String? = null,
+        @Query("limit") limit: Int = 100,
+        @Query("offset") offset: Int = 0,
+    ): FoodEntryListResponse
+
+    @PATCH("api/food-entries/{id}")
+    suspend fun updateFoodEntry(
+        @Path("id") id: String,
+        @Body body: com.google.gson.JsonObject,
+    ): FoodEntryResponse
+
+    @DELETE("api/food-entries/{id}")
+    suspend fun deleteFoodEntry(@Path("id") id: String): DeleteResponse
+
+    @GET("api/nutrition/daily")
+    suspend fun getNutritionDaily(
+        @Query("date") date: String? = null,
+        @Query("start_date") startDate: String? = null,
+        @Query("end_date") endDate: String? = null,
+    ): NutritionDailyResponse
+
+    @GET("api/nutrition/targets")
+    suspend fun getNutritionTarget(
+        @Query("date") date: String? = null,
+    ): NutritionTargetWrapper
+
+    @PUT("api/nutrition/targets")
+    suspend fun putNutritionTarget(@Body body: PutNutritionTargetRequest): NutritionTargetWrapper
+
+    @POST("api/water-entries")
+    suspend fun createWaterEntry(@Body body: CreateWaterEntryRequest): WaterEntryResponse
+
+    @GET("api/water-entries")
+    suspend fun getWaterEntries(
+        @Query("date") date: String? = null,
+        @Query("start_date") startDate: String? = null,
+        @Query("end_date") endDate: String? = null,
+        @Query("limit") limit: Int = 100,
+        @Query("offset") offset: Int = 0,
+    ): WaterEntryListResponse
+
+    @DELETE("api/water-entries/{id}")
+    suspend fun deleteWaterEntry(@Path("id") id: String): DeleteResponse
+
+    @GET("api/hydration/targets")
+    suspend fun getHydrationTarget(
+        @Query("date") date: String? = null,
+    ): HydrationTargetWrapper
+
+    @PUT("api/hydration/targets")
+    suspend fun putHydrationTarget(@Body body: PutHydrationTargetRequest): HydrationTargetWrapper
 }
 
 // ---------------------------------------------------------------------------
@@ -464,4 +771,50 @@ class ServerApiClient(
             Result.failure(e)
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Nutrition & Hydration
+    // -----------------------------------------------------------------------
+
+    suspend fun createFood(request: CreateFoodRequest): Result<FoodResponse> =
+        runCatching { api.createFood(request) }
+
+    suspend fun searchFoods(q: String? = null, barcode: String? = null, limit: Int = 20): Result<FoodSearchResponse> =
+        runCatching { api.searchFoods(q = q, barcode = barcode, limit = limit) }
+
+    suspend fun createFoodEntry(request: CreateFoodEntryRequest): Result<FoodEntryResponse> =
+        runCatching { api.createFoodEntry(request) }
+
+    suspend fun getFoodEntries(date: String): Result<FoodEntryListResponse> =
+        runCatching { api.getFoodEntries(date = date) }
+
+    suspend fun updateFoodEntry(id: String, patch: UpdateFoodEntryPatch): Result<FoodEntryResponse> =
+        runCatching { api.updateFoodEntry(id, patch.toJsonObject()) }
+
+    suspend fun deleteFoodEntry(id: String): Result<DeleteResponse> =
+        runCatching { api.deleteFoodEntry(id) }
+
+    suspend fun getNutritionDaily(date: String): Result<NutritionDailyResponse> =
+        runCatching { api.getNutritionDaily(date = date) }
+
+    suspend fun getNutritionTarget(date: String? = null): Result<NutritionTargetWrapper> =
+        runCatching { api.getNutritionTarget(date = date) }
+
+    suspend fun putNutritionTarget(request: PutNutritionTargetRequest): Result<NutritionTargetWrapper> =
+        runCatching { api.putNutritionTarget(request) }
+
+    suspend fun createWaterEntry(request: CreateWaterEntryRequest): Result<WaterEntryResponse> =
+        runCatching { api.createWaterEntry(request) }
+
+    suspend fun getWaterEntries(date: String): Result<WaterEntryListResponse> =
+        runCatching { api.getWaterEntries(date = date) }
+
+    suspend fun deleteWaterEntry(id: String): Result<DeleteResponse> =
+        runCatching { api.deleteWaterEntry(id) }
+
+    suspend fun getHydrationTarget(date: String? = null): Result<HydrationTargetWrapper> =
+        runCatching { api.getHydrationTarget(date = date) }
+
+    suspend fun putHydrationTarget(request: PutHydrationTargetRequest): Result<HydrationTargetWrapper> =
+        runCatching { api.putHydrationTarget(request) }
 }

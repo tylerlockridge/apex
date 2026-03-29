@@ -53,6 +53,7 @@ private sealed class Destination(
     val icon: ImageVector
 ) {
     object Dashboard : Destination("dashboard", "Home", Icons.Rounded.Home)
+    object Nutrition : Destination("nutrition", "Nutrition", Icons.Rounded.Restaurant)
     object Trends : Destination("trends", "Trends", Icons.AutoMirrored.Rounded.TrendingUp)
     object Activity : Destination("activity", "Training", Icons.Rounded.FitnessCenter)
     object Settings : Destination("settings", "Settings", Icons.Rounded.Settings)
@@ -60,6 +61,7 @@ private sealed class Destination(
 
 private val destinations = listOf(
     Destination.Dashboard,
+    Destination.Nutrition,
     Destination.Trends,
     Destination.Activity,
     Destination.Settings
@@ -325,6 +327,24 @@ private fun ApexApp(onRequestPermissions: () -> Unit, onLock: () -> Unit) {
             ) {
                 composable(Destination.Dashboard.route) {
                     DashboardScreen(onRequestPermissions = onRequestPermissions)
+                }
+                composable(Destination.Nutrition.route) {
+                    NutritionScreen(
+                        onNavigateToTargets = { navController.navigate("nutritionTargets") },
+                        onNavigateToHydration = { navController.navigate("hydration") },
+                    )
+                }
+                composable("nutritionTargets") {
+                    NutritionTargetsScreen(onBack = { navController.popBackStack() })
+                }
+                composable("hydration") {
+                    HydrationScreen(
+                        onNavigateToTargets = { navController.navigate("hydrationTargets") },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable("hydrationTargets") {
+                    HydrationTargetsScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Destination.Trends.route) {
                     TrendsScreen()

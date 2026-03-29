@@ -161,6 +161,26 @@ fun DashboardScreen(
                     }
                 }
 
+                // Nutrition & Hydration row
+                if (state.nutritionCalories != null || state.hydrationMl != null) {
+                    SectionLabel(text = "Nutrition & Hydration")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        NutritionTile(
+                            calories = state.nutritionCalories,
+                            targetCalories = state.nutritionTarget?.calories,
+                            modifier = Modifier.weight(1f),
+                        )
+                        HydrationTile(
+                            totalMl = state.hydrationMl,
+                            targetMl = state.hydrationTarget?.targetMl,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+
                 // Recent workout snippet
                 val workoutTitle = state.lastWorkoutTitle
                 if (workoutTitle != null) {
@@ -795,6 +815,78 @@ private fun HrvTile(
             if (time != null) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = formatIsoTime(time), style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
+            }
+        } else {
+            MetricEmptyState()
+        }
+    }
+}
+
+@Composable
+private fun NutritionTile(
+    calories: Int?,
+    targetCalories: Int?,
+    modifier: Modifier = Modifier,
+) {
+    MetricTile(
+        title = "Nutrition",
+        icon = Icons.Rounded.Restaurant,
+        accentColor = ApexNutritionAccent,
+        modifier = modifier,
+    ) {
+        if (calories != null) {
+            Text(
+                text = "$calories",
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 24.sp),
+                color = ApexOnSurface,
+            )
+            if (targetCalories != null && targetCalories > 0) {
+                Text("/ $targetCalories kcal", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
+                Spacer(modifier = Modifier.height(4.dp))
+                LinearProgressIndicator(
+                    progress = { (calories.toFloat() / targetCalories).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                    color = ApexNutritionAccent,
+                    trackColor = ApexOutline,
+                )
+            } else {
+                Text("kcal", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
+            }
+        } else {
+            MetricEmptyState()
+        }
+    }
+}
+
+@Composable
+private fun HydrationTile(
+    totalMl: Int?,
+    targetMl: Int?,
+    modifier: Modifier = Modifier,
+) {
+    MetricTile(
+        title = "Hydration",
+        icon = Icons.Rounded.WaterDrop,
+        accentColor = ApexHydrationAccent,
+        modifier = modifier,
+    ) {
+        if (totalMl != null) {
+            Text(
+                text = "$totalMl",
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 24.sp),
+                color = ApexOnSurface,
+            )
+            if (targetMl != null && targetMl > 0) {
+                Text("/ $targetMl ml", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
+                Spacer(modifier = Modifier.height(4.dp))
+                LinearProgressIndicator(
+                    progress = { (totalMl.toFloat() / targetMl).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                    color = ApexHydrationAccent,
+                    trackColor = ApexOutline,
+                )
+            } else {
+                Text("ml", style = MaterialTheme.typography.labelSmall, color = ApexOnSurfaceVariant)
             }
         } else {
             MetricEmptyState()

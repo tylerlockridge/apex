@@ -19,14 +19,14 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-28 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-29 -->
 ## Quick Resume
-**Last Active:** 2026-03-28
-**Current Phase:** Daily-use posture. Auto-sync active.
-**Current Task:** Auto-sync re-verified 2026-03-28. `health_sync_periodic` (15-min interval, network-constrained, exponential backoff) registered as `JOB #u0a696/6`. `WeeklySummaryWorker` registered as `JOB #u0a696/0`. SharedPrefs `auto_sync=true` and both job registrations persist across force-stop + relaunch. 10 consecutive successful syncs in history. No crashes, ANRs, or auth errors in logcat. No code changes required.
-**Current Branch:** `master` at `524f021`
-**Blockers:** A-01 unresolved (HRV data stale — last reading 2026-03-16, not within 24h validation window). BP unverified (no BP data on device). Neither blocks daily use.
-**Next Action:** Continue daily use with passive auto-sync. Re-check A-01 after fresh morning HRV appears in Health Connect. Leave BP unverified until real data exists. Low-priority: 4 pre-existing lint errors in QrScanScreen (CameraX opt-in), 3 VisibleForTesting annotation warnings.
+**Last Active:** 2026-03-29
+**Current Phase:** Active feature development. Nutrition/hydration foundation shipped and server-verified.
+**Current Task:** PR #7 (`codex/apex-nutrition-hydration-foundation`) verified against live production. All 14 server endpoints return correct shapes. Full CRUD flow tested via curl against `tyler-health.duckdns.org` (create food, search, add/edit/delete entries, water CRUD, targets). 151 tests pass (0 failures). Client DTOs match production contract exactly, including `PatchField` tri-state for null-vs-absent distinction. CI green.
+**Current Branch:** `codex/apex-nutrition-hydration-foundation`
+**Blockers:** A-01/BP unresolved (unchanged). No server blockers — migration 014 deployed 2026-03-29.
+**Next Action:** Merge PR #7 to master. Then on-device QA (sideload APK, exercise full nutrition/hydration flows with real touch interaction). After that: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
