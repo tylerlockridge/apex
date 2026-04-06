@@ -19,14 +19,14 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-29 -->
+<!-- QUICK-RESUME-UPDATED: 2026-03-31 -->
 ## Quick Resume
-**Last Active:** 2026-03-29
-**Current Phase:** Active feature development. Nutrition/hydration foundation shipped, server-verified, and QA'd on emulator + physical device.
-**Current Task:** Tyler manual QA completed 2026-03-29. Found blocker (edit race) + 2 partials (target/dashboard refresh). Fix PR pending on `codex/apex-post-merge-nutrition-qa-fixes`: (1) loadAll(serverRefresh=false) prevents server refresh from overwriting local edits, (2) PENDING_CREATE edit updates queued payload, (3) ON_RESUME lifecycle observer re-reads local cache on Nutrition/Hydration/Dashboard screens. 152/152 tests pass.
+**Last Active:** 2026-03-31
+**Current Phase:** Active feature development. Nutrition/hydration foundation shipped + QA fixes pending merge.
+**Current Task:** PR #8 (`codex/apex-post-merge-nutrition-qa-fixes` at `edc4cad`) open, awaiting Tyler re-verification of 3 fixed flows on device: (1) edit race fix — loadAll(serverRefresh=false) prevents server overwrite of local edits, (2) target refresh — ON_RESUME lifecycle observer on Nutrition/Hydration screens, (3) dashboard refresh — ON_RESUME observer on DashboardScreen. 152/152 tests pass. QA page at `qa-nutrition-hydration.html` in repo root.
 **Current Branch:** `codex/apex-post-merge-nutrition-qa-fixes`
-**Blockers:** A-01/BP unresolved (unchanged). Physical device UI automation blocked by FLAG_SECURE + Compose idle state.
-**Next Action:** Merge QA-fix PR after Tyler re-verifies the 3 fixed flows on device. Then: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
+**Blockers:** A-01/BP unresolved (unchanged).
+**Next Action:** Tyler re-verify edit/target/dashboard refresh flows on Pixel, then merge PR #8. After merge: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff
