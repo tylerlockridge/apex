@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Manual QA Checklist</title>
+<style>
+  :root {
+    --bg: #0f1720;
+    --card: #18222d;
+    --line: #2b3947;
+    --text: #e6edf3;
+    --muted: #99a7b5;
+    --accent: #7dd3fc;
+    --pass: #4ade80;
+    --fail: #f87171;
+    --partial: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+    padding: 16px;
+  }
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  h1 {
+    margin: 0 0 6px;
+    color: var(--accent);
+    font-size: 1.5rem;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0 0 16px;
+    font-size: 0.95rem;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .hint {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .item {
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    margin-top: 14px;
+  }
+  .item:first-child {
+    border-top: 0;
+    padding-top: 0;
+    margin-top: 0;
+  }
+  .item-title {
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .item-steps {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin-bottom: 8px;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  button.result {
+    border: 0;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0.55;
+  }
+  button.selected {
+    opacity: 1;
+    outline: 2px solid rgba(255,255,255,0.16);
+  }
+  .pass { background: var(--pass); color: #06210f; }
+  .fail { background: var(--fail); color: #2f0a0a; }
+  .partial { background: var(--partial); color: #2d2100; }
+  input[type="text"], textarea, select {
+    width: 100%;
+    background: #0b1218;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    font: inherit;
+  }
+  textarea {
+    min-height: 64px;
+    resize: vertical;
+  }
+  .field {
+    margin-top: 8px;
+  }
+  .field label {
+    display: block;
+    color: var(--muted);
+    font-size: 0.84rem;
+    margin-bottom: 4px;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .summary-box {
+    background: #0b1218;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+  }
+  .summary-num {
+    font-size: 1.5rem;
+    font-weight: 800;
+  }
+  .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .primary {
+    background: var(--accent);
+    color: #062233;
+    border: 0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #output {
+    display: none;
+    white-space: pre-wrap;
+    margin-top: 12px;
+    background: #0b1218;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Apex Manual QA Checklist</h1>
+  <p class="subtitle">Short pass only: read, do, check. Screenshots taken before your submission message belong to that submission batch. Reference screenshots by timestamp, not filename.</p>
+
+  <div class="card">
+    <div class="item-title">How To Use This</div>
+    <div class="hint">
+      Work top to bottom. Tap one result for each item. Add a short note only if something feels wrong or you want to reference a screenshot timestamp.
+      When you are done, use <strong>Generate Markdown</strong> and paste the output back into chat.
+    </div>
+  </div>
+
+  <div class="card" id="checklist"></div>
+
+  <div class="card">
+    <div class="item-title">Final Summary</div>
+    <div class="field">
+      <label for="overall">Overall status</label>
+      <select id="overall">
+        <option value="">Select one</option>
+        <option value="Pass">Pass</option>
+        <option value="Partial">Partial</option>
+        <option value="Fail">Fail</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="blockers">Blockers</label>
+      <textarea id="blockers" placeholder="Leave blank if none"></textarea>
+    </div>
+    <div class="field">
+      <label for="minor">Minor issues</label>
+      <textarea id="minor" placeholder="Leave blank if none"></textarea>
+    </div>
+    <div class="field">
+      <label for="nextSlice">Ready for next slice?</label>
+      <select id="nextSlice">
+        <option value="">Select one</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-box">
+        <div class="summary-num" id="passCount">0</div>
+        <div class="hint">Pass</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-num" id="partialCount">0</div>
+        <div class="hint">Partial</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-num" id="failCount">0</div>
+        <div class="hint">Fail</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" onclick="generateMarkdown()">Generate Markdown</button>
+      <button class="secondary" onclick="copyMarkdown()">Copy Markdown</button>
+    </div>
+    <pre id="output"></pre>
+  </div>
+</div>
+
+<script>
+const items = [
+  {
+    id: 1,
+    title: "Create custom food",
+    steps: "Open Nutrition, tap Log Food, choose Create custom food, save one simple test food."
+  },
+  {
+    id: 2,
+    title: "Add food entry immediately after creating custom food",
+    steps: "Right after creating it, log it as a food entry. This confirms the da4808f / 65cdae3 path still behaves correctly."
+  },
+  {
+    id: 3,
+    title: "Edit food entry - change servings",
+    steps: "Open the entry and change servings. Confirm the entry and totals update."
+  },
+  {
+    id: 4,
+    title: "Edit food entry - clear meal type",
+    steps: "Open the same entry, clear the meal type, save, and confirm it stays cleared."
+  },
+  {
+    id: 5,
+    title: "Delete food entry",
+    steps: "Delete the food entry and confirm it disappears and totals update."
+  },
+  {
+    id: 6,
+    title: "Quick-add water",
+    steps: "Use one of the quick-add hydration buttons and confirm the total updates."
+  },
+  {
+    id: 7,
+    title: "Delete water entry",
+    steps: "Delete the added water entry and confirm the total updates back down."
+  },
+  {
+    id: 8,
+    title: "Set nutrition target",
+    steps: "Open the nutrition target editor, save a target, and confirm the nutrition screen reflects it."
+  },
+  {
+    id: 9,
+    title: "Set hydration target",
+    steps: "Open the hydration target editor, save a target, and confirm the hydration screen reflects it."
+  },
+  {
+    id: 10,
+    title: "Dashboard refresh behavior",
+    steps: "Go back to Home and check whether nutrition/hydration tiles update correctly after your changes."
+  },
+  {
+    id: 11,
+    title: "Optional offline/resume check",
+    steps: "Only if practical: briefly go offline, create a write, reconnect, and confirm it drains. If you skip this, leave it unmarked."
+  }
+];
+
+const checklist = document.getElementById("checklist");
+
+function renderChecklist() {
+  checklist.innerHTML = items.map(item => `
+    <div class="item" data-id="${item.id}" data-title="${escapeAttr(item.title)}">
+      <div class="item-title">${item.id}. ${item.title}</div>
+      <div class="item-steps">${item.steps}</div>
+      <div class="controls">
+        <button class="result pass" type="button" onclick="markResult(${item.id}, 'Pass', this)">Pass</button>
+        <button class="result partial" type="button" onclick="markResult(${item.id}, 'Partial', this)">Partial</button>
+        <button class="result fail" type="button" onclick="markResult(${item.id}, 'Fail', this)">Fail</button>
+      </div>
+      <div class="field">
+        <label for="note-${item.id}">Note</label>
+        <textarea id="note-${item.id}" placeholder="Optional short note"></textarea>
+      </div>
+      <div class="field">
+        <label for="shot-${item.id}">Screenshot timestamp</label>
+        <input id="shot-${item.id}" type="text" placeholder="Optional, e.g. 09:14 PM">
+      </div>
+    </div>
+  `).join("");
+}
+
+function escapeAttr(text) {
+  return text.replace(/"/g, "&quot;");
+}
+
+function markResult(id, result, button) {
+  const item = document.querySelector(`.item[data-id="${id}"]`);
+  item.dataset.result = result;
+  item.querySelectorAll(".result").forEach(btn => btn.classList.remove("selected"));
+  button.classList.add("selected");
+  updateCounts();
+}
+
+function updateCounts() {
+  let pass = 0;
+  let partial = 0;
+  let fail = 0;
+  document.querySelectorAll(".item").forEach(item => {
+    const result = item.dataset.result;
+    if (result === "Pass") pass++;
+    if (result === "Partial") partial++;
+    if (result === "Fail") fail++;
+  });
+  document.getElementById("passCount").textContent = pass;
+  document.getElementById("partialCount").textContent = partial;
+  document.getElementById("failCount").textContent = fail;
+}
+
+function generateMarkdown() {
+  const lines = [];
+  lines.push("## Apex Manual QA");
+  lines.push("");
+  lines.push(`Overall status: ${document.getElementById("overall").value || "Not set"}`);
+  lines.push(`Ready for next slice: ${document.getElementById("nextSlice").value || "Not set"}`);
+  lines.push("");
+  lines.push("Screenshots: any screenshots taken before this submission message belong to this QA batch; referenced by timestamp.");
+  lines.push("");
+  lines.push("### Checklist");
+  lines.push("");
+
+  document.querySelectorAll(".item").forEach(item => {
+    const id = item.dataset.id;
+    const title = item.dataset.title;
+    const result = item.dataset.result || "Not checked";
+    const note = document.getElementById(`note-${id}`).value.trim();
+    const shot = document.getElementById(`shot-${id}`).value.trim();
+    lines.push(`- ${id}. ${title}: ${result}`);
+    if (note) lines.push(`  Note: ${note}`);
+    if (shot) lines.push(`  Screenshot timestamp: ${shot}`);
+  });
+
+  const blockers = document.getElementById("blockers").value.trim();
+  const minor = document.getElementById("minor").value.trim();
+  lines.push("");
+  lines.push("### Blockers");
+  lines.push(blockers || "None");
+  lines.push("");
+  lines.push("### Minor Issues");
+  lines.push(minor || "None");
+
+  const output = document.getElementById("output");
+  output.textContent = lines.join("\n");
+  output.style.display = "block";
+}
+
+function copyMarkdown() {
+  const output = document.getElementById("output");
+  if (!output.textContent.trim()) {
+    generateMarkdown();
+  }
+  navigator.clipboard.writeText(output.textContent).then(() => {
+    const btn = event.target;
+    const old = btn.textContent;
+    btn.textContent = "Copied";
+    setTimeout(() => btn.textContent = old, 1200);
+  }).catch(() => {
+    const range = document.createRange();
+    range.selectNodeContents(output);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+}
+
+renderChecklist();
+updateCounts();
+</script>
+</body>
+</html>

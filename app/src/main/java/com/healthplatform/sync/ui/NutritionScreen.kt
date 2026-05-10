@@ -44,6 +44,16 @@ fun NutritionScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val haptic = rememberApexHaptic()
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.loadAll(serverRefresh = false)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),

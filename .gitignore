@@ -5,3 +5,8 @@ local.properties
 
 *.keystore
 keys/
+
+# Local session artifacts
+.claude/
+.code-graph/
+~/

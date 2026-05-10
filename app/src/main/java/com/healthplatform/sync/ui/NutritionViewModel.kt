@@ -48,7 +48,16 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
         loadAll()
     }
 
-    fun loadAll() {
+    /**
+     * Reload from local cache, optionally followed by a server refresh.
+     *
+     * @param serverRefresh When false, only the local Room cache is read.
+     *   Pass false after local writes (add/edit/delete) to avoid a server
+     *   refresh that can race with the still-pending sync worker and
+     *   overwrite uncommitted local changes. Pass true (default) for
+     *   pull-to-refresh and initial load.
+     */
+    fun loadAll(serverRefresh: Boolean = true) {
         viewModelScope.launch(Dispatchers.IO) {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
@@ -68,20 +77,21 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
                         pendingWriteCount = pending,
                     )
                 }
-                // Background refresh from server
-                repo.refreshFoodEntriesFromServer(date)
-                repo.refreshNutritionTarget(date)
-                val refreshedEntries = repo.getFoodEntriesForDate(date)
-                val refreshedTarget = repo.getNutritionTarget(date)
-                _state.update {
-                    it.copy(
-                        entries = refreshedEntries,
-                        target = refreshedTarget,
-                        totalCalories = refreshedEntries.sumOf { e -> e.calories },
-                        totalProtein = refreshedEntries.sumOf { e -> e.proteinG ?: 0.0 },
-                        totalCarbs = refreshedEntries.sumOf { e -> e.carbsG ?: 0.0 },
-                        totalFat = refreshedEntries.sumOf { e -> e.fatG ?: 0.0 },
-                    )
+                if (serverRefresh) {
+                    repo.refreshFoodEntriesFromServer(date)
+                    repo.refreshNutritionTarget(date)
+                    val refreshedEntries = repo.getFoodEntriesForDate(date)
+                    val refreshedTarget = repo.getNutritionTarget(date)
+                    _state.update {
+                        it.copy(
+                            entries = refreshedEntries,
+                            target = refreshedTarget,
+                            totalCalories = refreshedEntries.sumOf { e -> e.calories },
+                            totalProtein = refreshedEntries.sumOf { e -> e.proteinG ?: 0.0 },
+                            totalCarbs = refreshedEntries.sumOf { e -> e.carbsG ?: 0.0 },
+                            totalFat = refreshedEntries.sumOf { e -> e.fatG ?: 0.0 },
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(isLoading = false, error = e.message) }
@@ -132,7 +142,7 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
             repo.createFoodEntry(freshFood, servings, mealType)
             NutritionSyncWorker.runOnce(getApplication())
             _state.update { it.copy(showAddEntrySheet = false, selectedFood = null) }
-            loadAll()
+            loadAll(serverRefresh = false)
         }
     }
 
@@ -163,7 +173,7 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
             )
             NutritionSyncWorker.runOnce(getApplication())
             _state.update { it.copy(editingEntry = null) }
-            loadAll()
+            loadAll(serverRefresh = false)
         }
     }
 
@@ -171,7 +181,7 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             repo.deleteFoodEntry(id)
             NutritionSyncWorker.runOnce(getApplication())
-            loadAll()
+            loadAll(serverRefresh = false)
         }
     }
 

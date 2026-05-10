@@ -1,6 +1,7 @@
 ---
 status: Active
 phase: Standalone project — separated from Health-Platform-Desktop 2026-02-26
+dashboardVisible: true
 sourcePath: "C:\\Users\\tyler\\Documents\\Claude Projects\\Apex"
 repoUrl: "https://github.com/tylerlockridge/apex"
 repoSubdir: ""
@@ -19,14 +20,62 @@ from Android Health Connect to the Health Platform Desktop server.
 Previously lived at `health-platform/android-app/`. Separated 2026-02-26 into its own
 standalone repository for clearer AI assistant context and independent versioning.
 
-<!-- QUICK-RESUME-UPDATED: 2026-03-29 -->
 ## Quick Resume
-**Last Active:** 2026-03-29
-**Current Phase:** Active feature development. Nutrition/hydration foundation shipped, server-verified, and QA'd on emulator + physical device.
-**Current Task:** PR #7 merged to master (`15ffc72`). Bugfix `da4808f` pushed to master. On-device QA: emulator (API 36) verified full UI flow via uiautomator dumps. Pixel 10 Pro XL verified server read round-trip (food entries 200, targets 200) and connected test confirmed bugfix code path on real hardware. Full UI tap-through on physical device blocked by `FLAG_SECURE` (no screencap) + Compose uiautomator idle-state issue (no UI dump) — these prevent automated QA but not manual QA by Tyler.
-**Current Branch:** `master` at `da4808f`
-**Blockers:** A-01/BP unresolved (unchanged). Dashboard nutrition/hydration tiles don't auto-refresh after initial sync (minor UX, not blocking). Physical device UI automation blocked by FLAG_SECURE + Compose idle state.
-**Next Action:** Tyler manual QA on Pixel (open app, tap through nutrition/hydration flows). Then: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
+**What this is:** Apex is the Android health client for Tyler's ecosystem: it syncs Health Connect data and is the mobile surface for nutrition, hydration, and dashboard follow-through.
+**Current phase:** Post-merge nutrition QA follow-through before the next feature wave.
+**Current focus:** Close the remaining on-device proof for the nutrition and dashboard refresh fixes instead of opening new features early.
+**Next action:** Re-verify the edit, target-refresh, and dashboard-refresh flows on Pixel, then merge PR #8 if they pass.
+**Review state:** QA fixes are implemented and waiting on Tyler's device re-check.
+**Verification:** Latest proof 2026-03-31: 152/152 tests passing and PR #8 open with the three target fixes staged for verification.
+**Start date:** 2026-02-26
+**Last active:** 2026-03-31
+
+## Locked Truth
+- Apex is the Android client for the health platform, not a second backend.
+- Nutrition and hydration follow-through depends on the live Health-Platform endpoints already being stable.
+- The next real proof is device validation, not another architecture pass.
+
+## Active Components
+- **Health Connect Sync Client** | Phase: Live baseline | State: Stable
+- **Nutrition / Hydration Mobile UI** | Phase: QA follow-through | State: Active
+- **Dashboard + Target Refresh Fixes** | Phase: Device re-check | State: Pending
+
+## Planning Gaps
+- Close the three remaining device-proof items so the open QA branch can be merged.
+- Decide which post-merge feature comes first after QA closes.
+
+## Open Decisions
+- Does PR #8 merge as-is after device proof, or does it need one more tiny fix pass?
+- Which next feature comes first: barcode scanning, quick add, or adaptive TDEE?
+
+## Recent Milestones
+- 2026-03-31 - Post-merge nutrition QA fixes were staged in PR #8 with 152/152 tests passing.
+- 2026-03-23 - v2 MVP architecture and ADR governance closed successfully.
+- 2026-02-26 - Apex became its own standalone project.
+
+## Dependencies
+- **Upstream:** Health Platform endpoints, Health Connect permissions, and Android app code must stay aligned.
+- **Downstream:** nutrition logging, dashboard refresh behavior, and the next feature wave all depend on this QA closeout staying clean.
+- **Global:** Device proof matters more than emulator optimism for daily-driver mobile flows.
+
+## Reference
+- `documentation/02-health-connect-integration.md` - Health Connect sync contract.
+- `documentation/05-ui-screens-and-navigation.md` - current screen architecture.
+- `documentation/12-business-rules-and-edge-cases.md` - user-facing rules and edge cases.
+
+## AI Watchouts
+- Keep the command layer about the current mobile slice, not the full ADR archive.
+- Do not call QA complete without device proof.
+- Leave the deep architecture inventory below the summary layer.
+
+<!-- QUICK-RESUME-UPDATED: 2026-03-31 -->
+## Historical Quick Resume
+**Last Active:** 2026-03-31
+**Current Phase:** Active feature development. Nutrition/hydration foundation shipped + QA fixes pending merge.
+**Current Task:** PR #8 (`codex/apex-post-merge-nutrition-qa-fixes` at `edc4cad`) open, awaiting Tyler re-verification of 3 fixed flows on device: (1) edit race fix — loadAll(serverRefresh=false) prevents server overwrite of local edits, (2) target refresh — ON_RESUME lifecycle observer on Nutrition/Hydration screens, (3) dashboard refresh — ON_RESUME observer on DashboardScreen. 152/152 tests pass. QA page at `qa-nutrition-hydration.html` in repo root.
+**Current Branch:** `codex/apex-post-merge-nutrition-qa-fixes`
+**Blockers:** A-01/BP unresolved (unchanged).
+**Next Action:** Tyler re-verify edit/target/dashboard refresh flows on Pixel, then merge PR #8. After merge: barcode scanning (USDA + Open Food Facts), quick-add, adaptive TDEE.
 
 ### v2 Architecture Artifacts
 - `ARCHITECTURE-ASSUMPTIONS.md` — planning-to-architecture handoff

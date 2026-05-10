@@ -34,7 +34,7 @@ class HydrationViewModel(application: Application) : AndroidViewModel(applicatio
         loadAll()
     }
 
-    fun loadAll() {
+    fun loadAll(serverRefresh: Boolean = true) {
         viewModelScope.launch(Dispatchers.IO) {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
@@ -49,17 +49,18 @@ class HydrationViewModel(application: Application) : AndroidViewModel(applicatio
                         totalMl = entries.sumOf { e -> e.amountMl },
                     )
                 }
-                // Background refresh
-                repo.refreshWaterEntriesFromServer(date)
-                repo.refreshHydrationTarget(date)
-                val refreshed = repo.getWaterEntriesForDate(date)
-                val refreshedTarget = repo.getHydrationTarget(date)
-                _state.update {
-                    it.copy(
-                        entries = refreshed,
-                        target = refreshedTarget,
-                        totalMl = refreshed.sumOf { e -> e.amountMl },
-                    )
+                if (serverRefresh) {
+                    repo.refreshWaterEntriesFromServer(date)
+                    repo.refreshHydrationTarget(date)
+                    val refreshed = repo.getWaterEntriesForDate(date)
+                    val refreshedTarget = repo.getHydrationTarget(date)
+                    _state.update {
+                        it.copy(
+                            entries = refreshed,
+                            target = refreshedTarget,
+                            totalMl = refreshed.sumOf { e -> e.amountMl },
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(isLoading = false, error = e.message) }
@@ -72,7 +73,7 @@ class HydrationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             repo.createWaterEntry(amountMl)
             NutritionSyncWorker.runOnce(getApplication())
-            loadAll()
+            loadAll(serverRefresh = false)
         }
     }
 
@@ -80,7 +81,7 @@ class HydrationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             repo.deleteWaterEntry(id)
             NutritionSyncWorker.runOnce(getApplication())
-            loadAll()
+            loadAll(serverRefresh = false)
         }
     }
 }
